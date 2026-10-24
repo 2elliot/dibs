@@ -8,17 +8,22 @@ Nothing here is a secret. Invite codes and tokens never go in this file, chat, o
 
 ## Pinned inputs (both machines must match)
 
-| Input            | Value                                                                                       |
-| ---------------- | ------------------------------------------------------------------------------------------- |
-| Database         | Maincloud `dibs-ch13-dev` (`https://maincloud.spacetimedb.com`)                             |
-| Bridge source    | `origin/issue/2-agents` at `f80f3dc64e9f4a8b1aaba1a8706e3a297053c1f6`                       |
-| `bridge.mjs`     | sha256 `bc81c528dd012e80cce0288a41a3bb2a45b87db01370ba546afffc7d1b57a86a`                   |
-| `dibs-hook.mjs`  | sha256 `b72b8fb3b80f6d8403190d2c89c5b1be38e5dfa29fd66ec0dabb54ca9c6ee4b9`                   |
-| Lobby build hash | `0f9c811d38df7ca81c97e84cd57f72bee85820e58e03e0ab0c1b7f45160d5a01`                          |
-| Fixture base     | `f4001dc2ace49b3f671521eca59b955625127bef` = `git subtree split --prefix=fixture 8e41fb6`   |
-| Scenario / mode  | `s2` / `dibs`; vocabulary from `fixture/dibs.json`, charter `bench/prompts/charter-s.md`    |
-| Codex prompt     | sha256 of the prompt file (with trailing newline) `c3267d3e247fafc79744d996caaaad4b525c1bc86a4be4d16504f590c5ec5d3a` |
-| Claude prompt    | sha256 of the prompt file (with trailing newline) `743d47cf347045aa4cd23a3a781d6c8660cc38d08a2c44c822faaebc7f1f94d5` |
+| Input            | Value                                                                                                                |
+| ---------------- | -------------------------------------------------------------------------------------------------------------------- |
+| Database         | Maincloud `dibs-ch13-dev` (`https://maincloud.spacetimedb.com`)                                                      |
+| Bridge source    | `real` at `6af0cd8e860de0b9a2cb0465dbd1bf5deebbaecd` (#12 bridge + #9 worker); build from this exact commit          |
+| `bridge.mjs`     | sha256 `cdd9ce44adc239afcf46ad0d5b5a40385b0f0a283088081c376898c3b728e97d`                                            |
+| `dibs-hook.mjs`  | sha256 `a9688a8dac4a8fb11321708ce8cefbef0ded058619fba9ae73933abd22a04f7d`                                            |
+| Lobby build hash | `ac6cda3a3028cc4baae437efad2ade42f0a08d0113b752db479cbef22792cbc6`                                                   |
+| Fixture base     | `f4001dc2ace49b3f671521eca59b955625127bef` = `git subtree split --prefix=fixture 8e41fb6`                            |
+| Scenario / mode  | `s2` / `dibs`; vocabulary from `fixture/dibs.json`, charter `bench/prompts/charter-s.md`                             |
+| Codex prompt     | sha256 of the prompt file (with trailing newline) `e85be5f559e2fc4f480fe4c15419e097edfea550e66dd534a12003f86648083e` |
+| Claude prompt    | sha256 of the prompt file (with trailing newline) `da8864d3f254e41b6954414949051e50dd6d7c79628f5fb37c72ab098691a79c` |
+
+Prompts are read from `origin/real`, so **PR #13 (bench) must be merged first**: it adds "No one can
+answer questions during this task; make reasonable assumptions and keep going." to every role
+prompt, which is what the two hashes above cover. Before #13, `origin/real` still has the old
+prompts and the hash check fails. `fixture/` is unchanged by #13, so the fixture base stays valid.
 
 The fixture base is derived from git history, so no `dibs-fixture` GitHub repo is needed. Each
 machine pushes its final commit to a local bare repo instead of `dibs-fixture-lobbies`; oracle
@@ -33,15 +38,19 @@ Node ≥ 22, npm, `codex` logged in. From a checkout of `2elliot/dibs`:
 
 ```sh
 git fetch origin
-git worktree add --detach ../dibs-e2e f80f3dc64e9f4a8b1aaba1a8706e3a297053c1f6
+git worktree add --detach ../dibs-e2e 6af0cd8e860de0b9a2cb0465dbd1bf5deebbaecd
 cd ../dibs-e2e
 npm ci
 npm run build -w @dibs/bridge
 shasum -a 256 packages/bridge/dist/bridge.mjs packages/bridge/dist/dibs-hook.mjs   # must match the table
+node --input-type=module -e 'import{createHash}from"node:crypto";import fs from"node:fs";const h=createHash("sha256");for(const r of["dist/bridge.mjs","dist/dibs-hook.mjs"]){h.update(r);h.update("\0");h.update(fs.readFileSync("packages/bridge/"+r));h.update("\0")}console.log(h.digest("hex"))'
 ```
 
-If the hashes differ, stop and send both files' hashes to the Windows operator (fallback: copy the
-Windows `dist/` files over yours; the build hash covers only those two files).
+The last line prints the build hash `dibs session prep` compares with the lobby. It must equal the
+table's `ac6cda3a…` (M1 got it from the same commit) **before** the admin runs
+`lobby create --build <hash>`. If it differs, stop and send both files' hashes to the Windows
+operator (fallback: copy the Windows `dist/` files over yours; the build hash covers only those two
+files). Build from the pinned commit even after `real` moves on, so both machines stay identical.
 
 Join with the invite code you were sent (paste it into a file; don't echo it):
 
@@ -50,7 +59,8 @@ npm run dibs -- join --uri https://maincloud.spacetimedb.com --db dibs-ch13-dev 
 rm ~/codex-invite.txt
 ```
 
-Fixture clone, lobbies repo, and prompt:
+Fixture clone, lobbies repo, and prompt. Keep `~/dibs-clones` free of other clones, the dibs repo
+and bench files: the pilot showed Codex reads neighbouring folders.
 
 ```sh
 git subtree split --prefix=fixture 8e41fb6        # must print f4001dc2ace49b3f671521eca59b955625127bef
@@ -59,11 +69,12 @@ git push ~/dibs-clones/codex/fixture f4001dc2ace49b3f671521eca59b955625127bef:re
 git -C ~/dibs-clones/codex/fixture checkout -B main base
 npm ci --prefix ~/dibs-clones/codex/fixture
 git init --bare ~/dibs-lobbies.git
-node -e 'const x=require("child_process").execSync;const r=f=>x("git show origin/issue/4-bench:bench/prompts/"+f).toString().trim();process.stdout.write([r("roles/s2-codex.md"),r("charter-s.md"),r("mode-dibs.md")].join("\n\n")+"\n")' > ~/dibs-prompt-codex.txt
+node -e 'const x=require("child_process").execSync;const r=f=>x("git show origin/real:bench/prompts/"+f).toString().trim();process.stdout.write([r("roles/s2-codex.md"),r("charter-s.md"),r("mode-dibs.md")].join("\n\n")+"\n")' > ~/dibs-prompt-codex.txt
 shasum -a 256 ~/dibs-prompt-codex.txt             # must match the table
 ```
 
-(`git subtree` missing from Apple git → `brew install git`.)
+(`git subtree` missing from Apple git → `brew install git`.) Windows builds the Claude prompt the
+same way with `roles/s2-claude.md` and checks it against the Claude hash in the table.
 
 Headless check. `dibs session start` launches the agent with no TTY (stdin ignored, output to
 `~/.dibs/codex/agent.log`). Claude Code falls back to print mode on its own; check whether Codex does:
@@ -83,18 +94,22 @@ Record what happened (and whether hooks fire under `codex exec`) in `docs/compat
 ## Run sequence
 
 1. **Admin (Windows)** creates the lobby and posts its id `N`:
-   `npm run dibs -- lobby create --scenario s2 --mode dibs --base f4001dc2ace49b3f671521eca59b955625127bef --manifest <fixture/dibs.json> --charter <charter-s.md> --build 0f9c811d38df7ca81c97e84cd57f72bee85820e58e03e0ab0c1b7f45160d5a01`
-2. **Mac:**
+   `npm run dibs -- lobby create --scenario s2 --mode dibs --base f4001dc2ace49b3f671521eca59b955625127bef --manifest <fixture/dibs.json> --charter <charter-s.md> --build ac6cda3a3028cc4baae437efad2ade42f0a08d0113b752db479cbef22792cbc6`
+   only after M3 has confirmed its build hash matches.
+2. **Mac:** before `prep`, delete any existing `[projects."…/dibs-clones/codex/fixture"]` table from
+   `~/.codex/config.toml`, so `prep` doesn't write the key a second time. Then:
    ```sh
    npm run dibs -- session prep N --participant codex --provider codex --clone ~/dibs-clones/codex/fixture --lobbies ~/dibs-lobbies.git --prompt-file ~/dibs-prompt-codex.txt
    ```
-   If Codex warns that the new `.codex/hooks.json` is untrusted, open `codex` once in the clone,
-   approve the hooks, exit, and run `prep` again (it resets `hook-alive.json`). Then:
+   After `prep`, run `codex` interactively once in `~/dibs-clones/codex/fixture`, accept the
+   hook-trust prompt, and quit: the new `hooks.json` voids the old trust. Run `prep` again (it
+   rewrites `hooks.json` byte-for-byte, so the trust holds, and resets `hook-alive.json`). Then:
    ```sh
    npm run dibs -- session start --participant codex     # waits until the lobby is running
    ```
 3. **Windows:** the same `prep` for `claude` (`~/dibs-clones/claude/fixture`) and `session start`.
-   This laptop has no system Node or `claude` on PATH: run from the `dibs-e2e` worktree with the
+   This laptop has no system Node or `claude` on PATH: run from a worktree built at the pinned
+   `real` commit with the
    Codex-runtime `node.exe` directory prepended to `PATH` (the generated MCP and hook configs call
    `node` by name) and `DIBS_CLAUDE_BIN` pointing at the Claude Code 2.1.308 `claude.exe`.
 4. **Admin** runs `npm run dibs -- lobby start N` once both `session start` commands are waiting.
@@ -128,7 +143,7 @@ Scripted, single participant. It proves the Windows side and the cloud worker, n
 
 - `dibs join` as `admin` and `claude` on `dibs-ch13-dev`; `codex` invite created, unused.
 - Bridge build on Windows matches the table; bridge unit tests 34 passed, 1 skipped (live).
-- Lobby 1 (`s2`, `dibs`, base `f4001dc`, build `0f9c811d…`) created and started by `admin`.
+- Lobby 1 (`s2`, `dibs`, base `f4001dc`, build `0f9c811d…` from the pre-merge bridge `f80f3dc`; superseded) created and started by `admin`.
 - A scripted MCP client drove the real bridge as `claude`: `dibs_plan` → plan 1 → job 1
   `debouncing` → `queued` → leased by `worker` (Azure) → `analysis_submitted` → `done`, 1 attempt,
   1 call, no error. One producer plan gave no findings, so both keys reported `clear`.
