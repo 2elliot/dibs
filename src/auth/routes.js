@@ -1,8 +1,14 @@
-// Auth routes. src/server.js mounts this router at /api, so a route declared here as
-// "/login" is served at /api/login.
-
+// Login and the current user. Mounted by src/server.js; keep the default export a router.
 import { Router } from "express";
 
 const router = Router();
+
+router.post("/api/login", (_req, res) => {
+  res.status(501).json({ error: "Not implemented" });
+});
+
+router.get("/api/me", (_req, res) => {
+  res.status(501).json({ error: "Not implemented" });
+});
 
 export default router;

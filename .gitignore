@@ -1,7 +1,5 @@
 node_modules/
+.env
 .claude/
 .codex/
 .factory/
-test-results/
-.DS_Store
-Thumbs.db
