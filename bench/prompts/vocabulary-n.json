@@ -1,0 +1,8 @@
+{
+  "vocabulary": [
+    {
+      "key": "docs.links",
+      "description": "The About page (public/about.html) links to the contributing guide at docs/CONTRIBUTING.md."
+    }
+  ]
+}

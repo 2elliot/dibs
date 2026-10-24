@@ -1,0 +1,128 @@
+{
+  "s-all-cookie": {
+    "claude": {
+      "goal": "Implement cookie auth in src/auth.",
+      "produces": [
+        {
+          "key": "auth.session",
+          "text": "POST /api/login sets an httpOnly cookie sid and returns 200 {id,email}; GET /api/me 200 {id,email} or 401."
+        },
+        {
+          "key": "auth.server",
+          "text": "src/auth/index.js exports requireUser(req,res,next): sets req.user {id,email} from the sid cookie or responds 401 {error}."
+        }
+      ],
+      "requires": [],
+      "notes": ""
+    },
+    "codex": {
+      "goal": "Implement public/app.js.",
+      "produces": [],
+      "requires": [
+        {
+          "key": "auth.session",
+          "text": "Login sets an httpOnly cookie that same-origin fetch sends automatically."
+        },
+        {
+          "key": "events.registration",
+          "text": "201 registered, 409 already registered, 401 not logged in."
+        }
+      ],
+      "notes": ""
+    },
+    "droid": {
+      "goal": "Implement registration in src/events.",
+      "produces": [
+        {
+          "key": "events.registration",
+          "text": "POST /api/events/:eventId/registrations: 201 {id,eventId,userId}; 409 repeat; 404 unknown event; 401 unauthenticated."
+        }
+      ],
+      "requires": [
+        {
+          "key": "auth.server",
+          "text": "requireUser middleware from src/auth/index.js that sets req.user or responds 401."
+        }
+      ],
+      "notes": ""
+    }
+  },
+  "s-all-bearer": {
+    "claude": {
+      "goal": "Implement bearer-token auth.",
+      "produces": [
+        {
+          "key": "auth.session",
+          "text": "POST /api/login returns 200 {token}; clients send Authorization: Bearer <token>; GET /api/me 200 {id,email} or 401."
+        },
+        {
+          "key": "auth.server",
+          "text": "src/auth/index.js exports requireUser(req,res,next) reading the bearer token; sets req.user or responds 401."
+        }
+      ],
+      "requires": [],
+      "notes": ""
+    },
+    "codex": {
+      "goal": "Implement the UI.",
+      "produces": [],
+      "requires": [
+        {
+          "key": "auth.session",
+          "text": "Login returns {token}; the UI keeps it in memory and sends Authorization: Bearer <token> on later requests."
+        },
+        {
+          "key": "events.registration",
+          "text": "201 registered, 409 already registered, 401 not logged in."
+        }
+      ],
+      "notes": ""
+    },
+    "droid": {
+      "goal": "Implement registration.",
+      "produces": [
+        {
+          "key": "events.registration",
+          "text": "201 {id,eventId,userId}; 409 on repeat; 404 unknown event; 401 unauthenticated."
+        }
+      ],
+      "requires": [
+        {
+          "key": "auth.server",
+          "text": "requireUser middleware from src/auth/index.js."
+        }
+      ],
+      "notes": ""
+    }
+  },
+  "n-unrelated": {
+    "claude": {
+      "goal": "Add public/about.html with an About heading and a link to the contributing guide.",
+      "produces": [
+        {
+          "key": "docs.links",
+          "text": "public/about.html has an <h1>About</h1> and a link with the text \"Contributing guide\" to docs/CONTRIBUTING.md."
+        }
+      ],
+      "requires": [],
+      "notes": ""
+    },
+    "codex": {
+      "goal": "Add src/util/slug.js exporting slugify(text) with tests in test/util/.",
+      "produces": [],
+      "requires": [],
+      "notes": "No shared interfaces."
+    },
+    "droid": {
+      "goal": "Write docs/CONTRIBUTING.md: install, npm start, npm test.",
+      "produces": [],
+      "requires": [
+        {
+          "key": "docs.links",
+          "text": "The guide lives at docs/CONTRIBUTING.md; other pages may link to it by that path."
+        }
+      ],
+      "notes": ""
+    }
+  }
+}

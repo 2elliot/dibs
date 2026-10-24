@@ -1,0 +1,22 @@
+{
+  "vocabulary": [
+    {
+      "key": "auth.session",
+      "description": "Client session transport and GET /api/me: exactly one of an httpOnly cookie, or a bearer token returned by POST /api/login as {token} and sent as Authorization: Bearer <token>."
+    },
+    {
+      "key": "auth.server",
+      "description": "The helper exported from src/auth/index.js that other server routes use to get the current user (name and signature chosen by the team)."
+    },
+    {
+      "key": "events.registration",
+      "description": "POST /api/events/:eventId/registrations: request, 201 {id,eventId,userId}, 409 on a repeat, 401 unauthenticated, 404 unknown event; what the UI relies on."
+    }
+  ],
+  "areas": {
+    "claude": ["src/auth/**", "test/auth/**"],
+    "codex": ["public/**", "!public/index.html", "test/ui/**"],
+    "droid": ["src/events/**", "test/events/**"]
+  },
+  "frozen": ["src/server.js", "src/data.js", "public/index.html"]
+}
