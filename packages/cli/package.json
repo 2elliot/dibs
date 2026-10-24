@@ -10,6 +10,9 @@
     "typecheck": "tsc --noEmit -p ."
   },
   "dependencies": {
-    "@dibs/protocol": "*"
+    "@dibs/protocol": "*",
+    "@dibs/client": "*",
+    "@dibs/bindings": "*",
+    "spacetimedb": "^2.13.0"
   }
 }
