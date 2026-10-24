@@ -13,7 +13,11 @@ import { describe, expect, it } from "vitest";
 import { localBuildHash } from "../src/build-hash.ts";
 import { syncOnce, type SyncState } from "../src/inbox.ts";
 import { createBridge } from "../src/mcp.ts";
-import { connectSession, loadDbBuilder, RemoteStore } from "../src/spacetime.ts";
+import {
+  connectSession,
+  loadDbBuilder,
+  RemoteStore,
+} from "../src/spacetime.ts";
 import { runHook } from "../hook/dibs-hook.mjs";
 
 const uri = process.env.DIBS_DB_URI ?? "http://127.0.0.1:4120";
@@ -66,13 +70,18 @@ describe("database loop", () => {
         mode: "dibs",
         baseSha: "0".repeat(40),
         vocabularyJson: JSON.stringify([
-          { key: "auth.session", description: "How the browser stays logged in" },
+          {
+            key: "auth.session",
+            description: "How the browser stays logged in",
+          },
         ]),
         charter: "Bridge integration loop.",
         buildHash: hash,
       });
       const lobby = await waitFor(() =>
-        [...admin.db.lobby.iter()].find((row) => row.scenario === `bridge-${run}`),
+        [...admin.db.lobby.iter()].find(
+          (row) => row.scenario === `bridge-${run}`,
+        ),
       );
       const lobbyId = Number(lobby.id);
       await admin.reducers.startLobby({ lobbyId });
@@ -99,30 +108,52 @@ describe("database loop", () => {
         log: () => undefined,
       });
       const store = new RemoteStore(session);
-      const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
-      const bridge = createBridge(store, { mode: "dibs", dir: path.join(home, claude) });
+      const [clientTransport, serverTransport] =
+        InMemoryTransport.createLinkedPair();
+      const bridge = createBridge(store, {
+        mode: "dibs",
+        dir: path.join(home, claude),
+      });
       await bridge.connect(serverTransport);
       const client = new Client({ name: "loop", version: "0" });
       await client.connect(clientTransport);
       try {
-        const planned = JSON.parse(text(await client.callTool({
-          name: "dibs_plan",
-          arguments: {
-            goal: "Implement authentication",
-            produces: [{ key: "auth.session", statement: "Login returns a bearer token in Authorization." }],
-            requires: [],
-          },
-        }))) as { status: string };
+        const planned = JSON.parse(
+          text(
+            await client.callTool({
+              name: "dibs_plan",
+              arguments: {
+                goal: "Implement authentication",
+                produces: [
+                  {
+                    key: "auth.session",
+                    statement: "Login returns a bearer token in Authorization.",
+                  },
+                ],
+                requires: [],
+              },
+            }),
+          ),
+        ) as { status: string };
         expect(planned.status).toBe("ok");
         await codexConn.reducers.publishPlan({
           requestId: randomUUID(),
           goal: "Implement the browser",
           produces: [],
-          requires: [{ key: "auth.session", text: "Login sets an HttpOnly session cookie." }],
+          requires: [
+            {
+              key: "auth.session",
+              text: "Login sets an HttpOnly session cookie.",
+            },
+          ],
           notes: "",
         });
         const job = await waitFor(
-          () => [...admin.db.job.iter()].find((row) => Number(row.lobbyId) === lobbyId && row.state === "queued"),
+          () =>
+            [...admin.db.job.iter()].find(
+              (row) =>
+                Number(row.lobbyId) === lobbyId && row.state === "queued",
+            ),
           20000,
         );
         const leaseToken = randomUUID();
@@ -135,29 +166,58 @@ describe("database loop", () => {
           leaseToken,
           inputKey: job.inputKey,
           findingsJson: JSON.stringify({
-            findings: [{
-              key: "auth.session",
-              relation: "conflict",
-              citedItemIds: cited,
-              explanation: "One side uses a bearer token and the other a cookie.",
-              contractText: "Use an HttpOnly session cookie.",
-            }],
+            findings: [
+              {
+                key: "auth.session",
+                relation: "conflict",
+                citedItemIds: cited,
+                explanation:
+                  "One side uses a bearer token and the other a cookie.",
+                contractText: "Use an HttpOnly session cookie.",
+              },
+            ],
           }),
         });
         const proposal = await waitFor(() =>
-          store.world().proposals.find((row) => row.state === "proposed" && row.key === "auth.session"),
+          store
+            .world()
+            .proposals.find(
+              (row) => row.state === "proposed" && row.key === "auth.session",
+            ),
         );
-        syncOnce(path.join(home, claude), store, { marking: new Set() } satisfies SyncState);
+        syncOnce(path.join(home, claude), store, {
+          marking: new Set(),
+        } satisfies SyncState);
         await new Promise((resolve) => setTimeout(resolve, 50));
         const printed = await runHook({
-          argv: ["--participant", claude, "--provider", "claude", "--home", home],
-          input: { hook_event_name: "UserPromptSubmit", cwd: clone, session_id: "loop" },
+          argv: [
+            "--participant",
+            claude,
+            "--provider",
+            "claude",
+            "--home",
+            home,
+          ],
+          input: {
+            hook_event_name: "UserPromptSubmit",
+            cwd: clone,
+            session_id: "loop",
+          },
         });
         expect(printed).toContain("auth.session");
-        const response = JSON.parse(text(await client.callTool({
-          name: "dibs_respond",
-          arguments: { proposalId: proposal.id, revision: proposal.revision, decision: "accept", reason: "" },
-        }))) as { status: string };
+        const response = JSON.parse(
+          text(
+            await client.callTool({
+              name: "dibs_respond",
+              arguments: {
+                proposalId: proposal.id,
+                revision: proposal.revision,
+                decision: "accept",
+                reason: "",
+              },
+            }),
+          ),
+        ) as { status: string };
         expect(response.status).toBe("ok");
         await codexConn.reducers.respond({
           requestId: randomUUID(),
@@ -168,7 +228,10 @@ describe("database loop", () => {
         });
         await waitFor(() =>
           [...admin.db.contract.iter()].find(
-            (row) => Number(row.lobbyId) === lobbyId && row.current && row.source === "agreed",
+            (row) =>
+              Number(row.lobbyId) === lobbyId &&
+              row.current &&
+              row.source === "agreed",
           ),
         );
         const sql = spacetime([
@@ -196,9 +259,22 @@ async function claim(code: string): Promise<DbConnection> {
   return session.conn;
 }
 
-async function inviteCode(name: string, role: string, provider: string, existing: string): Promise<string> {
+async function inviteCode(
+  name: string,
+  role: string,
+  provider: string,
+  existing: string,
+): Promise<string> {
   const rows = JSON.parse(
-    spacetime(["sql", "--server", uri, "--format", "json", dbName, `SELECT code, used FROM invite WHERE name = '${existing}'`]),
+    spacetime([
+      "sql",
+      "--server",
+      uri,
+      "--format",
+      "json",
+      dbName,
+      `SELECT code, used FROM invite WHERE name = '${existing}'`,
+    ]),
   )[0].rows as [string, boolean][];
   const open = rows.find((row) => row[1] === false);
   if (open) return String(open[0]).replaceAll('"', "");
@@ -223,7 +299,12 @@ function writeParticipant(
   provider: string,
   lobbyId: number,
   clone: string,
-  lobby: { baseSha: string; startedAtUs: bigint; fallbackAtUs: bigint; endsAtUs: bigint },
+  lobby: {
+    baseSha: string;
+    startedAtUs: bigint;
+    fallbackAtUs: bigint;
+    endsAtUs: bigint;
+  },
 ): void {
   const dir = path.join(home, name);
   fs.mkdirSync(dir, { recursive: true });
@@ -245,33 +326,49 @@ function writeParticipant(
 
 function subscribeAll(conn: DbConnection): Promise<void> {
   return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error("subscription timed out")), 10000);
-    conn.subscriptionBuilder().onApplied(() => {
-      clearTimeout(timer);
-      resolve();
-    }).onError((ctx) => {
-      clearTimeout(timer);
-      reject(ctx.event);
-    }).subscribeToAllTables();
+    const timer = setTimeout(
+      () => reject(new Error("subscription timed out")),
+      10000,
+    );
+    conn
+      .subscriptionBuilder()
+      .onApplied(() => {
+        clearTimeout(timer);
+        resolve();
+      })
+      .onError((ctx) => {
+        clearTimeout(timer);
+        reject(ctx.event);
+      })
+      .subscribeToAllTables();
   });
 }
 
-async function waitFor<T>(read: () => T | undefined, timeoutMs = 10000): Promise<T> {
+async function waitFor<T>(
+  read: () => T | undefined,
+  timeoutMs = 10000,
+): Promise<T> {
   const deadline = Date.now() + timeoutMs;
   for (;;) {
     const value = read();
     if (value) return value;
-    if (Date.now() > deadline) throw new Error("timed out waiting for the database");
+    if (Date.now() > deadline)
+      throw new Error("timed out waiting for the database");
     await new Promise((resolve) => setTimeout(resolve, 200));
   }
 }
 
 function spacetime(args: string[]): string {
-  const exe = path.join(process.env.LOCALAPPDATA ?? "", "SpacetimeDB", "spacetime.exe");
+  const exe = path.join(
+    process.env.LOCALAPPDATA ?? "",
+    "SpacetimeDB",
+    "spacetime.exe",
+  );
   return execFileSync(exe, args, { encoding: "utf8", timeout: 60000 });
 }
 
 function text(result: unknown): string {
-  const content = (result as { content?: { type: string; text?: string }[] }).content;
+  const content = (result as { content?: { type: string; text?: string }[] })
+    .content;
   return content?.find((item) => item.type === "text")?.text ?? "{}";
 }

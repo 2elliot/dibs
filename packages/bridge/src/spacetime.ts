@@ -321,9 +321,7 @@ export class RemoteStore implements AgentStore {
 }
 
 export function loadDbBuilder(): Promise<() => DbBuilder> {
-  return Promise.resolve(
-    () => DbConnection.builder() as unknown as DbBuilder,
-  );
+  return Promise.resolve(() => DbConnection.builder() as unknown as DbBuilder);
 }
 
 class LiveSession implements RemoteSession {
