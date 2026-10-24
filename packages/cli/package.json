@@ -12,6 +12,7 @@
   "dependencies": {
     "@dibs/protocol": "*",
     "@dibs/client": "*",
-    "@dibs/bindings": "*"
+    "@dibs/bindings": "*",
+    "spacetimedb": "^2.13.0"
   }
 }
