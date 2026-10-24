@@ -1,5 +1,5 @@
 {
-  "promptsHash": "3076b79a0929978d3ce37048b8f8ba0ccfeaa7819a7dee9422daf729c2ab9083",
+  "promptsHash": "49f615c4f0d429fe5580a72df9bb483573bfa4a16d1d517c7936f653f606a7d3",
   "files": {
     "charter-n.md": "718a1c0816a1f23bf6b5bd136084cd9560e29d70112ed59a06ca5f2b69b8a28d",
     "charter-s.md": "398f4d60e9a1373dfe608f2a30fbf2a8101105580254070b76f9770ef1b774ba",
@@ -15,7 +15,8 @@
     "roles/s2-claude.md": "283d3360c95ad8412387f94891eaa668913f27ba159c0495c3d5781b29dc7c1f",
     "roles/s2-codex.md": "999aa9bd2cd5a88a95a96ea3615c7c7fd84ee08fe3a8b151c699c427a072b054",
     "roles/s2-droid.md": "1162f18fc4a7f448bccfcdb8081e114f56814f0a4ba936c9ae35cc012147dd27",
-    "scenarios.json": "04ee4ad842d2026a3faf4d46961f4071209ee96739a6fcf9adacc68fc7ac7b54"
+    "scenarios.json": "04ee4ad842d2026a3faf4d46961f4071209ee96739a6fcf9adacc68fc7ac7b54",
+    "vocabulary-n.json": "868539902ee2efd5565ad9207699c33f8d4ab14ab624a42499455acade730f31"
   },
   "composed": {
     "s2/none/claude": "588bedc6b1d82b8f57cde97879c3eecea34ceab7bbf26b78b11fd2e79dbeed48",

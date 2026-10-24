@@ -44,6 +44,22 @@ npx tsx bench/scripts/hash-prompts.ts            # after any prompt edit; commit
 npx tsx bench/scripts/hash-prompts.ts --check    # Freeze 1 check
 ```
 
+## Operator: creating a lobby
+
+`dibs lobby create` (issue 1) reads the vocabulary from a manifest and the charter from a file, so pass these:
+
+```sh
+BASE=$(git -C <dibs-fixture clone> rev-parse HEAD)   # the commit agents start from
+# S1 / S2
+npm run dibs -- lobby create --scenario s2 --mode dibs --base $BASE \
+  --manifest fixture/dibs.json --charter bench/prompts/charter-s.md --build <buildHash>
+# N
+npm run dibs -- lobby create --scenario n --mode dibs --base $BASE \
+  --manifest bench/prompts/vocabulary-n.json --charter bench/prompts/charter-n.md --build <buildHash>
+```
+
+Agents' launch prompts come from `composePrompt` in `@dibs/verifier/prompts` (or `bench/scripts/compose-prompt.ts`), so `promptsHash` in `bench/prompts/manifest.json` matches what they saw.
+
 ## 09:30 pilot (unscored, M3)
 
 S2 None-mode prompts with the `dibs_plan` sentence removed, in three clones of `dibs-fixture`:
