@@ -16,7 +16,7 @@ Three people, each with their own agent or two, all in one repo for 36 hours. Th
 | ------ | ----- | -------------------------------------------------------------------------- | ------------------ |
 | plugin | _TBD_ | `plugin/`                                                                  | `plugin/mcp-tools` |
 | core   | _TBD_ | `spacetime/`, `packages/core/`                                             | `core/schema`      |
-| demo   | _TBD_ | `dashboard/`, `demo/`, `docs/pitch.md`, `docs/tracks.md`, `docs/research/` | `demo/target-app`  |
+| demo   | Chris | `dashboard/`, `demo/`, `docs/pitch.md`, `docs/tracks.md`, `docs/research/` | `demo/target-app`  |
 
 The demo lane also covers pitch and glue: validation interviews, integration testing across laptops, Devpost and slides.
 

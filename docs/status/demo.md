@@ -1,6 +1,6 @@
 # Lane: demo
 
-Owner: _TBD_ · Branch: `demo/target-app` · Updated: 2026-10-23
+Owner: Chris · Branch: `demo/target-app` · Updated: 2026-10-23
 
 Covers the dashboard, the demo app, the baseline, and pitch and glue.
 
