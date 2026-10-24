@@ -19,15 +19,24 @@ import type { RespondInput } from "./memory.ts";
 import type { AgentStore } from "./store.ts";
 import { computeStatus, statusFingerprint } from "./world.ts";
 
+// The reducer's limits, advertised in the schema so a model sees them before its first call
+// (on Windows, Codex sent an invented key and then an over-long assumption before a plan
+// got through).
+const KEY = z
+  .string()
+  .describe("A key from the lobby vocabulary, such as auth.session.");
+const ITEM_TEXT = z.string().min(1).max(LIMITS.textChars);
 const PLAN = z.object({
-  goal: z.string(),
+  goal: z.string().min(1).max(LIMITS.goalChars),
   produces: z
-    .array(z.object({ key: z.string(), statement: z.string() }))
+    .array(z.object({ key: KEY, statement: ITEM_TEXT }))
+    .max(LIMITS.planItems)
     .default([]),
   requires: z
-    .array(z.object({ key: z.string(), assumption: z.string() }))
+    .array(z.object({ key: KEY, assumption: ITEM_TEXT }))
+    .max(LIMITS.planItems)
     .default([]),
-  notes: z.string().optional(),
+  notes: z.string().max(LIMITS.notesChars).optional(),
 });
 
 const STATUS = z.object({
@@ -46,8 +55,7 @@ const MESSAGE = z.object({
   text: z.string(),
 });
 
-const PLAN_TEXT =
-  "Publish your plan for this lobby: what you will build and what you are assuming the other agents provide. For each key, state concrete details: routes, request/response JSON, header or cookie names, status codes, exported function names, signatures and file. In none and chat modes the plan is logged and is not turned into a proposal.";
+const PLAN_TEXT = `Publish your plan for this lobby: what you will build and what you are assuming the other agents provide. For each key, state concrete details: routes, request/response JSON, header or cookie names, status codes, exported function names, signatures and file. Use only keys from the lobby vocabulary; at most ${LIMITS.planItems} items in total, each at most ${LIMITS.textChars} characters. In none and chat modes the plan is logged and is not turned into a proposal.`;
 
 const STATUS_TEXT =
   "Read the lobby. Returns phase (waiting_for_peers, analyzing, ready), each of your keys' status, proposals awaiting you, unread messages, fallbackInSec and the roster. waitSec (0 to 45) long-polls and returns early when any of those change. fallbackInSec counts down to the lobby's shared fallback time. Pass waitSec 0 to read once.";
@@ -97,7 +105,16 @@ export function createBridge(
           notes: args.notes,
         };
         const requestId = idFor({ tool: TOOL_NAMES.plan, ...input });
-        return json(await call(() => store.publishPlan(input, requestId)));
+        const result = await call(() => store.publishPlan(input, requestId));
+        if (
+          result.status === "error" &&
+          result.error === "unknown vocabulary key"
+        )
+          return json({
+            ...result,
+            vocabulary: store.world().lobby?.vocabulary ?? [],
+          });
+        return json(result);
       },
     );
   }

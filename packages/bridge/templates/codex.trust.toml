@@ -1,2 +1,2 @@
-[projects."__CLONE__"]
+[projects.'__CLONE_KEY__']
 trust_level = "trusted"

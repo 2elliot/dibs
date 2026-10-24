@@ -126,7 +126,8 @@ describe("port 4001", () => {
             lobbyId: 4001,
             kind: "notice",
             refId: 2,
-            summary: "mid-task update: the server must respond with body dibs-ok",
+            summary:
+              "mid-task update: the server must respond with body dibs-ok",
             queuedAtUs: 2,
           }),
         );

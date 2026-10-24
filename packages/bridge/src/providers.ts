@@ -51,7 +51,10 @@ export function renderProvider(input: RenderInput): RenderedFile[] {
     __HOOK__: safe(forwardSlash(hookBinary())),
     __PARTICIPANT__: safe(input.participant),
     __PROVIDER__: safe(input.provider),
-    __CLONE__: safe(forwardSlash(input.clonePath)),
+    // Passed as --home, not inherited: Codex starts MCP servers with a filtered environment,
+    // so a bridge relying on DIBS_HOME silently falls back to ~/.dibs.
+    __HOME__: safe(forwardSlash(input.home)),
+    __CLONE_KEY__: trustKey(input.clonePath),
   };
   const dir = path.join(input.home, input.participant);
   const clone = input.clonePath;
@@ -167,6 +170,9 @@ export function providerCommand(
       "never",
       "-c",
       "sandbox_workspace_write.network_access=true",
+      // Plan §5.5 [G0]: no per-project memory may carry from one lobby into the next.
+      "-c",
+      "features.memories=false",
       prompt,
     ];
   }
@@ -211,6 +217,24 @@ function safe(value: string): string {
   if (/["\n\r]/.test(value))
     throw new Error(`path cannot contain quotes or newlines: ${value}`);
   return value;
+}
+
+/**
+ * The clone as Codex keys `[projects.'…']`: the real, native path. On Windows Codex matches
+ * only `C:\Users\…` (any case); a forward-slash or 8.3 short path is silently untrusted, and
+ * then Codex ignores the clone's `.codex/config.toml` and hooks. A TOML literal string keeps
+ * the backslashes, so the path can't contain a single quote.
+ */
+export function trustKey(clonePath: string): string {
+  let native = path.resolve(clonePath);
+  try {
+    native = fs.realpathSync.native(native);
+  } catch {
+    // Not created yet; prep resets the clone before it writes configs.
+  }
+  if (/['\n\r]/.test(native))
+    throw new Error(`clone path cannot contain quotes or newlines: ${native}`);
+  return native;
 }
 
 export function upsertTrust(file: string, block: string): void {

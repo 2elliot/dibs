@@ -4,7 +4,7 @@
       "hooks": [
         {
           "type": "command",
-          "command": "node \"__HOOK__\" --participant __PARTICIPANT__ --provider __PROVIDER__",
+          "command": "node \"__HOOK__\" --participant __PARTICIPANT__ --provider __PROVIDER__ --home \"__HOME__\"",
           "timeout": 10
         }
       ]
@@ -15,7 +15,7 @@
       "hooks": [
         {
           "type": "command",
-          "command": "node \"__HOOK__\" --participant __PARTICIPANT__ --provider __PROVIDER__",
+          "command": "node \"__HOOK__\" --participant __PARTICIPANT__ --provider __PROVIDER__ --home \"__HOME__\"",
           "timeout": 10
         }
       ]
@@ -27,7 +27,7 @@
       "hooks": [
         {
           "type": "command",
-          "command": "node \"__HOOK__\" --participant __PARTICIPANT__ --provider __PROVIDER__",
+          "command": "node \"__HOOK__\" --participant __PARTICIPANT__ --provider __PROVIDER__ --home \"__HOME__\"",
           "timeout": 10
         }
       ]
@@ -38,7 +38,7 @@
       "hooks": [
         {
           "type": "command",
-          "command": "node \"__HOOK__\" --participant __PARTICIPANT__ --provider __PROVIDER__",
+          "command": "node \"__HOOK__\" --participant __PARTICIPANT__ --provider __PROVIDER__ --home \"__HOME__\"",
           "timeout": 10
         }
       ]

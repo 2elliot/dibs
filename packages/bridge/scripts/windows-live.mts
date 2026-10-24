@@ -8,7 +8,7 @@ import os from "node:os";
 import path from "node:path";
 import { connect, subscribeLobby } from "@dibs/client";
 import { connectSession, loadDbBuilder } from "../src/spacetime.ts";
-import { writeProvider } from "../src/providers.ts";
+import { trustKey, writeProvider } from "../src/providers.ts";
 import { resolveExe } from "../src/proc.ts";
 
 const uri = "https://maincloud.spacetimedb.com";
@@ -17,7 +17,10 @@ const home = fs.mkdtempSync(path.join(os.tmpdir(), "dibs-win-"));
 const clone = fs.mkdtempSync(path.join(os.tmpdir(), "dibs-win-clone-"));
 const codexHome = fs.mkdtempSync(path.join(os.tmpdir(), "dibs-win-codex-"));
 fs.mkdirSync(clone, { recursive: true });
-fs.writeFileSync(path.join(home, "config.json"), JSON.stringify({ dbUri: uri, dbName }));
+fs.writeFileSync(
+  path.join(home, "config.json"),
+  JSON.stringify({ dbUri: uri, dbName }),
+);
 
 const summary = await connect({ uri, dbName, timeoutMs: 20000 });
 console.log("anon-connect", summary.identity.toHexString());
@@ -57,7 +60,13 @@ for (const provider of ["claude", "codex"] as const) {
       queuedAtUs: 1,
     }),
   );
-  writeProvider({ participant: provider, provider, clonePath: clone, home, codexHome });
+  writeProvider({
+    participant: provider,
+    provider,
+    clonePath: clone,
+    home,
+    codexHome,
+  });
   const session = await connectSession({
     builder: await loadDbBuilder(),
     uri,
@@ -70,7 +79,13 @@ for (const provider of ["claude", "codex"] as const) {
     join: false,
     log: (message) => console.log(`preflight-${provider}`, message),
   });
-  console.log(`preflight-${provider}`, JSON.stringify({ online: session.world().online, lobby: session.world().lobby?.id ?? null }));
+  console.log(
+    `preflight-${provider}`,
+    JSON.stringify({
+      online: session.world().online,
+      lobby: session.world().lobby?.id ?? null,
+    }),
+  );
   session.close();
 }
 
@@ -125,6 +140,9 @@ const codexLog = await run(
     clone,
     "-s",
     "read-only",
+    // Without trust Codex ignores the clone's .codex/config.toml, so dibs never loads.
+    "-c",
+    `projects={'${trustKey(clone)}'={trust_level="trusted"}}`,
     prompt,
   ],
   { DIBS_HOME: home },
@@ -148,7 +166,11 @@ function report(name: string, raw: string): void {
   console.log("log", path.join(home, `${name}.log`));
 }
 
-function run(command: string, args: string[], extra: Record<string, string>): Promise<string> {
+function run(
+  command: string,
+  args: string[],
+  extra: Record<string, string>,
+): Promise<string> {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, {
       cwd: clone,
