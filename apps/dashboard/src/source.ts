@@ -67,13 +67,45 @@ export async function loadReplay(url: string): Promise<ReplayLobbySource> {
   return new ReplayLobbySource(await response.json() as EventsExport);
 }
 
-export async function createLiveSource(uri: string, db: string, lobbyId: number): Promise<LobbySource> {
-  const { connect, subscribeLobby, toJson } = await import('@dibs/client');
+export async function createLiveSource(uri: string, db: string, lobbyId?: number): Promise<LobbySource> {
+  const { connect, subscribeLobby, tables, toJson } = await import('@dibs/client');
   const { conn } = await connect({ uri, dbName: db });
-  await subscribeLobby(conn, lobbyId);
-  const listeners = new Set<() => void>();
   const tableAccessors: Record<ExportedTable, string> = {
     lobby: 'lobby', participant: 'participant', plan: 'plan', plan_item: 'planItem', message: 'message', job: 'job', proposal: 'proposal', response: 'response', contract: 'contract', delivery: 'delivery', event: 'event', head: 'head', verification: 'verification', review: 'review', service: 'service',
+  };
+  try {
+    if (lobbyId !== undefined) {
+      await subscribeLobby(conn, lobbyId);
+    } else {
+      // Follow the whole public dataset so newly created lobbies (and their rows)
+      // are already in the cache when selection changes. The panels stay scoped.
+      await new Promise<void>((resolve, reject) => {
+        let handle: ReturnType<ReturnType<typeof conn.subscriptionBuilder>['subscribe']> | undefined;
+        const timer = setTimeout(() => {
+          handle?.unsubscribe();
+          reject(new Error('subscription timed out'));
+        }, 10000);
+        try {
+          handle = conn.subscriptionBuilder()
+            .onApplied(() => { clearTimeout(timer); resolve(); })
+            .onError(ctx => { clearTimeout(timer); reject(ctx.event); })
+            .subscribe(EXPORTED_TABLES.map(table => tables[tableAccessors[table] as keyof typeof tables]));
+        } catch (error) { clearTimeout(timer); reject(error); }
+      });
+    }
+  } catch (error) {
+    conn.disconnect();
+    throw error;
+  }
+  const listeners = new Set<() => void>();
+  const selectedLobbyId = () => {
+    if (lobbyId !== undefined) return lobbyId;
+    const lobbies = [...conn.db.lobby.iter()];
+    const running = lobbies.filter(lobby => lobby.state === 'running');
+    return (running.length ? running : lobbies).reduce<number | undefined>(
+      (newest, lobby) => newest === undefined || lobby.id > newest ? lobby.id : newest,
+      undefined,
+    );
   };
   type DbTables = typeof conn.db;
   for (const table of EXPORTED_TABLES) {
@@ -83,12 +115,13 @@ export async function createLiveSource(uri: string, db: string, lobbyId: number)
     accessor.onUpdate?.(() => listeners.forEach(fn => fn()));
   }
   return {
-    mode: 'live', label: `Live lobby ${lobbyId}`,
+    mode: 'live', get label() { return `Live lobby ${selectedLobbyId() ?? 'waiting'}`; },
     getSnapshot: () => {
       const rows = emptyRows();
+      const selected = selectedLobbyId();
       for (const table of EXPORTED_TABLES) {
         const accessor = conn.db[tableAccessors[table] as keyof DbTables] as unknown as { iter: () => Iterable<unknown> };
-        rows[table] = [...accessor.iter()].map(row => toJson(row) as Record<string, unknown>).filter(row => table === 'participant' ? row.currentLobbyId === lobbyId : table === 'service' ? true : table === 'lobby' ? row.id === lobbyId : row.lobbyId === lobbyId);
+        rows[table] = [...accessor.iter()].map(row => toJson(row) as Record<string, unknown>).filter(row => table === 'service' ? true : selected === undefined ? false : table === 'participant' ? row.currentLobbyId === selected : table === 'lobby' ? row.id === selected : row.lobbyId === selected);
       }
       return rows;
     },

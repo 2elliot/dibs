@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { DELIVERY_STAGES, MODES, PROVIDERS, RELATIONS, type AssembledFrom, type EventsExport, type Mode, type Provider, type Relation, type ReviewFindings } from '@dibs/protocol';
+import { DELIVERY_STAGES, MODES, PROVIDERS, RELATIONS, type AssembledFrom, type DibsConfig, type EventsExport, type Mode, type Provider, type Relation, type ReviewFindings } from '@dibs/protocol';
 import { createLiveSource, emptyRows, loadReplay, ReplayLobbySource, type DashboardRows, type LobbySource } from './source';
 import dibsFixture from '../fixtures/s2-dibs.json';
 import noneFixture from '../fixtures/s2-none.json';
@@ -57,13 +57,17 @@ function App() {
           if (active) { setSource(loaded); setClock(loaded.endUs); }
           return;
         }
-        const config = await fetch('/config.json').then(response => response.ok ? response.json() : {}) as { uri?: string; db?: string; lobby?: string | number };
-        const uri = params.get('uri') || config.uri;
-        const db = params.get('db') || config.db;
-        const lobbyId = Number(params.get('lobby') || config.lobby);
-        const requestedLive = params.has('uri') || params.has('db') || params.has('lobby') || Boolean(config.uri || config.db || config.lobby);
-        if (!uri || !db || !lobbyId) {
-          if (requestedLive) throw new Error('Set uri, db, and lobby to connect to a live lobby.');
+        const config = await fetch('/config.json').then(response => response.ok ? response.json() : {}) as Partial<DibsConfig> & { uri?: string; db?: string; lobby?: string | number };
+        const uri = params.get('uri') || config.uri || config.dbUri;
+        const db = params.get('db') || config.db || config.dbName;
+        const requestedLobby = params.get('lobby') || config.lobby;
+        const lobbyId = requestedLobby == null || requestedLobby === '' ? undefined : Number(requestedLobby);
+        const requestedLive = params.has('uri') || params.has('db') || params.has('lobby') || Boolean(uri || db || requestedLobby);
+        if (lobbyId !== undefined && (!Number.isInteger(lobbyId) || lobbyId <= 0 || lobbyId > 0xffffffff)) {
+          throw new Error('Lobby must be a positive integer ID.');
+        }
+        if (!uri || !db) {
+          if (requestedLive) throw new Error('Set uri and db to connect to live lobbies.');
           const fixture = location.hash === '#none' ? noneFixture : dibsFixture;
           const local = new ReplayLobbySource(fixture as EventsExport);
           if (active) { setSource(local); setClock(local.endUs); }
