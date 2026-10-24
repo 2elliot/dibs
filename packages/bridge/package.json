@@ -1,0 +1,24 @@
+{
+  "name": "@dibs/bridge",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "node build.mjs",
+    "typecheck": "tsc --noEmit -p .",
+    "test": "node build.mjs && vitest run",
+    "test:live": "node build.mjs && set DIBS_LIVE=1&& vitest run test/live-port4001.test.ts"
+  },
+  "dependencies": {
+    "@dibs/client": "*",
+    "@dibs/protocol": "*",
+    "@modelcontextprotocol/sdk": "^1.32.2",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2"
+  }
+}

@@ -42,6 +42,8 @@ if (typeof command.main !== "function") {
 try {
   await command.main(args);
 } catch (error) {
-  console.error(`dibs ${name}: ${error instanceof Error ? error.message : String(error)}`);
+  console.error(
+    `dibs ${name}: ${error instanceof Error ? error.message : String(error)}`,
+  );
   process.exitCode = 1;
 }

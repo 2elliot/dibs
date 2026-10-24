@@ -1,12 +1,63 @@
 {
   "s2": {
-    "claude": { "goal": "Implement authentication", "produces": [{ "key": "auth.session", "text": "Login returns a bearer token; requests use Authorization: Bearer <token>." }], "requires": [], "notes": "SIMULATION: intentionally conflicting preference" },
-    "codex": { "goal": "Implement the browser client", "produces": [], "requires": [{ "key": "auth.session", "text": "Login sets an HttpOnly session cookie; browser requests send credentials." }], "notes": "SIMULATION: intentionally conflicting preference" },
-    "droid": { "goal": "Implement event registration", "produces": [], "requires": [{ "key": "auth.session", "text": "Protected routes resolve the current user from an HttpOnly session cookie." }], "notes": "SIMULATION: intentionally conflicting preference" }
+    "claude": {
+      "goal": "Implement authentication",
+      "produces": [
+        {
+          "key": "auth.session",
+          "text": "Login returns a bearer token; requests use Authorization: Bearer <token>."
+        }
+      ],
+      "requires": [],
+      "notes": "SIMULATION: intentionally conflicting preference"
+    },
+    "codex": {
+      "goal": "Implement the browser client",
+      "produces": [],
+      "requires": [
+        {
+          "key": "auth.session",
+          "text": "Login sets an HttpOnly session cookie; browser requests send credentials."
+        }
+      ],
+      "notes": "SIMULATION: intentionally conflicting preference"
+    },
+    "droid": {
+      "goal": "Implement event registration",
+      "produces": [],
+      "requires": [
+        {
+          "key": "auth.session",
+          "text": "Protected routes resolve the current user from an HttpOnly session cookie."
+        }
+      ],
+      "notes": "SIMULATION: intentionally conflicting preference"
+    }
   },
   "aligned": {
-    "claude": { "goal": "Implement authentication", "produces": [{ "key": "auth.session", "text": "Use an HttpOnly session cookie." }], "requires": [], "notes": "SIMULATION" },
-    "codex": { "goal": "Implement the browser client", "produces": [], "requires": [{ "key": "auth.session", "text": "Use an HttpOnly session cookie." }], "notes": "SIMULATION" },
-    "droid": { "goal": "Implement event registration", "produces": [], "requires": [{ "key": "auth.session", "text": "Use an HttpOnly session cookie." }], "notes": "SIMULATION" }
+    "claude": {
+      "goal": "Implement authentication",
+      "produces": [
+        { "key": "auth.session", "text": "Use an HttpOnly session cookie." }
+      ],
+      "requires": [],
+      "notes": "SIMULATION"
+    },
+    "codex": {
+      "goal": "Implement the browser client",
+      "produces": [],
+      "requires": [
+        { "key": "auth.session", "text": "Use an HttpOnly session cookie." }
+      ],
+      "notes": "SIMULATION"
+    },
+    "droid": {
+      "goal": "Implement event registration",
+      "produces": [],
+      "requires": [
+        { "key": "auth.session", "text": "Use an HttpOnly session cookie." }
+      ],
+      "notes": "SIMULATION"
+    }
   }
 }
