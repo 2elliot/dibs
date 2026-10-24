@@ -7,12 +7,15 @@ import { z } from "zod";
 
 const server = new McpServer({ name: "dibs", version: "0.0.0" });
 
+// SpacetimeDB ids are u64, which JSON can't carry, so tools take them as digit strings.
 // TODO(plugin lane): decide how a tool call learns its agent_id. One option: the
 // SessionStart hook registers the agent and tells Claude its id in additionalContext.
-const agentId = z.string().describe("Your dibs agent id, from the dibs session context");
+const idString = z.string().regex(/^\d+$/, 'ids are digit strings, like "42"');
+const agentId = idString.describe("Your dibs agent id, from the dibs session context");
 
 function reply(value: unknown) {
-  return { content: [{ type: "text" as const, text: JSON.stringify(value, null, 2) }] };
+  const text = JSON.stringify(value, (_key, v) => (typeof v === "bigint" ? v.toString() : v), 2);
+  return { content: [{ type: "text" as const, text }] };
 }
 
 function fail(error: unknown) {
@@ -35,13 +38,13 @@ server.registerTool(
       "Call dibs on what you're about to build, before editing any file. Returns an overlap if another agent already claimed the same feature.",
     inputSchema: {
       agent_id: agentId,
-      title: z.string().describe("Short name for the feature, e.g. 'rate limiter'"),
+      title: z.string().describe("Short name for the feature, e.g. 'reply storage'"),
       description: z.string().describe("What you plan to build and why"),
       interfaces: z.array(z.string()).describe("Interfaces or functions you expect to create"),
       files: z.array(z.string()).describe("Files you expect to create or own"),
     },
   },
-  (input) => run(() => core.publishIntent(input)),
+  ({ agent_id, ...rest }) => run(() => core.publishIntent({ agentId: BigInt(agent_id), ...rest })),
 );
 
 server.registerTool(
@@ -51,11 +54,18 @@ server.registerTool(
       "Another agent owns a feature you need. Send it your requirements instead of building it yourself.",
     inputSchema: {
       agent_id: agentId,
-      owner_intent_id: z.string().describe("The overlapping intent dibs reported"),
+      owner_intent_id: idString.describe("The overlapping intent dibs reported"),
       requirements: z.array(z.string()).describe("What you need it to do, one per item"),
     },
   },
-  (input) => run(() => core.requestFeature(input)),
+  ({ agent_id, owner_intent_id, requirements }) =>
+    run(() =>
+      core.requestFeature({
+        agentId: BigInt(agent_id),
+        ownerIntentId: BigInt(owner_intent_id),
+        requirements,
+      }),
+    ),
 );
 
 server.registerTool(
@@ -64,20 +74,28 @@ server.registerTool(
     description: "Propose or accept the typed interface for a contract between two agents.",
     inputSchema: {
       agent_id: agentId,
-      contract_id: z.string(),
+      contract_id: idString,
       interface: z.string().describe("TypeScript source of the interface"),
     },
   },
-  (input) => run(() => core.proposeContract(input)),
+  ({ agent_id, contract_id, interface: source }) =>
+    run(() =>
+      core.proposeContract({
+        agentId: BigInt(agent_id),
+        contractId: BigInt(contract_id),
+        interface: source,
+      }),
+    ),
 );
 
 server.registerTool(
   "mark_delivered",
   {
     description: "You finished a feature another agent is waiting on. Pings them.",
-    inputSchema: { agent_id: agentId, contract_id: z.string() },
+    inputSchema: { agent_id: agentId, contract_id: idString },
   },
-  (input) => run(() => core.markDelivered(input)),
+  ({ agent_id, contract_id }) =>
+    run(() => core.markDelivered({ agentId: BigInt(agent_id), contractId: BigInt(contract_id) })),
 );
 
 server.registerTool(
@@ -86,7 +104,7 @@ server.registerTool(
     description: "Read unread messages from other agents and from dibs.",
     inputSchema: { agent_id: agentId },
   },
-  ({ agent_id }) => run(() => core.getInbox(agent_id)),
+  ({ agent_id }) => run(() => core.getInbox(BigInt(agent_id))),
 );
 
 await server.connect(new StdioServerTransport());

@@ -4,6 +4,7 @@
   "type": "module",
   "workspaces": [
     "packages/*",
+    "spacetime",
     "plugin",
     "dashboard"
   ],
@@ -17,7 +18,10 @@
     "dev:plugin": "npm run watch -w @dibs/plugin",
     "dev:dashboard": "npm run dev -w @dibs/dashboard",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "generate": "spacetime generate --lang typescript --out-dir packages/shared/src/module_bindings --module-path spacetime --yes",
+    "publish:local": "spacetime publish --server local --module-path spacetime --yes dibs",
+    "publish:maincloud": "spacetime publish --server maincloud --module-path spacetime"
   },
   "devDependencies": {
     "@types/node": "^24.19.2",

@@ -3,8 +3,8 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 
 export interface DibsConfig {
-  supabaseUrl: string;
-  supabaseKey: string;
+  spacetimeUri: string;
+  spacetimeDb: string;
   agentName: string;
   judgeModel: string;
 }
@@ -19,9 +19,7 @@ export function loadConfig(): DibsConfig {
   if (cached) return cached;
   if (existsSync(CONFIG_FILE)) process.loadEnvFile(CONFIG_FILE);
 
-  const missing = ["DIBS_SUPABASE_URL", "DIBS_SUPABASE_KEY", "DIBS_AGENT_NAME"].filter(
-    (key) => !process.env[key],
-  );
+  const missing = ["DIBS_SPACETIME_DB", "DIBS_AGENT_NAME"].filter((key) => !process.env[key]);
   if (missing.length > 0) {
     throw new Error(
       `dibs isn't configured: set ${missing.join(", ")} in ${CONFIG_FILE} (see .env.example).`,
@@ -29,8 +27,8 @@ export function loadConfig(): DibsConfig {
   }
 
   cached = {
-    supabaseUrl: process.env.DIBS_SUPABASE_URL!,
-    supabaseKey: process.env.DIBS_SUPABASE_KEY!,
+    spacetimeUri: process.env.DIBS_SPACETIME_URI ?? "https://maincloud.spacetimedb.com",
+    spacetimeDb: process.env.DIBS_SPACETIME_DB!,
     agentName: process.env.DIBS_AGENT_NAME!,
     judgeModel: process.env.DIBS_JUDGE_MODEL ?? "claude-opus-5-5",
   };

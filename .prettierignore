@@ -2,3 +2,4 @@ package-lock.json
 dist/
 .next/
 node_modules/
+packages/shared/src/module_bindings/

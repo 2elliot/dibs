@@ -11,7 +11,7 @@
 ## Contract zone
 
 - [ ] Doesn't touch it
-- [ ] Touches `packages/shared`, `supabase/migrations`, root config or shared docs. Posted in chat, and a teammate 👍'd it.
+- [ ] Touches `packages/shared`, the `spacetime/` schema, root config or shared docs. Posted in chat, and a teammate 👍'd it.
 
 ## Checklist
 

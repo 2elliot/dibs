@@ -1,19 +1,23 @@
 // Public API of the core lane. The plugin's MCP tools and hooks call these; the input and
 // output types come from @dibs/shared, so the signatures here are part of the contract.
+//
+// State changes go through the SpacetimeDB reducers in spacetime/src/index.ts. Anything
+// that calls the outside world (embeddings, the Claude judge) happens here first.
 
 import type {
   Agent,
+  Contract,
   InboxResult,
   MarkDeliveredInput,
   ProposeContractInput,
   PublishIntentInput,
   PublishIntentResult,
   RequestFeatureInput,
-  Contract,
 } from "@dibs/shared";
 
 export { loadConfig, CONFIG_FILE, type DibsConfig } from "./config";
 export { db } from "./db";
+export { cosine, nearestIntents } from "./similarity";
 
 function notImplemented(name: string): never {
   throw new Error(`@dibs/core: ${name} isn't implemented yet`);
@@ -24,7 +28,7 @@ export async function registerAgent(sessionId: string, repo: string | null): Pro
   return notImplemented("registerAgent");
 }
 
-/** Store the intent, embed it, find similar live intents, and have Claude judge the closest. */
+/** Embed the intent, publish it, find similar live intents, and have Claude judge the closest. */
 export async function publishIntent(input: PublishIntentInput): Promise<PublishIntentResult> {
   return notImplemented("publishIntent");
 }
@@ -45,7 +49,7 @@ export async function markDelivered(input: MarkDeliveredInput): Promise<Contract
 }
 
 /** Unread messages for an agent. Marks them read. */
-export async function getInbox(agentId: string): Promise<InboxResult> {
+export async function getInbox(agentId: bigint): Promise<InboxResult> {
   return notImplemented("getInbox");
 }
 

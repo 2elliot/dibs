@@ -1,6 +1,6 @@
 # How we work without colliding
 
-Three people, each with their own agent or two, all in one repo for two days. The rules below keep us from doing to each other what dibs exists to prevent.
+Three people, each with their own agent or two, all in one repo for 36 hours. The rules below keep us from doing to each other what dibs exists to prevent.
 
 ## The short version
 
@@ -12,13 +12,15 @@ Three people, each with their own agent or two, all in one repo for two days. Th
 
 ## Lanes
 
-| Lane   | Owner | Owns                                   | First branch       |
-| ------ | ----- | -------------------------------------- | ------------------ |
-| plugin | _TBD_ | `plugin/`                              | `plugin/mcp-tools` |
-| core   | _TBD_ | `packages/core/`, `supabase/`          | `core/schema`      |
-| demo   | _TBD_ | `dashboard/`, `demo/`, `docs/pitch.md` | `demo/target-app`  |
+| Lane   | Owner | Owns                                                                       | First branch       |
+| ------ | ----- | -------------------------------------------------------------------------- | ------------------ |
+| plugin | _TBD_ | `plugin/`                                                                  | `plugin/mcp-tools` |
+| core   | _TBD_ | `spacetime/`, `packages/core/`                                             | `core/schema`      |
+| demo   | _TBD_ | `dashboard/`, `demo/`, `docs/pitch.md`, `docs/tracks.md`, `docs/research/` | `demo/target-app`  |
 
-Fill in the owners. Everything not listed is the **contract zone**: `packages/shared/`, `supabase/migrations/` (written by core, but every lane depends on it), root config and `package-lock.json`, `CLAUDE.md`, `docs/plan.md`, this file, `.claude/` and `.github/`.
+The demo lane also covers pitch and glue: validation interviews, integration testing across laptops, Devpost and slides.
+
+Fill in the owners. Everything not listed is the **contract zone**: `packages/shared/` (including the generated `module_bindings/`), the tables and reducer signatures in `spacetime/src/index.ts` (written by core, but every lane depends on them), root config and `package-lock.json`, `CLAUDE.md`, `docs/plan.md`, this file, `.claude/` and `.github/`.
 
 Two places everyone writes, without conflicts:
 
@@ -47,7 +49,7 @@ Two places everyone writes, without conflicts:
 
 - **Additive** (a new type, a new optional field, a new table): post it in chat, open a small PR that touches only the contract plus whatever keeps `npm run typecheck` green, and merge it quickly.
 - **Breaking** (rename, removal, a changed meaning): agree in chat first, then the same small PR. The person changing it fixes every lane's typecheck in that PR. Behavior changes are the owners' job, in follow-ups.
-- **Schema:** add a new file in `supabase/migrations/`. Never edit a migration that's already been applied. Update `packages/shared` in the same PR.
+- **Schema:** edit `spacetime/src/index.ts`, run `npm run generate`, and commit the regenerated `packages/shared/src/module_bindings/` in the same PR. Adding a reducer is cheap. Changing a table's columns usually means republishing with `--delete-data`, which wipes the shared database, so warn the team first.
 - **Record it** in `docs/decisions/` if it changes how another lane works.
 
 ## Merge conflicts
@@ -66,7 +68,7 @@ Prettier and the `.gitattributes` line-ending rule exist so formatting and Windo
 All of this is in the repo, so every teammate's Claude sees it:
 
 - `CLAUDE.md`: what we're building, the lanes, the rules. Loaded into every session.
-- `docs/plan.md` and `docs/pitch.md`: scope, timeline, cut list, and what we tell judges.
+- `docs/plan.md`, `docs/tracks.md` and `docs/pitch.md`: scope, the hour-by-hour roadmap, the cut list, which sponsor tracks we're framing for, and what we tell judges.
 - `docs/status/<lane>.md`: each lane's now / next / blockers / needs.
 - `docs/decisions/`: anything one lane decided that another needs to know.
 - `.claude/hooks/team-context.mjs`: runs at every session start. It fetches `origin/main` and shows Claude every lane's status file and the latest decisions, even before you pull. It also names your lane from your branch and warns if you're behind `main`.
@@ -75,13 +77,16 @@ All of this is in the repo, so every teammate's Claude sees it:
 
 ## Checkpoints
 
-| When                 | What's true                                                                                                                                        |
-| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Day 1, late morning  | Supabase project up with the schema applied. Shared types reviewed by all three. Everyone can load the plugin with `claude --plugin-dir ./plugin`. |
-| Day 1, evening       | `publish_intent` works end to end and detects an overlap. Dashboard shows live agents and intents.                                                 |
-| Day 1, night         | **The full loop across two laptops, even if ugly.**                                                                                                |
-| Day 2, morning       | Contract → stub → test flow. Dashboard shows overlaps and negotiations.                                                                            |
-| Freeze (judging −6h) | Only bug fixes after this. Tag `main` as `demo-freeze`, rehearse, record the backup video.                                                         |
+Hours from when hacking starts; the full roadmap is in `docs/plan.md`.
+
+| When    | What's true                                                                                                                                                  |
+| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **H2**  | 5–10 teams interviewed. Contract (tables, reducers, MCP tool signatures) reviewed by all three. SpacetimeDB go/no-go made and the shared database published. |
+| **H10** | Two Claude Code sessions on one laptop, and the second gets an overlap alert. Dashboard shows live agents and intents.                                       |
+| **H18** | **Kill checkpoint: the full loop across two laptops, even if ugly.** If not, cut to overlap alerts plus dashboard.                                           |
+| **H26** | Contract → stub → test flow works. Dashboard shows overlaps and negotiations. "Without dibs" baseline recorded.                                              |
+| **H30** | **Feature freeze.** Only bug fixes after this. Tag `main` as `demo-freeze`, rehearse, record the backup video.                                               |
+| **H36** | Submitted, with time to spare.                                                                                                                               |
 
 ## New laptop setup
 
@@ -94,9 +99,11 @@ npm run build:plugin
 
 Then:
 
-1. Copy `.env.example` to `~/.dibs/.env` and fill it in. The core lane shares the Supabase values privately, never in git.
+1. Copy `.env.example` to `~/.dibs/.env` and fill it in. The core lane shares the SpacetimeDB database name in chat.
 2. Copy `dashboard/.env.example` to `dashboard/.env.local` if you're running the dashboard.
 3. Try the plugin: `claude --plugin-dir ./plugin`.
+
+Only whoever publishes the module (core) needs the `spacetime` CLI. The generated bindings are committed, so everyone else just needs `npm install`. To install it: `iwr https://windows.spacetimedb.com -useb | iex` on Windows, or `curl -sSf https://install.spacetimedb.com | sh` on macOS/Linux.
 
 ## Repo settings (once, on GitHub)
 

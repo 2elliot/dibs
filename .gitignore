@@ -14,9 +14,6 @@ coverage/
 CLAUDE.local.md
 .claude/settings.local.json
 
-# Supabase CLI scratch
-supabase/.temp/
-supabase/.branches/
 
 .DS_Store
 Thumbs.db
