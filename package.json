@@ -1,0 +1,18 @@
+{
+  "name": "dibs-fixture",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A small event sign-up app: log in, then register for the study group kickoff.",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "cookie-parser": "^1.4.7",
+    "express": "^5.1.0"
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "vocabulary": [
+    {
+      "key": "auth.session",
+      "description": "How the browser keeps a logged-in session: what POST /api/login returns, how later requests carry the session (an httpOnly cookie or an Authorization: Bearer token), and GET /api/me."
+    },
+    {
+      "key": "auth.server",
+      "description": "The helper exported from src/auth/index.js that other server routes call to get the current user: its name, signature, and what it returns or does when nobody is logged in."
+    },
+    {
+      "key": "events.registration",
+      "description": "POST /api/events/:eventId/registrations: what the request needs, the response body, and the status codes (201, 401, 404, 409) the UI relies on."
+    }
+  ],
+  "areas": {
+    "claude": ["src/auth/**", "test/auth/**"],
+    "codex": ["public/**", "test/ui/**"],
+    "droid": ["src/events/**", "test/events/**"]
+  },
+  "frozen": [
+    ".gitattributes",
+    ".gitignore",
+    "README.md",
+    "dibs.json",
+    "package-lock.json",
+    "package.json",
+    "public/index.html",
+    "src/data.js",
+    "src/server.js"
+  ]
+}
