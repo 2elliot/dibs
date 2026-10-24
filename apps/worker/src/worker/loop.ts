@@ -1,22 +1,32 @@
 // The worker loop: find a leasable job, lease it with a fresh token, analyze, submit or fail.
-// One analysis in flight per lobby. The lease rescan (every TIMING.leaseRescanSec) is handled by
-// the DB's nextLeasableJob(), which also returns leased-but-expired jobs so a crashed worker's job
-// is retried. The analysis cap per lobby is enforced by the module (lease_job), not here.
+// One analysis in flight per lobby. A job the DB reports as queued is leased on sight (plan §6.1).
+// The rescan every TIMING.leaseRescanSec catches what no row change announces: the DB's
+// nextLeasableJob() also returns leased-but-expired jobs, so a crashed worker's job is retried.
+// The analysis cap per lobby is enforced by the module (lease_job), not here.
 import { randomUUID } from "node:crypto";
 import { TIMING } from "@dibs/protocol";
 import type { ModelClient } from "../model/types.ts";
 import type { HealthState } from "../http/health.ts";
 import { runAnalysisWithRetry } from "../analysis/analyze.ts";
-import type { DibsDb } from "./db.ts";
+import type { DibsDb, LeasableJob, QueuedJob } from "./db.ts";
 
 // Leave enough time for a 5 s reducer call before the frozen 60 s lease expires.
 export const LEASE_RESERVE_MS = TIMING.bridgeCallTimeoutSec * 1000 + 1000;
+
+// `service` rows the worker heartbeats. The dashboard's "Analysis online" badge reads `analysis`;
+// `worker` is the worker participant's own name. Today's module only accepts the caller's own
+// participant name, so the `analysis` beat is rejected until the module or the worker's
+// participant name changes; each name is beaten independently so one rejection can't stop the other.
+export const SERVICE_NAMES = ["analysis", "worker"] as const;
+// A name the module refuses as not ours is retried this rarely: every refusal is an ERROR line in
+// the module's log. Other failures (a dropped connection) are retried on the next beat.
+export const REFUSED_NAME_RETRY_MS = 5 * 60_000;
 
 export interface LoopOptions {
   db: DibsDb;
   model: ModelClient;
   health: HealthState;
-  /** How often to poll for a leasable job (ms). Default TIMING.leaseRescanSec. */
+  /** How often to rescan for a leasable job (ms). Default TIMING.leaseRescanSec. */
   pollMs?: number;
   /** How often to heartbeat (ms). Default 15 s. */
   heartbeatMs?: number;
@@ -37,6 +47,14 @@ export class WorkerLoop {
 
   private running = false;
   private readonly inFlight = new Set<number>();
+  /** Lobbies whose job was re-queued while their analysis was in flight; rescanned when it ends. */
+  private readonly requeued = new Set<number>();
+  private scanning?: Promise<Promise<void>[]>;
+  private rescan = false;
+  private kickPending = false;
+  private readonly failingBeats = new Set<string>();
+  private readonly refusedUntil = new Map<string, number>();
+  private unsubscribe?: () => void;
   private pollTimer?: ReturnType<typeof setInterval>;
   private heartbeatTimer?: ReturnType<typeof setInterval>;
 
@@ -56,6 +74,7 @@ export class WorkerLoop {
   start(): void {
     if (this.running) return;
     this.running = true;
+    this.unsubscribe = this.db.onJobQueued((job) => this.onJobQueued(job));
     this.pollTimer = setInterval(() => void this.tick(), this.pollMs);
     this.heartbeatTimer = setInterval(() => void this.beat(), this.heartbeatMs);
     void this.beat();
@@ -64,25 +83,64 @@ export class WorkerLoop {
 
   stop(): void {
     this.running = false;
+    this.unsubscribe?.();
+    this.unsubscribe = undefined;
     if (this.pollTimer) clearInterval(this.pollTimer);
     if (this.heartbeatTimer) clearInterval(this.heartbeatTimer);
   }
 
-  /** One scan. Public so tests can drive it deterministically without timers. */
+  /**
+   * One scan, then wait for the analyses it started. Public so tests can drive it deterministically
+   * without timers. A call that arrives mid-scan joins that scan and adds one more pass instead of
+   * scanning alongside it.
+   */
   async tick(): Promise<void> {
-    let job;
+    await Promise.all(await this.scan());
+  }
+
+  private scan(): Promise<Promise<void>[]> {
+    if (this.scanning) {
+      this.rescan = true;
+      return this.scanning;
+    }
+    this.scanning = (async () => {
+      const started: Promise<void>[] = [];
+      try {
+        do {
+          this.rescan = false;
+          started.push(...(await this.scanOnce()));
+        } while (this.rescan);
+      } finally {
+        this.scanning = undefined;
+      }
+      return started;
+    })();
+    return this.scanning;
+  }
+
+  /** Start an analysis for each leasable job whose lobby has none in flight. */
+  private async scanOnce(): Promise<Promise<void>[]> {
+    const started: Promise<void>[] = [];
+    // Lobbies in flight or already picked this pass: one call per lobby, and a job whose lease
+    // fails fast is not picked again until the next pass.
+    const seen = new Set(this.inFlight);
     try {
-      job = await this.db.nextLeasableJob(this.inFlight);
+      for (;;) {
+        const job = await this.db.nextLeasableJob(seen);
+        if (!job || seen.has(job.lobbyId)) break;
+        seen.add(job.lobbyId);
+        started.push(this.run(job));
+      }
       this.health.setDb("connected");
       this.health.setQueueOldest(await this.db.oldestQueuedAtMs());
     } catch (e) {
       this.health.setDb("disconnected");
       this.log("scan failed", { error: String(e) });
-      return;
     }
-    if (!job) return;
-    if (this.inFlight.has(job.lobbyId)) return; // one call per lobby
+    return started;
+  }
 
+  private async run(job: LeasableJob): Promise<void> {
     this.inFlight.add(job.lobbyId);
     try {
       await this.process(job.jobId, job.lobbyId);
@@ -90,7 +148,25 @@ export class WorkerLoop {
       this.log("job processing failed", { jobId: job.jobId, error: String(e) });
     } finally {
       this.inFlight.delete(job.lobbyId);
+      if (this.requeued.delete(job.lobbyId)) this.kick();
     }
+  }
+
+  private onJobQueued(job: QueuedJob): void {
+    // The module can re-queue a lobby's job while we hold its lease (it replaces a stale lease).
+    // Scans skip that lobby until our call ends, so rescan then rather than at the next timer.
+    if (this.inFlight.has(job.lobbyId)) this.requeued.add(job.lobbyId);
+    else this.kick();
+  }
+
+  /** Scan on the next microtask, so the row callbacks of one transaction start one scan. */
+  private kick(): void {
+    if (!this.running || this.kickPending) return;
+    this.kickPending = true;
+    queueMicrotask(() => {
+      this.kickPending = false;
+      if (this.running) void this.tick();
+    });
   }
 
   private async process(jobId: number, lobbyId: number): Promise<void> {
@@ -149,14 +225,25 @@ export class WorkerLoop {
   }
 
   private async beat(): Promise<void> {
-    try {
-      const status = this.health.report(this.now());
-      await this.db.heartbeat(
-        "worker",
-        status as unknown as Record<string, unknown>,
-      );
-    } catch (e) {
-      this.log("heartbeat failed", { error: String(e) });
+    const status = this.health.report(this.now()) as unknown as Record<
+      string,
+      unknown
+    >;
+    for (const name of SERVICE_NAMES) {
+      if ((this.refusedUntil.get(name) ?? 0) > this.now()) continue;
+      try {
+        await this.db.heartbeat(name, status);
+        this.refusedUntil.delete(name);
+        if (this.failingBeats.delete(name))
+          this.log("heartbeat recovered", { name });
+      } catch (e) {
+        if (String(e).includes("own name"))
+          this.refusedUntil.set(name, this.now() + REFUSED_NAME_RETRY_MS);
+        // Logged once per outage rather than on every beat.
+        if (!this.failingBeats.has(name))
+          this.log("heartbeat failed", { name, error: String(e) });
+        this.failingBeats.add(name);
+      }
     }
   }
 }

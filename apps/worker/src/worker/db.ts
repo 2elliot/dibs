@@ -12,7 +12,18 @@ export interface LeasableJob {
   enqueuedAtMs: number;
 }
 
+/** A job row that was just inserted or updated into `queued`. */
+export interface QueuedJob {
+  jobId: number;
+  lobbyId: number;
+}
+
 export interface DibsDb {
+  /**
+   * Call `listener` whenever a job row is inserted or updated into `queued`, so the loop can lease
+   * it on sight instead of waiting for the rescan. Returns a function that removes the listener.
+   */
+  onJobQueued(listener: (job: QueuedJob) => void): () => void;
   /** A `queued` job, or a `leased` job whose lease has expired, or null. One per lobby in flight. */
   nextLeasableJob(
     excludedLobbyIds?: ReadonlySet<number>,

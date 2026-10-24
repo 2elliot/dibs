@@ -3,7 +3,7 @@
 // rule checks) — that behavior is verified in Phase B against the real local module. Here we check
 // the loop's control flow: lease -> analyze -> submit/fail, one-per-lobby, and re-lease of expired.
 import type { AnalysisInput, Findings } from "@dibs/protocol";
-import type { DibsDb, LeasableJob } from "./db.ts";
+import type { DibsDb, LeasableJob, QueuedJob } from "./db.ts";
 
 export interface SubmitCall {
   jobId: number;
@@ -21,8 +21,11 @@ export class FakeDb implements DibsDb {
   private jobs: LeasableJob[] = [];
   private inputs = new Map<number, AnalysisInput>();
   private fallbacks = new Map<number, number>();
+  private queuedListeners = new Set<(job: QueuedJob) => void>();
   /** jobIds that leaseJob should refuse (e.g. taken by another worker / stale). */
   unleasable = new Set<number>();
+  /** Heartbeat names the module would reject (it only accepts the caller's own name). */
+  rejectedHeartbeats = new Set<string>();
 
   readonly leaseCalls: { jobId: number; leaseToken: string }[] = [];
   readonly submitCalls: SubmitCall[] = [];
@@ -34,6 +37,20 @@ export class FakeDb implements DibsDb {
     this.jobs.push(job);
     this.inputs.set(job.jobId, input);
     this.fallbacks.set(job.lobbyId, fallbackAtUs);
+  }
+
+  /** Stage a job and announce it, as the live job table's onInsert/onUpdate would. */
+  queue(job: LeasableJob, input: AnalysisInput, fallbackAtUs: number): void {
+    this.stage(job, input, fallbackAtUs);
+    for (const listener of this.queuedListeners)
+      listener({ jobId: job.jobId, lobbyId: job.lobbyId });
+  }
+
+  onJobQueued(listener: (job: QueuedJob) => void): () => void {
+    this.queuedListeners.add(listener);
+    return () => {
+      this.queuedListeners.delete(listener);
+    };
   }
 
   async nextLeasableJob(
@@ -73,6 +90,8 @@ export class FakeDb implements DibsDb {
     name: string,
     detail: Record<string, unknown>,
   ): Promise<void> {
+    if (this.rejectedHeartbeats.has(name))
+      throw new Error("heartbeat -> error: heartbeat must use own name");
     this.heartbeats.push({ name, detail });
   }
   async oldestQueuedAtMs(): Promise<number | null> {

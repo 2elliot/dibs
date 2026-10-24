@@ -46,6 +46,8 @@ Checks:
 - Compatible plans -> aligned contract without a proposal.
 - Stale inputKey -> rejected; the same expired job is re-leased and finishes with attempts = 2.
 - Worker disconnect after leasing -> a fresh worker connection re-leases and completes the job.
+- A started loop with the rescan pushed out to an hour leases a newly queued job from the row
+  update alone (`job_leased` under 2 s after `job_queued`) and writes its `worker` heartbeat.
 - Invalid citations -> failed job and deterministic notices, with no proposal.
 - Disconnected adapter -> health reports disconnected rather than trusting cached rows.
 

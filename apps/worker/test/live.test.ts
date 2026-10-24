@@ -8,6 +8,7 @@ import { connect, type DbConnection } from "@dibs/client";
 import { TIMING, type AnalysisInput, type Findings } from "@dibs/protocol";
 import { all, waitFor } from "../../../packages/cli/src/commands/common.ts";
 import { FakeModelClient } from "../src/model/fake.ts";
+import type { ModelClient } from "../src/model/types.ts";
 import { WorkerLoop } from "../src/worker/loop.ts";
 import { SpacetimeDibsDb } from "../src/worker/spacetime-db.ts";
 import { HealthState } from "../src/http/health.ts";
@@ -51,7 +52,7 @@ describe.skipIf(!uri)("live SpacetimeDB worker", () => {
     });
     return claim(code);
   }
-  async function planned(compatible = false) {
+  async function publishPlans(compatible = false) {
     const before = new Set([...admin.db.lobby.iter()].map((l) => l.id));
     await admin.reducers.createLobby({
       scenario: "worker-regression",
@@ -83,6 +84,9 @@ describe.skipIf(!uri)("live SpacetimeDB worker", () => {
         notes: "",
       });
     }
+  }
+  async function planned(compatible = false) {
+    await publishPlans(compatible);
     return waitFor(() =>
       [...admin.db.job.iter()].find(
         (j) => j.lobbyId === lobbyId && j.state === "queued",
@@ -255,6 +259,61 @@ describe.skipIf(!uri)("live SpacetimeDB worker", () => {
       token: workerToken,
     });
     expect((await analyze()).attempts).toBe(2);
+  });
+  it("leases a queued job on sight, with no rescan, and heartbeats its own name", async () => {
+    const model: ModelClient = {
+      name: "live-fake",
+      analyze: async () => {
+        const job = await waitFor(() =>
+          [...admin.db.job.iter()].find((j) => j.lobbyId === lobbyId),
+        );
+        return {
+          findings: findings(await worker.buildAnalysisInput(job.id)),
+          usage: { inputTokens: 0, outputTokens: 0 },
+          latencyMs: 0,
+          model: "live-fake",
+        };
+      },
+    };
+    // The rescan never fires during the test, so only the job row's update can start the lease.
+    const logs: [string, Record<string, unknown> | undefined][] = [];
+    const loop = new WorkerLoop({
+      db: worker,
+      model,
+      health: new HealthState(),
+      log: (msg, extra) => logs.push([msg, extra]),
+      pollMs: 3_600_000,
+      heartbeatMs: 3_600_000,
+    });
+    loop.start();
+    try {
+      await publishPlans();
+      const job = await waitFor(() =>
+        [...admin.db.job.iter()].find(
+          (j) => j.lobbyId === lobbyId && j.state === "done",
+        ),
+      );
+      const events = [...admin.db.event.iter()].filter(
+        (e) => e.lobbyId === lobbyId && e.subjectId === job.id,
+      );
+      const leasedUs = events.find((e) => e.type === "job_leased")!.atUs;
+      const queuedUs = events
+        .filter((e) => e.type === "job_queued" && e.atUs <= leasedUs)
+        .reduce((last, e) => (e.atUs > last ? e.atUs : last), 0n);
+      expect(queuedUs).toBeGreaterThan(0n);
+      expect(Number(leasedUs - queuedUs) / 1000).toBeLessThan(2000);
+      const beat = await waitFor(() => admin.db.service.name.find("worker"));
+      expect(beat.lastBeatUs).toBeGreaterThan(0n);
+      // Today's module refuses the `analysis` alias (own name only); the worker must recognise
+      // that refusal to back off instead of logging a module ERROR every beat.
+      const refused = logs.find(
+        ([msg, extra]) =>
+          msg === "heartbeat failed" && extra?.name === "analysis",
+      );
+      if (refused) expect(String(refused[1]?.error)).toContain("own name");
+    } finally {
+      loop.stop();
+    }
   });
   it("records deterministic notices when model citations are invalid", async () => {
     const job = await planned();

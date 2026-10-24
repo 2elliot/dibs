@@ -7,7 +7,7 @@
 import { call, connect, DbConnection, tables } from "@dibs/client";
 import type { Findings } from "@dibs/protocol";
 import type { AnalysisInput } from "@dibs/protocol";
-import type { DibsDb, LeasableJob } from "./db.ts";
+import type { DibsDb, LeasableJob, QueuedJob } from "./db.ts";
 import {
   assembleAnalysisInput,
   pickLeasableJob,
@@ -99,6 +99,24 @@ export class SpacetimeDibsDb implements DibsDb {
 
   private requireActive(): void {
     if (!this.conn.isActive) throw new Error("database disconnected");
+  }
+
+  // The SDK applies a whole transaction to the cache before it runs row callbacks, so a listener
+  // that scans the cache sees the queued job together with its lobby's other rows.
+  onJobQueued(listener: (job: QueuedJob) => void): () => void {
+    const notify = (row: RowJob) => {
+      if (row.state === "queued")
+        listener({ jobId: row.id, lobbyId: row.lobbyId });
+    };
+    const onInsert = (_ctx: unknown, row: unknown) => notify(row as RowJob);
+    const onUpdate = (_ctx: unknown, _old: unknown, row: unknown) =>
+      notify(row as RowJob);
+    this.conn.db.job.onInsert(onInsert);
+    this.conn.db.job.onUpdate(onUpdate);
+    return () => {
+      this.conn.db.job.removeOnInsert(onInsert);
+      this.conn.db.job.removeOnUpdate(onUpdate);
+    };
   }
 
   async nextLeasableJob(

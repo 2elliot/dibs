@@ -25,7 +25,8 @@ src/
     server.ts            /health/live, /health/status, /config.json, dashboard static + SPA fallback
   worker/
     db.ts                DibsDb interface (the module slice the worker needs)
-    loop.ts              lease -> analyze -> submit/fail; one call per lobby; heartbeat
+    loop.ts              lease -> analyze -> submit/fail; queued jobs leased on sight, 15 s
+                         rescan for expired leases; one call per lobby; heartbeat
     fake-db.ts           in-memory DibsDb for tests
   cli/analyze.ts         dry-run: print the prompt (+ findings with a key or --fake)
   index.ts               entry: HTTP server + real worker loop with initial connection retry
