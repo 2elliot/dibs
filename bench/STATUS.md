@@ -1,6 +1,6 @@
 # Issue 4 (bench) + issue 5 (dashboard): status
 
-**As of Sat 15:20 PT** · owner: Chris (C, M3 Mac) · branch `issue/4-bench` (PR #13) · dashboard `issue/5-dashboard` (PR #10)
+**As of Sat 15:35 PT** (Elliot's same-page reply folded in) · owner: Chris (C, M3 Mac) · branch `issue/4-bench` (PR #13) · dashboard `issue/5-dashboard` (PR #10)
 
 The bench side is done and checked end to end. It holds the test app, the prompts, the hidden oracle, `dibs verify` and the Droid review. The S2 pilot fails exactly as designed (5/6), and the Droid review names the cause. What's left is wiring it to the shared database and running it on real dibs-mode lobbies.
 
@@ -52,6 +52,29 @@ Droid SDK review of 901 (real Factory account): `auth.session` **violates** (roo
 2. **Droid stops to ask the human** when it's unsure. In trials nobody can answer.
 3. **Each agent finished by saying it couldn't confirm the others' choices.** Claude even wrote out a contract the others "must follow". That's the gap dibs fills: use it in the pitch.
 
+## Same-page replies
+
+**Elliot (issue 3), 15:26: same page, yes.**
+
+| #   | Elliot's finding                                                                                                                                                                                                                                                |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A1  | Correct: seen live. In lobby 1, `dibs session start` pushed `refs/heads/lobby/1/claude`, and `report_head` recorded the same SHA (to a local bare repo, since `dibs-fixture-lobbies` doesn't exist yet).                                                        |
+| A2  | Correct, with a stopgap. Until `dibs-fixture` exists, both machines use base **`f4001dc`** = `git subtree split --prefix=fixture 8e41fb6`, i.e. exactly this `fixture/`. **When `dibs-fixture` is published, push that same commit** so bases match.            |
+| A3  | Correct. Lobby 1 was created with `--manifest fixture/dibs.json --charter bench/prompts/charter-s.md`, and the composed S2/dibs prompts match `manifest.json`. A prompt edit changes the hashes in `infra/E2E_RUNBOOK.md` (issue 3); tell Elliot when it lands. |
+| A4  | **Changed:** the `admin` participant on `dibs-ch13-dev` is on **Elliot's** laptop. The `codex` invite exists; Elliot can create `verifier` and send both to M3 privately.                                                                                       |
+| A5  | Correct. Azure `/config.json` points at `https://maincloud.spacetimedb.com` / `dibs-ch13-dev` (no `lobby`). The deployed dashboard followed lobby 1 live.                                                                                                       |
+
+**Live on `dibs-ch13-dev` (per Elliot):**
+
+- The Azure worker has been connected since 14:02, with the `worker` participant heartbeating.
+- The model is `claude-sonnet-4-6`.
+- The first real analysis ran on lobby 1 at 14:37: 1 attempt, 1578 ms, 0 errors.
+- Proven on the Windows side: a real Claude Code `dibs session`, the startup hook, the bridge, the worker and the dashboard. Steps and the pinned bridge build hash `0f9c811d…` are in `infra/E2E_RUNBOOK.md` on `issue/3-worker`.
+
+**Fixed from Elliot's report (issue 5, `295001f`):** the dashboard's "Analysis online" badge looked for a service row named `analysis`. The worker can only heartbeat under its own name (`worker`), so the badge showed offline. It now reads `worker`, falling back to `analysis`.
+
+**Ren Jie (issues 1, 2):** reply pending.
+
 ## Assumptions this part makes (please confirm or correct)
 
 | #   | Assumption                                                                                                                                                                                                                                                         | Depends on                          |
@@ -80,8 +103,8 @@ Droid SDK review of 901 (real Factory account): `auth.session` **violates** (roo
 
 1. **Ren Jie:** PR #15's live loop with real Claude Code + Codex reached an agreed `auth.session` contract. Great. But it describes files like `auth.js` and `client.js`, which aren't in `fixture/`. Was that run on a scratch app? For trials, `dibs session prep` must clone `dibs-fixture` (this `fixture/`), or verify and the oracle won't apply (A2).
 2. **Ren Jie:** where does `dibs session` put the clone on each machine, and can it be a folder with no sibling checkouts (finding 1)?
-3. **Ren Jie:** please send the `codex` and `verifier` invite codes (privately, not in a PR) and confirm `dibs-ch13-dev` on `https://maincloud.spacetimedb.com`.
-4. **Elliot:** is the worker connected to `dibs-ch13-dev` yet, and which model ID is confirmed?
+3. ~~Invite codes~~: answered. Elliot holds admin and will send `codex` + `verifier` privately.
+4. ~~Worker and model~~: answered. Connected since 14:02, `claude-sonnet-4-6`.
 5. **Both:** anything in A1–A7 that's wrong, or anything you need from issue 4 or 5 (fixture changes, prompt wording, verify/review output fields, dashboard panels)?
 
 Reply in PR #13, or edit this file on `issue/4-bench`.
