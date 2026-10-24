@@ -41,9 +41,11 @@ Its input has three parts:
 
 The output is validated against `REVIEW_SCHEMA` and saved to `results/<id>/review.json` and `review-row.json` (the `record_review` arguments).
 
-There are three runners:
+There are five runners:
 
-- **`sdk`** (default) uses `@factory/droid-sdk/node`, version 0.10.0, which is installed in this workspace. It calls `run(prompt, { cwd, autonomyLevel: AutonomyLevel.Off, outputFormat: { type: "json_schema", schema: REVIEW_SCHEMA } })`, with no `permissionHandler`, and reads `result.structuredOutput`. It needs `droid` on PATH and `FACTORY_API_KEY`.
+- **`auto`** (default) uses `sdk` when `FACTORY_API_KEY` is set, otherwise `claude` when `ANTHROPIC_API_KEY` is set. Otherwise it stops and says which key to set.
+- **`claude`** calls the Anthropic API (`src/review-claude.ts`). The model can't open files, so the assembled code goes in the prompt with line numbers, and one forced tool call returns JSON in the `REVIEW_SCHEMA` shape. The model is `DIBS_REVIEW_MODEL`, else `ANTHROPIC_MODEL`, else `claude-sonnet-4-6` (the same default as the worker). This is the runner to use if the team drops Droid.
+- **`sdk`** uses `@factory/droid-sdk/node`, version 0.10.0, which is installed in this workspace. It calls `run(prompt, { cwd, autonomyLevel: AutonomyLevel.Off, outputFormat: { type: "json_schema", schema: REVIEW_SCHEMA } })`, with no `permissionHandler`, and reads `result.structuredOutput`. It needs `droid` on PATH and `FACTORY_API_KEY`.
 - **`exec`** runs `droid exec --cwd <copy> -f review.md -o json`. Use it only as a fallback, and ask Factory first whether it counts for the prize. It has no schema flag, and exit 0 doesn't mean success, so the JSON is extracted and validated here.
 - **`fake`** is deterministic and offline. It is used by the tests and for dry runs.
 

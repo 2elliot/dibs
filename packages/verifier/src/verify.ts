@@ -276,7 +276,7 @@ async function run(args: string[]): Promise<void> {
       const { reviewLobby, runnerByName } = await import("./review.ts");
       const { findings } = await reviewLobby({
         lobbyId,
-        runner: runnerByName(values.review),
+        runner: await runnerByName(values.review),
         verificationId: verificationId ?? undefined,
         recorder,
       });

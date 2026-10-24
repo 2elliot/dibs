@@ -16,6 +16,7 @@
     "prompts:hash": "tsx ../../bench/scripts/hash-prompts.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^1.3.0",
     "@dibs/client": "*",
     "@dibs/protocol": "*",
     "@factory/droid-sdk": "^0.10.0"

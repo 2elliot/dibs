@@ -1,13 +1,16 @@
-// `dibs review <lobbyId>`: the Droid SDK's clause-by-clause review of the assembled code (plan
-// §7, our Factory entry). Advisory: it never changes the verification's pass/fail.
+// `dibs review <lobbyId>`: a model's clause-by-clause review of the assembled code (plan §7).
+// Advisory: it never changes the verification's pass/fail.
 //
-//   npm run dibs -- review <lobbyId> [--runner sdk|exec|fake] [--contracts <file.json>]
+//   npm run dibs -- review <lobbyId> [--runner auto|claude|sdk|exec|fake] [--contracts <file.json>]
 //
 // Needs a `dibs verify` of the same lobby first (it reads bench/results/<id>/report.json and
 // assembled.diff, and the tree in bench/.work/lobby-<id>/tree).
 //
 // Runners:
-//   sdk  (default) @factory/droid-sdk from /node: autonomyLevel Off, no permission handler (so
+//   auto (default) sdk when FACTORY_API_KEY is set, else claude when ANTHROPIC_API_KEY is set.
+//   claude The Anthropic API (src/review-claude.ts): the code is sent with line numbers, one
+//        forced tool call returns REVIEW_SCHEMA JSON. Model: DIBS_REVIEW_MODEL or ANTHROPIC_MODEL.
+//   sdk  @factory/droid-sdk from /node: autonomyLevel Off, no permission handler (so
 //        every approval request is cancelled), JSON-schema output with REVIEW_SCHEMA. Needs
 //        `droid` on PATH and FACTORY_API_KEY.
 //   exec `droid exec --cwd <copy> -f review.md -o json`. Fallback only: ask Factory whether it
@@ -290,11 +293,26 @@ export class DroidExecRunner implements ReviewRunner {
   }
 }
 
-export function runnerByName(name: string): ReviewRunner {
+/**
+ * `auto` (the default): the Droid SDK when FACTORY_API_KEY is set, else Claude when
+ * ANTHROPIC_API_KEY is set. Otherwise it says what to set (or use --runner fake).
+ */
+export async function runnerByName(name: string): Promise<ReviewRunner> {
+  if (name === "auto") {
+    if (process.env.FACTORY_API_KEY) return new DroidSdkRunner();
+    if (process.env.ANTHROPIC_API_KEY) return runnerByName("claude");
+    throw new Error(
+      "No review model: set FACTORY_API_KEY (Droid) or ANTHROPIC_API_KEY (Claude), or use --runner fake",
+    );
+  }
+  if (name === "claude") {
+    const { ClaudeReviewRunner } = await import("./review-claude.ts");
+    return new ClaudeReviewRunner();
+  }
   if (name === "sdk") return new DroidSdkRunner();
   if (name === "exec") return new DroidExecRunner();
   if (name === "fake") return new FakeReviewRunner();
-  throw new Error(`Unknown runner "${name}" (sdk, exec or fake)`);
+  throw new Error(`Unknown runner "${name}" (auto, claude, sdk, exec or fake)`);
 }
 
 // ---- The command ----------------------------------------------------------------------------
@@ -403,7 +421,7 @@ async function run(args: string[]): Promise<void> {
     args,
     allowPositionals: true,
     options: {
-      runner: { type: "string", default: "sdk" },
+      runner: { type: "string", default: "auto" },
       contracts: { type: "string" },
       kind: { type: "string" },
       "verification-id": { type: "string" },
@@ -413,7 +431,7 @@ async function run(args: string[]): Promise<void> {
   const lobbyId = Number(positionals[0]);
   if (!Number.isInteger(lobbyId) || lobbyId <= 0) {
     console.error(
-      "usage: dibs review <lobbyId> [--runner sdk|exec|fake] [--contracts <file.json: [{key,text,source}]>] [--kind conformance|diagnosis]",
+      "usage: dibs review <lobbyId> [--runner auto|claude|sdk|exec|fake] [--contracts <file.json: [{key,text,source}]>] [--kind conformance|diagnosis]",
     );
     process.exitCode = 2;
     return;
@@ -429,7 +447,7 @@ async function run(args: string[]): Promise<void> {
     result = await reviewLobby({
       recorder,
       lobbyId,
-      runner: runnerByName(values.runner ?? "sdk"),
+      runner: await runnerByName(values.runner ?? "auto"),
       clauses,
       kind: values.kind as ReviewKind | undefined,
       verificationId: values["verification-id"]
