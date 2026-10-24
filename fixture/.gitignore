@@ -1,0 +1,7 @@
+node_modules/
+.claude/
+.codex/
+.factory/
+test-results/
+.DS_Store
+Thumbs.db
