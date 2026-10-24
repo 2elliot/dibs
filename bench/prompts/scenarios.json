@@ -1,0 +1,56 @@
+{
+  "s2": {
+    "label": "Planted",
+    "charter": "charter-s.md",
+    "vocabulary": ["auth.session", "auth.server", "events.registration"],
+    "roles": {
+      "claude": "roles/s2-claude.md",
+      "codex": "roles/s2-codex.md",
+      "droid": "roles/s2-droid.md"
+    },
+    "areas": {
+      "claude": ["src/auth/**", "test/auth/**"],
+      "codex": ["public/**", "!public/index.html", "test/ui/**"],
+      "droid": ["src/events/**", "test/events/**"]
+    },
+    "oracle": true
+  },
+  "s1": {
+    "label": "Natural",
+    "charter": "charter-s.md",
+    "vocabulary": ["auth.session", "auth.server", "events.registration"],
+    "roles": {
+      "claude": "roles/s1-claude.md",
+      "codex": "roles/s1-codex.md",
+      "droid": "roles/s1-droid.md"
+    },
+    "areas": {
+      "claude": ["src/auth/**", "test/auth/**"],
+      "codex": ["public/**", "!public/index.html", "test/ui/**"],
+      "droid": ["src/events/**", "test/events/**"]
+    },
+    "oracle": true
+  },
+  "n": {
+    "label": "Unrelated",
+    "charter": "charter-n.md",
+    "vocabulary": ["docs.links"],
+    "roles": {
+      "claude": "roles/n-claude.md",
+      "codex": "roles/n-codex.md",
+      "droid": "roles/n-droid.md"
+    },
+    "areas": {
+      "claude": ["public/about.html"],
+      "codex": ["src/util/**", "test/util/**"],
+      "droid": ["docs/**"]
+    },
+    "oracle": false
+  },
+  "modes": {
+    "none": "mode-none.md",
+    "chat": "mode-chat.md",
+    "dibs": "mode-dibs.md"
+  },
+  "pilotRemoves": "Call `dibs_plan` once before editing code, with concrete details for each key you produce or require."
+}

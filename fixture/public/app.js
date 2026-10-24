@@ -1,1 +1,1 @@
-// UI logic for public/index.html, loaded as an ES module.
+// Browser behaviour for public/index.html: logging in and registering.

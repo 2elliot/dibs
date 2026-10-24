@@ -1,27 +1,24 @@
-// Frozen: nobody edits this file.
-//
-// Starts the app on 127.0.0.1:$PORT (default 4000; PORT=0 picks a free port).
-// JSON bodies and cookies are parsed for every route. The auth and events routers are
-// mounted at /api, and everything in public/ is served as static files.
-
+// Frozen: nobody edits this file. It wires the three areas together.
 import express from "express";
 import cookieParser from "cookie-parser";
 import { fileURLToPath } from "node:url";
 import authRoutes from "./auth/routes.js";
 import eventRoutes from "./events/routes.js";
 
-export const app = express();
+export function createApp() {
+  const app = express();
+  app.use(express.json());
+  app.use(cookieParser());
+  app.use(express.static(fileURLToPath(new URL("../public", import.meta.url))));
+  app.use(authRoutes);
+  app.use(eventRoutes);
+  app.use("/api", (_req, res) => res.status(404).json({ error: "Not found" }));
+  return app;
+}
 
-app.use(express.json());
-app.use(cookieParser());
-app.use("/api", authRoutes);
-app.use("/api", eventRoutes);
-app.use(express.static(fileURLToPath(new URL("../public", import.meta.url))));
-
-const port = Number(process.env.PORT ?? 4000);
-
-export const server = app.listen(port, "127.0.0.1", () => {
-  const address = server.address();
-  const actual = typeof address === "object" && address ? address.port : port;
-  console.log(`listening on http://127.0.0.1:${actual}`);
-});
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  const port = Number(process.env.PORT ?? 3000);
+  createApp().listen(port, () =>
+    console.log(`Listening on http://localhost:${port}`),
+  );
+}

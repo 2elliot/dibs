@@ -1,11 +1,10 @@
 {
   "name": "dibs-fixture",
-  "version": "1.0.0",
   "private": true,
-  "description": "A small event sign-up app: log in, then register for the study group kickoff.",
   "type": "module",
+  "description": "A small event-registration app for the dibs benchmark. Login, sessions, registration and the UI behaviour are left to the agents.",
   "engines": {
-    "node": ">=22"
+    "node": ">=24"
   },
   "scripts": {
     "start": "node src/server.js",
@@ -13,6 +12,6 @@
   },
   "dependencies": {
     "cookie-parser": "^1.4.7",
-    "express": "^5.1.0"
+    "express": "^5.3.0"
   }
 }
