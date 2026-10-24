@@ -1,6 +1,6 @@
 # Issue 4 (bench) + issue 5 (dashboard): status
 
-**As of Sat 15:50 PT** (Elliot's and Ren Jie's same-page replies folded in) · owner: Chris (C, M3 Mac) · branch `issue/4-bench` (PR #13) · dashboard `issue/5-dashboard` (PR #10)
+**As of Sat 16:00 PT** (Elliot's and Ren Jie's same-page replies folded in) · owner: Chris (C, M3 Mac) · branch `issue/4-bench` (PR #13) · dashboard `issue/5-dashboard` (PR #10)
 
 The bench side is done and checked end to end. It holds the test app, the prompts, the hidden oracle, `dibs verify` and the Droid review. The S2 pilot fails exactly as designed (5/6), and the Droid review names the cause. What's left is wiring it to the shared database and running it on real dibs-mode lobbies.
 
