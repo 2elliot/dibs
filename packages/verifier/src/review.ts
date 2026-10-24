@@ -322,9 +322,14 @@ export async function reviewLobby(options: {
   const tree = assembledTreePath(options.work ?? workDir(), options.lobbyId);
   if (!existsSync(tree))
     throw new Error(`No assembled tree at ${tree}: run dibs verify again`);
-  const clauses = options.clauses?.length
+  let clauses: Clause[] | undefined = options.clauses?.length
     ? options.clauses
-    : charterClauses(options.manifest ?? loadManifest(fixtureDir));
+    : undefined;
+  if (!clauses && options.recorder) {
+    const contracts = await options.recorder.currentContracts(options.lobbyId);
+    if (contracts?.length) clauses = contracts;
+  }
+  clauses ??= charterClauses(options.manifest ?? loadManifest(fixtureDir));
   const kind: ReviewKind =
     options.kind ??
     (report.passed === report.total ? "conformance" : "diagnosis");
@@ -360,17 +365,26 @@ export async function reviewLobby(options: {
     reviewPath,
     `${JSON.stringify({ lobbyId: options.lobbyId, kind, runner: options.runner.name, model: output.model, sessionId: output.sessionId, findings }, null, 2)}\n`,
   );
+  const ownRecorder = !options.recorder;
   const recorder = options.recorder ?? (await createRecorder(results));
-  await recorder.recordReview({
-    lobbyId: options.lobbyId,
-    verificationId: options.verificationId ?? 0,
-    kind,
-    summary: findings.summary,
-    findingsJson: JSON.stringify(findings),
-    model: output.model,
-    sessionId: output.sessionId,
-  });
-  return { findings, reviewPath };
+  try {
+    const verificationId =
+      options.verificationId ??
+      (await recorder.latestVerificationId(options.lobbyId)) ??
+      0;
+    await recorder.recordReview({
+      lobbyId: options.lobbyId,
+      verificationId,
+      kind,
+      summary: findings.summary,
+      findingsJson: JSON.stringify(findings),
+      model: output.model,
+      sessionId: output.sessionId,
+    });
+    return { findings, reviewPath };
+  } finally {
+    if (ownRecorder) recorder.close();
+  }
 }
 
 export async function main(args: string[]): Promise<void> {
@@ -393,6 +407,7 @@ async function run(args: string[]): Promise<void> {
       contracts: { type: "string" },
       kind: { type: "string" },
       "verification-id": { type: "string" },
+      local: { type: "boolean", default: false },
     },
   });
   const lobbyId = Number(positionals[0]);
@@ -406,15 +421,25 @@ async function run(args: string[]): Promise<void> {
   const clauses = values.contracts
     ? (JSON.parse(readFileSync(values.contracts, "utf8")) as Clause[])
     : undefined;
-  const { findings, reviewPath } = await reviewLobby({
-    lobbyId,
-    runner: runnerByName(values.runner ?? "sdk"),
-    clauses,
-    kind: values.kind as ReviewKind | undefined,
-    verificationId: values["verification-id"]
-      ? Number(values["verification-id"])
-      : undefined,
+  const recorder = await createRecorder(resultsDir(lobbyId), {
+    local: values.local,
   });
+  let result: Awaited<ReturnType<typeof reviewLobby>>;
+  try {
+    result = await reviewLobby({
+      recorder,
+      lobbyId,
+      runner: runnerByName(values.runner ?? "sdk"),
+      clauses,
+      kind: values.kind as ReviewKind | undefined,
+      verificationId: values["verification-id"]
+        ? Number(values["verification-id"])
+        : undefined,
+    });
+  } finally {
+    recorder.close();
+  }
+  const { findings, reviewPath } = result;
   console.log(findings.summary);
   for (const clause of findings.clauses) {
     console.log(`  ${clause.verdict.padEnd(14)} ${clause.key}`);

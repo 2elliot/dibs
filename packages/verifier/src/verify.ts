@@ -99,100 +99,112 @@ export async function verifyLobby(options: VerifyOptions): Promise<{
     (existsSync(join(benchDir, "oracle.hash"))
       ? readFileSync(join(benchDir, "oracle.hash"), "utf8").trim()
       : undefined);
+  const ownRecorder = !options.recorder;
   const recorder = options.recorder ?? (await createRecorder(results));
-  mkdirSync(results, { recursive: true });
+  log(`recording: ${recorder.description}`);
+  try {
+    mkdirSync(results, { recursive: true });
 
-  // 1. Fetch the heads.
-  const cacheGitDir = join(work, "lobbies.git");
-  const heads = fetchHeads(options.remote, options.lobbyId, cacheGitDir);
-  const providers = Object.keys(heads) as Provider[];
-  if (providers.length === 0) {
-    throw new Error(
-      `No lobby/${options.lobbyId}/<provider> branches in ${options.remote}`,
-    );
-  }
-  const missingProviders = (["claude", "codex", "droid"] as Provider[]).filter(
-    (p) => !heads[p],
-  );
-  if (missingProviders.length) {
-    log(`warning: no head for ${missingProviders.join(", ")}`);
-  }
-  const baseSha = options.baseSha ?? commonBase(cacheGitDir, heads);
-  log(
-    `lobby ${options.lobbyId}: base ${baseSha.slice(0, 10)}, heads ${providers.join(", ")}`,
-  );
-
-  // 2. Assemble by area; merge-tree is info only.
-  const tree = assembledTreePath(work, options.lobbyId);
-  const assembly = assemble({ cacheGitDir, baseSha, heads, manifest, tree });
-  const clean = mergeTreeClean(
-    cacheGitDir,
-    heads,
-    join(work, `merge-${randomUUID()}`),
-  );
-  writeFileSync(join(results, "assembled.diff"), assembledDiff(tree, baseSha));
-  for (const provider of providers) {
-    const outside = assembly.outOfArea[provider] ?? [];
-    if (outside.length) {
-      log(
-        `${provider}: ${outside.length} out-of-area file(s) ignored: ${outside.join(", ")}`,
+    // 1. Fetch the heads.
+    const cacheGitDir = join(work, "lobbies.git");
+    const heads = fetchHeads(options.remote, options.lobbyId, cacheGitDir);
+    const providers = Object.keys(heads) as Provider[];
+    if (providers.length === 0) {
+      throw new Error(
+        `No lobby/${options.lobbyId}/<provider> branches in ${options.remote}`,
       );
     }
-  }
-
-  // 3. Decrypt the oracle into a temp dir, check its hash, run it on a fresh port.
-  linkFixtureModules(tree, fixture);
-  // Always inside the repo (bench/.work), so the oracle resolves the root @playwright/test.
-  const oracleTmp = join(workDir(), `oracle-${randomUUID()}`);
-  let oracleHash: string;
-  let run: Awaited<ReturnType<typeof runOracle>>;
-  try {
-    oracleHash = unpack(
-      oracleEnc,
-      oracleTmp,
-      options.key ?? loadKey(),
-      expectHash,
+    const missingProviders = (
+      ["claude", "codex", "droid"] as Provider[]
+    ).filter((p) => !heads[p]);
+    if (missingProviders.length) {
+      log(`warning: no head for ${missingProviders.join(", ")}`);
+    }
+    const baseSha =
+      options.baseSha ??
+      (await recorder.lobbyBaseSha(options.lobbyId)) ??
+      commonBase(cacheGitDir, heads);
+    log(
+      `lobby ${options.lobbyId}: base ${baseSha.slice(0, 10)}, heads ${providers.join(", ")}`,
     );
-    run = await runOracle(join(oracleTmp, "oracle.test.mjs"), tree, {
-      timeoutMs: options.timeoutMs ?? ORACLE_TIMEOUT_MS,
-    });
-  } finally {
-    rmSync(oracleTmp, { recursive: true, force: true });
-  }
-  const { output, ...oracle } = run;
-  writeFileSync(join(results, "oracle.log"), output);
 
-  // 4. Report, then record_verification.
-  const report: VerifyReport = {
-    lobbyId: options.lobbyId,
-    baseSha,
-    assembledFrom: assembly.assembledFrom,
-    missingProviders,
-    applied: assembly.applied,
-    outOfArea: assembly.outOfArea,
-    treeHash: assembly.treeHash,
-    mergeTreeClean: clean,
-    oracleHash,
-    ...oracle,
-    verifiedAt: new Date().toISOString(),
-    verifier: hostname(),
-  };
-  const reportPath = join(results, "report.json");
-  const reportText = `${JSON.stringify(report, null, 2)}\n`;
-  writeFileSync(reportPath, reportText);
-  const verificationId = await recorder.recordVerification(
-    verificationRow(options.lobbyId, assembly.assembledFrom, {
+    // 2. Assemble by area; merge-tree is info only.
+    const tree = assembledTreePath(work, options.lobbyId);
+    const assembly = assemble({ cacheGitDir, baseSha, heads, manifest, tree });
+    const clean = mergeTreeClean(
+      cacheGitDir,
+      heads,
+      join(work, `merge-${randomUUID()}`),
+    );
+    writeFileSync(
+      join(results, "assembled.diff"),
+      assembledDiff(tree, baseSha),
+    );
+    for (const provider of providers) {
+      const outside = assembly.outOfArea[provider] ?? [];
+      if (outside.length) {
+        log(
+          `${provider}: ${outside.length} out-of-area file(s) ignored: ${outside.join(", ")}`,
+        );
+      }
+    }
+
+    // 3. Decrypt the oracle into a temp dir, check its hash, run it on a fresh port.
+    linkFixtureModules(tree, fixture);
+    // Always inside the repo (bench/.work), so the oracle resolves the root @playwright/test.
+    const oracleTmp = join(workDir(), `oracle-${randomUUID()}`);
+    let oracleHash: string;
+    let run: Awaited<ReturnType<typeof runOracle>>;
+    try {
+      oracleHash = unpack(
+        oracleEnc,
+        oracleTmp,
+        options.key ?? loadKey(),
+        expectHash,
+      );
+      run = await runOracle(join(oracleTmp, "oracle.test.mjs"), tree, {
+        timeoutMs: options.timeoutMs ?? ORACLE_TIMEOUT_MS,
+      });
+    } finally {
+      rmSync(oracleTmp, { recursive: true, force: true });
+    }
+    const { output, ...oracle } = run;
+    writeFileSync(join(results, "oracle.log"), output);
+
+    // 4. Report, then record_verification.
+    const report: VerifyReport = {
+      lobbyId: options.lobbyId,
+      baseSha,
+      assembledFrom: assembly.assembledFrom,
+      missingProviders,
+      applied: assembly.applied,
+      outOfArea: assembly.outOfArea,
       treeHash: assembly.treeHash,
-      mergeTreeClean: clean ?? true,
+      mergeTreeClean: clean,
       oracleHash,
-      exitCode: report.exitCode,
-      passed: report.passed,
-      total: report.total,
-      reportHash: sha256(reportText),
-    }),
-  );
-  if (verificationId !== null) await recorder.markVerified(options.lobbyId);
-  return { report, reportPath, verificationId };
+      ...oracle,
+      verifiedAt: new Date().toISOString(),
+      verifier: hostname(),
+    };
+    const reportPath = join(results, "report.json");
+    const reportText = `${JSON.stringify(report, null, 2)}\n`;
+    writeFileSync(reportPath, reportText);
+    const verificationId = await recorder.recordVerification(
+      verificationRow(options.lobbyId, assembly.assembledFrom, {
+        treeHash: assembly.treeHash,
+        mergeTreeClean: clean ?? true,
+        oracleHash,
+        exitCode: report.exitCode,
+        passed: report.passed,
+        total: report.total,
+        reportHash: sha256(reportText),
+      }),
+    );
+    if (verificationId !== null) await recorder.markVerified(options.lobbyId);
+    return { report, reportPath, verificationId };
+  } finally {
+    if (ownRecorder) recorder.close();
+  }
 }
 
 export async function main(args: string[]): Promise<void> {
@@ -215,6 +227,8 @@ async function run(args: string[]): Promise<void> {
       base: { type: "string" },
       "expect-hash": { type: "string" },
       json: { type: "boolean", default: false },
+      local: { type: "boolean", default: false },
+      review: { type: "string" },
     },
   });
   const lobbyId = Number(positionals[0]);
@@ -226,7 +240,11 @@ async function run(args: string[]): Promise<void> {
     process.exitCode = 2;
     return;
   }
-  const { report, reportPath } = await verifyLobby({
+  const results = resultsDir(lobbyId);
+  mkdirSync(results, { recursive: true });
+  const recorder = await createRecorder(results, { local: values.local });
+  const { report, reportPath, verificationId } = await verifyLobby({
+    recorder,
     lobbyId,
     remote:
       /^[a-z]+:\/\//i.test(remote) || remote.includes("@")
@@ -251,6 +269,21 @@ async function run(args: string[]): Promise<void> {
         console.log(`  ${provider}: out of area ${files.join(", ")}`);
     }
     console.log(`report: ${reportPath}`);
+  }
+  try {
+    // Demo lobbies: review straight away (`--review sdk|exec|fake`).
+    if (values.review) {
+      const { reviewLobby, runnerByName } = await import("./review.ts");
+      const { findings } = await reviewLobby({
+        lobbyId,
+        runner: runnerByName(values.review),
+        verificationId: verificationId ?? undefined,
+        recorder,
+      });
+      console.log(`review: ${findings.summary}`);
+    }
+  } finally {
+    recorder.close();
   }
   process.exitCode = report.passed === report.total ? 0 : 1;
 }

@@ -10,7 +10,7 @@ npm run dibs -- verify <lobbyId> --remote <dibs-fixture-lobbies URL or local pat
 
 1. It fetches `lobby/<id>/{claude,codex,droid}` into a cache repo at `bench/.work/lobbies.git`. `DIBS_LOBBIES_REMOTE` can stand in for `--remote`.
 2. It assembles a fresh worktree at the base, by area, using `fixture/dibs.json`. Each head contributes only the changes inside its own area. Deletes apply, and frozen files never change. Anything outside the area is ignored and listed as `outOfArea`.
-   - The base defaults to the heads' common ancestor. After `[module-ready]` it comes from `lobby.baseSha`.
+   - The base is `lobby.baseSha` when this machine has joined as the verifier (see below). Otherwise it is the heads' common ancestor, or `--base`.
 3. It records whether `git merge-tree --write-tree` of the heads would merge cleanly. This is information only. On git older than 2.38 it falls back to an octopus merge in a throwaway worktree.
 4. It decrypts `bench/oracle.enc` into `bench/.work/oracle-<uuid>` and checks the hash against `bench/oracle.hash`.
 5. It runs the six checks: app on 4140–4149, Chromium from the root `@playwright/test`, 5-minute timeout.
@@ -68,6 +68,21 @@ The tests build a local repo whose `lobby/1..3/<provider>` branches come from th
 - **Key.** It lives only on M3 at `~/.dibs/oracle.key`, so back it up. At 22:45, publish `bench/oracle/` so judges can check it against `oracle.hash`.
 - **Run on Windows.** On M1 or M2, after `npm install`, `npm ci --prefix fixture` and `npx playwright install chromium`, run `npx tsx bench/scripts/oracle-unpack.ts`, then `npx tsx bench/scripts/check-oracle.ts`. This needs the key, so copy it over temporarily with `DIBS_ORACLE_KEY` and don't save it.
 
-## Phase B (after issue 1's `[module-ready]`)
+## Recording to the database
 
-`createRecorder()` in `src/record.ts` will get a database recorder that uses `@dibs/client` and the verifier's token. Until then, the reducer arguments are written as `verification.json` and `review-row.json`, ready to replay into the database.
+With `[module-ready]` merged, both commands record through `@dibs/client` when this machine has joined as the verifier:
+
+```sh
+npm run dibs -- join --uri <db uri> --db <db name> --participant verifier --code <verifier invite code>
+```
+
+The participant name comes from `DIBS_VERIFIER` and defaults to `verifier`. With that token, these steps are added:
+
+- **`dibs verify`** reads `lobby.baseSha`, calls `record_verification`, then `mark_verified`.
+- **`dibs review`** uses the lobby's current contracts as the clauses, and the newest verification id. It then calls `record_review`.
+
+Without the token, or with `--local`, the reducer arguments are only written to `results/<id>/`.
+
+`dibs verify <id> --review sdk|exec|fake` reviews straight away. This is for demo lobbies; benchmark reviews are batched at 21:00.
+
+The database path is type-checked against the generated bindings but **not yet run against a live server**. This machine had no SpacetimeDB. The first real check is one `dibs sim` lobby with a verifier invite.

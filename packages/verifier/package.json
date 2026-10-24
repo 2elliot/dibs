@@ -16,6 +16,7 @@
     "prompts:hash": "tsx ../../bench/scripts/hash-prompts.ts"
   },
   "dependencies": {
+    "@dibs/client": "*",
     "@dibs/protocol": "*",
     "@factory/droid-sdk": "^0.10.0"
   }
