@@ -4,11 +4,14 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "typecheck": "tsc --noEmit -p .",
+    "typecheck": "tsc --noEmit -p . && tsc --noEmit -p tsconfig.test.json",
     "test": "vitest run --config vitest.config.ts"
   },
   "dependencies": {
-    "spacetimedb": "^2.13.0",
-    "@dibs/protocol": "*"
+    "@dibs/protocol": "*",
+    "spacetimedb": "^2.13.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2"
   }
 }

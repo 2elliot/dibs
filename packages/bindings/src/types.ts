@@ -178,6 +178,12 @@ export const PlanItem = __t.object("PlanItem", {
 });
 export type PlanItem = __Infer<typeof PlanItem>;
 
+export const PresenceConnection = __t.object("PresenceConnection", {
+  connectionId: __t.connectionId(),
+  identity: __t.identity(),
+});
+export type PresenceConnection = __Infer<typeof PresenceConnection>;
+
 export const Proposal = __t.object("Proposal", {
   id: __t.u32(),
   slot: __t.string(),
