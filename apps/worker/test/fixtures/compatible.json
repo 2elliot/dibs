@@ -1,0 +1,59 @@
+{
+  "lobbyId": 2,
+  "jobId": 20,
+  "jobKind": "analyze",
+  "inputKey": "p:1,2;r:",
+  "charter": "Implement POST /api/login, GET /api/me, POST /api/events/:eventId/registrations. Use exactly one session transport. Shared interfaces: auth.session, auth.server, events.registration.",
+  "vocabulary": [
+    {
+      "key": "auth.session",
+      "description": "How login establishes a session and how /api/me reads it (client transport)."
+    },
+    {
+      "key": "auth.server",
+      "description": "The helper other routes call to get the current user; name and signature."
+    },
+    {
+      "key": "events.registration",
+      "description": "POST registration request/response/errors the UI relies on."
+    }
+  ],
+  "items": [
+    {
+      "id": 1,
+      "planId": 1,
+      "planRevision": 1,
+      "participantId": 1,
+      "participant": "claude",
+      "provider": "claude",
+      "kind": "produces",
+      "key": "auth.server",
+      "text": "Export currentUser(req) from src/auth/index.js returning {id,email} or null."
+    },
+    {
+      "id": 2,
+      "planId": 3,
+      "planRevision": 1,
+      "participantId": 3,
+      "participant": "droid",
+      "provider": "droid",
+      "kind": "requires",
+      "key": "auth.server",
+      "text": "events route calls currentUser(req) from src/auth/index.js; expects {id,email} or null when unauthenticated."
+    }
+  ],
+  "contracts": [],
+  "openProposals": [],
+  "rejections": [],
+  "recordedFindings": {
+    "findings": [
+      {
+        "key": "auth.server",
+        "relation": "compatible",
+        "citedItemIds": [1, 2],
+        "explanation": "claude exports currentUser(req) returning {id,email} or null; droid's events route consumes exactly that. The plans already agree; no change needed.",
+        "contractText": "src/auth/index.js exports currentUser(req): {id:string,email:string} | null. It returns the authenticated user or null. The events route treats null as unauthenticated (401)."
+      }
+    ]
+  }
+}
