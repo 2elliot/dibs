@@ -1,0 +1,146 @@
+{
+  "s2-bearer-vs-cookie": {
+    "claude": {
+      "goal": "Implement login, /api/me and the current-user helper in src/auth.",
+      "produces": [
+        {
+          "key": "auth.session",
+          "text": "POST /api/login with {email,password} returns 200 {token} (random opaque token stored in store.sessions). Clients send it as Authorization: Bearer <token>. GET /api/me returns 200 {id,email} for a valid bearer token, 401 otherwise. No cookies are set."
+        },
+        {
+          "key": "auth.server",
+          "text": "src/auth/index.js exports requireUser(req, res, next): reads Authorization: Bearer <token>, sets req.user = {id,email} and calls next(); responds 401 {error} when the header is missing or the token is unknown."
+        }
+      ],
+      "requires": [],
+      "notes": "Bearer tokens are my tentative default; I can switch to a cookie if the UI needs it."
+    },
+    "codex": {
+      "goal": "Implement public/app.js: log in from the form, then register for the event and show the status.",
+      "produces": [],
+      "requires": [
+        {
+          "key": "auth.session",
+          "text": "POST /api/login sets an httpOnly session cookie; same-origin fetch sends it automatically, so the UI never stores or sends a token."
+        },
+        {
+          "key": "events.registration",
+          "text": "POST /api/events/<data-event-id>/registrations with no body returns 201 on success and 409 if already registered; 401 when not logged in."
+        }
+      ],
+      "notes": "Cookie session is my tentative default."
+    },
+    "droid": {
+      "goal": "Implement POST /api/events/:eventId/registrations in src/events.",
+      "produces": [
+        {
+          "key": "events.registration",
+          "text": "POST /api/events/:eventId/registrations (no body). 201 {id,eventId,userId} with a new UUID id; 409 {error} if this user is already registered; 404 {error} for an unknown event; 401 {error} when not logged in."
+        }
+      ],
+      "requires": [
+        {
+          "key": "auth.server",
+          "text": "A middleware exported from src/auth/index.js that sets req.user {id,email} or responds 401."
+        }
+      ],
+      "notes": ""
+    }
+  },
+  "s2-helper-name-mismatch": {
+    "claude": {
+      "goal": "Implement auth with an httpOnly cookie session.",
+      "produces": [
+        {
+          "key": "auth.session",
+          "text": "POST /api/login sets an httpOnly cookie sid=<random id> and returns 200 {id,email}; GET /api/me returns 200 {id,email} from the cookie, 401 without it."
+        },
+        {
+          "key": "auth.server",
+          "text": "src/auth/index.js exports getCurrentUser(req): returns {id,email} or null. Callers decide how to respond."
+        }
+      ],
+      "requires": [],
+      "notes": ""
+    },
+    "codex": {
+      "goal": "Implement the page behaviour in public/app.js.",
+      "produces": [],
+      "requires": [
+        {
+          "key": "auth.session",
+          "text": "Login sets an httpOnly cookie; the UI relies on same-origin fetch sending it."
+        },
+        {
+          "key": "events.registration",
+          "text": "201 means registered, 409 means already registered, 401 means not logged in."
+        }
+      ],
+      "notes": ""
+    },
+    "droid": {
+      "goal": "Implement event registration.",
+      "produces": [
+        {
+          "key": "events.registration",
+          "text": "POST /api/events/:eventId/registrations returns 201 {id,eventId,userId}, 409 on a repeat, 404 unknown event, 401 unauthenticated."
+        }
+      ],
+      "requires": [
+        {
+          "key": "auth.server",
+          "text": "src/auth/index.js exports requireUser as Express middleware that sets req.user and sends 401 itself."
+        }
+      ],
+      "notes": ""
+    }
+  },
+  "s2-status-code-mismatch": {
+    "claude": {
+      "goal": "Implement cookie auth.",
+      "produces": [
+        {
+          "key": "auth.session",
+          "text": "httpOnly cookie sid set by POST /api/login (200 {id,email}); GET /api/me 200 {id,email} or 401."
+        },
+        {
+          "key": "auth.server",
+          "text": "src/auth/index.js exports requireUser(req,res,next) middleware: sets req.user or responds 401."
+        }
+      ],
+      "requires": [],
+      "notes": ""
+    },
+    "codex": {
+      "goal": "Implement the UI.",
+      "produces": [],
+      "requires": [
+        {
+          "key": "auth.session",
+          "text": "Cookie session sent automatically by same-origin fetch."
+        },
+        {
+          "key": "events.registration",
+          "text": "A repeat registration returns 200 {alreadyRegistered:true}; the UI shows \"Already registered\" when that flag is set."
+        }
+      ],
+      "notes": ""
+    },
+    "droid": {
+      "goal": "Implement registration.",
+      "produces": [
+        {
+          "key": "events.registration",
+          "text": "201 {id,eventId,userId} on success; 409 {error:\"Already registered\"} on a repeat; 404 unknown event; 401 unauthenticated."
+        }
+      ],
+      "requires": [
+        {
+          "key": "auth.server",
+          "text": "requireUser middleware from src/auth/index.js."
+        }
+      ],
+      "notes": ""
+    }
+  }
+}

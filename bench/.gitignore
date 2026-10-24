@@ -1,0 +1,4 @@
+# Scratch space and keys. The root .gitignore already covers oracle/ and results/.
+.work/
+.oracle-key
+*.key
