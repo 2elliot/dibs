@@ -10,17 +10,25 @@ Coordination for a team whose developers each run a different coding agent (Clau
 
 Work is split into five GitHub issues. Each owns its paths; only edit yours.
 
-| Issue       | Owns                                                                                        |
-| ----------- | ------------------------------------------------------------------------------------------- |
-| 1 State     | `spacetime/`, `packages/bindings/`, `packages/cli/` (except the dispatcher's command table) |
-| 2 Agents    | `packages/bridge/` (MCP bridge, `dibs-hook.mjs`, `dibs session`, provider configs)          |
-| 3 Worker    | `apps/worker/`, `infra/`                                                                    |
-| 4 Bench     | `fixture/`, `bench/`, `packages/verifier/`                                                  |
-| 5 Dashboard | `apps/dashboard/`                                                                           |
+| Issue       | Owns                                                                                                                                                         |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 1 State     | `spacetime/`, `packages/bindings/`, `packages/client/` (connection + JSON helpers everyone imports), `packages/cli/` (except the dispatcher's command table) |
+| 2 Agents    | `packages/bridge/` (MCP bridge, `dibs-hook.mjs`, `dibs session`, provider configs)                                                                           |
+| 3 Worker    | `apps/worker/`, `infra/`                                                                                                                                     |
+| 4 Bench     | `fixture/`, `bench/`, `packages/verifier/`                                                                                                                   |
+| 5 Dashboard | `apps/dashboard/`                                                                                                                                            |
 
 **Frozen (contract zone):** `docs/API.md`, `packages/protocol/`, root `package.json` scripts, `tsconfig.base.json`, this file. Don't edit them in a feature branch. Need a change? Write it under **Needs** in your PR description and work around it locally.
 
 Add dependencies only to your own workspace: `npm install <pkg> -w <your workspace>`. Lockfile conflicts between branches are expected; resolve them by taking the base lockfile and re-running `npm install`.
+
+## Working in parallel
+
+Each issue has its own branch off `real`: `issue/1-state`, `issue/2-agents`, `issue/3-worker`, `issue/4-bench`, `issue/5-dashboard`. All worktrees share one repository, so local branches are visible to everyone.
+
+- Issue 1 marks milestones with commit messages containing `[module-ready]` (module publishes, bindings generated, `@dibs/client` connects) and `[sim-ready]` (`npm run dibs -- sim` runs end to end). Check with `git log issue/1-state --oneline --grep "module-ready"`.
+- Until then, build against `docs/API.md` and `packages/protocol` with local fakes. Once the milestone exists, `git merge issue/1-state` into your branch and do the real integration. Merge it again later to pick up fixes.
+- Never commit to another issue's branch, `real` or `main`. Never force-push.
 
 ## Shared machine resources (several agents run on this machine at once)
 
