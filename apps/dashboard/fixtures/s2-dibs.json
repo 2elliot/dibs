@@ -1,0 +1,79 @@
+{
+  "protocolVersion": 1,
+  "label": "S2 / dibs / trial 1",
+  "lobbyId": 51,
+  "exportedAtUs": 1792829780000000,
+  "tables": {
+    "lobby": [{"id":51,"scenario":"S2 — auth session transport","mode":"dibs","baseSha":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","vocabulary":["auth.session","auth.server","events.registration"],"vocabularyJson":"[{\"key\":\"auth.session\",\"description\":\"Single session transport and current user endpoint\"},{\"key\":\"auth.server\",\"description\":\"Server authentication middleware\"},{\"key\":\"events.registration\",\"description\":\"Event registration API contract\"}]","charter":"Implement auth.session with exactly one transport and /api/me; use the shared requireUser helper for auth.server; preserve the events.registration status and payload contract.","buildHash":"bench-v1","state":"verified","analyzeAnywayFired":false,"createdAtUs":1792828800000000,"startedAtUs":1792828800000000,"fallbackAtUs":1792829160000000,"endsAtUs":1792830000000000}],
+    "participant": [
+      {"id":1,"identity":"claude-identity","name":"Claude","provider":"claude","role":"agent","online":true,"buildHash":"bench-v1","currentLobbyId":51},
+      {"id":2,"identity":"codex-identity","name":"Codex","provider":"codex","role":"agent","online":true,"buildHash":"bench-v1","currentLobbyId":51},
+      {"id":3,"identity":"droid-identity","name":"Droid","provider":"droid","role":"agent","online":true,"buildHash":"bench-v1","currentLobbyId":51},
+      {"id":4,"identity":"verifier-identity","name":"Verifier","provider":"droid","role":"verifier","online":true,"buildHash":"bench-v1","currentLobbyId":51}
+    ],
+    "plan": [
+      {"id":101,"lobbyId":51,"participantId":1,"revision":1,"goal":"Implement bearer login and the authentication middleware.","notes":"S2 planted transport conflict","requestId":"plan-c","current":true,"createdAtUs":1792828860000000},
+      {"id":102,"lobbyId":51,"participantId":2,"revision":1,"goal":"Implement the browser session and current user view.","notes":"S2 planted transport conflict","requestId":"plan-x","current":true,"createdAtUs":1792828890000000},
+      {"id":103,"lobbyId":51,"participantId":3,"revision":1,"goal":"Implement event registration and consume the shared auth helper.","notes":"","requestId":"plan-d","current":true,"createdAtUs":1792828920000000}
+    ],
+    "plan_item": [
+      {"id":201,"planId":101,"lobbyId":51,"participantId":1,"kind":"produces","key":"auth.session","text":"Login returns {token}; send it as Authorization: Bearer <token> on every request.","current":true},
+      {"id":202,"planId":102,"lobbyId":51,"participantId":2,"kind":"requires","key":"auth.session","text":"Use an httpOnly cookie, sent automatically by same-origin fetch.","current":true},
+      {"id":203,"planId":103,"lobbyId":51,"participantId":3,"kind":"produces","key":"events.registration","text":"POST /api/events/:eventId/registrations → 201 {id,eventId,userId}; 409 on a repeat; 404 for an unknown event; 401 when unauthenticated.","current":true},
+      {"id":204,"planId":103,"lobbyId":51,"participantId":3,"kind":"requires","key":"auth.server","text":"Use a requireUser middleware from src/auth/index.js.","current":true},
+      {"id":205,"planId":101,"lobbyId":51,"participantId":1,"kind":"produces","key":"auth.server","text":"Use a requireUser middleware from src/auth/index.js.","current":true}
+    ],
+    "message": [],
+    "job": [{"id":301,"slot":"51","lobbyId":51,"kind":"revise","state":"done","inputKey":"p:101,102,103;r:401","leaseToken":"","leaseExpiresUs":0,"attempts":2,"calls":2,"error":"","updatedAtUs":1792829220000000}],
+    "proposal": [
+      {"id":401,"slot":"closed/401","lobbyId":51,"key":"auth.session","revision":1,"relation":"conflict","contractText":"Use the bearer token everywhere; the UI stores {token} and sends Authorization: Bearer <token>.","rationale":"Claude plans a bearer token and Codex plans a browser cookie for the same session interface.","citedItemIds":[201,202],"requiredPartyIds":[1,2],"state":"rejected","inputKey":"p:101,102,103;r:","createdAtUs":1792829040000000,"closedAtUs":1792829100000000},
+      {"id":402,"slot":"closed/402","lobbyId":51,"key":"auth.session","revision":2,"relation":"conflict","contractText":"Use one transport, an httpOnly session cookie set by POST /api/login. GET /api/me reads it. Same-origin fetch sends it, and no Authorization header is used.","rationale":"Codex rejected rev 1 because page JavaScript should not keep the token; the revised contract uses one cookie transport.","citedItemIds":[201,202],"requiredPartyIds":[1,2],"state":"accepted","inputKey":"p:101,102,103;r:401","createdAtUs":1792829160000000,"closedAtUs":1792829220000000}
+    ],
+    "response": [
+      {"id":501,"lobbyId":51,"proposalId":401,"revision":1,"participantId":1,"decision":"accept","reason":"","requestId":"r1","createdAtUs":1792829070000000},
+      {"id":502,"lobbyId":51,"proposalId":401,"revision":1,"participantId":2,"decision":"reject","reason":"Prefer not to keep tokens in page JS; the cookie needs no client code.","requestId":"r2","createdAtUs":1792829100000000},
+      {"id":503,"lobbyId":51,"proposalId":402,"revision":2,"participantId":1,"decision":"accept","reason":"One cookie transport works for the browser flow.","requestId":"r3","createdAtUs":1792829190000000},
+      {"id":504,"lobbyId":51,"proposalId":402,"revision":2,"participantId":2,"decision":"accept","reason":"The agreed interface uses one transport.","requestId":"r4","createdAtUs":1792829220000000}
+    ],
+    "contract": [
+      {"id":601,"lobbyId":51,"key":"auth.session","revision":2,"text":"Use one transport, an httpOnly session cookie set by POST /api/login. GET /api/me reads it. Same-origin fetch sends it, and no Authorization header is used.","source":"agreed","proposalId":402,"basisItemIds":[201,202],"current":true,"createdAtUs":1792829220000000},
+      {"id":602,"lobbyId":51,"key":"auth.server","revision":1,"text":"Use a requireUser middleware from src/auth/index.js.","source":"aligned","proposalId":null,"basisItemIds":[204,205],"current":true,"createdAtUs":1792829000000000}
+    ],
+    "delivery": [
+      {"id":701,"lobbyId":51,"targetId":1,"kind":"proposal","refId":401,"summary":"Proposal rev 1 for auth.session awaits your response.","stage":"responded","queuedAtUs":1792829040000000,"receivedAtUs":1792829045000000,"shownAtUs":1792829050000000,"respondedAtUs":1792829070000000},
+      {"id":702,"lobbyId":51,"targetId":2,"kind":"proposal","refId":401,"summary":"Proposal rev 1 for auth.session awaits your response.","stage":"responded","queuedAtUs":1792829040000000,"receivedAtUs":1792829045000000,"shownAtUs":1792829050000000,"respondedAtUs":1792829100000000},
+      {"id":703,"lobbyId":51,"targetId":1,"kind":"proposal","refId":402,"summary":"Revised proposal rev 2 for auth.session awaits your response.","stage":"responded","queuedAtUs":1792829160000000,"receivedAtUs":1792829165000000,"shownAtUs":1792829170000000,"respondedAtUs":1792829190000000},
+      {"id":704,"lobbyId":51,"targetId":2,"kind":"proposal","refId":402,"summary":"Revised proposal rev 2 for auth.session awaits your response.","stage":"responded","queuedAtUs":1792829160000000,"receivedAtUs":1792829165000000,"shownAtUs":1792829170000000,"respondedAtUs":1792829220000000},
+      {"id":705,"lobbyId":51,"targetId":1,"kind":"contract","refId":601,"summary":"auth.session HANDSHAKE 2/2","stage":"responded","queuedAtUs":1792829220000000,"receivedAtUs":1792829225000000,"shownAtUs":1792829230000000,"respondedAtUs":1792829240000000},
+      {"id":706,"lobbyId":51,"targetId":2,"kind":"contract","refId":601,"summary":"auth.session HANDSHAKE 2/2","stage":"responded","queuedAtUs":1792829220000000,"receivedAtUs":1792829225000000,"shownAtUs":1792829230000000,"respondedAtUs":1792829240000000},
+      {"id":707,"lobbyId":51,"targetId":1,"kind":"aligned","refId":602,"summary":"Plans align on auth.server.","stage":"shown","queuedAtUs":1792829000000000,"receivedAtUs":1792829005000000,"shownAtUs":1792829010000000,"respondedAtUs":0},
+      {"id":708,"lobbyId":51,"targetId":3,"kind":"aligned","refId":602,"summary":"Plans align on auth.server.","stage":"shown","queuedAtUs":1792829000000000,"receivedAtUs":1792829005000000,"shownAtUs":1792829010000000,"respondedAtUs":0}
+    ],
+    "event": [
+      {"id":1,"lobbyId":51,"atUs":1792828800000000,"actor":"system","type":"lobby_started","subjectId":51,"detail":"{}"},
+      {"id":2,"lobbyId":51,"atUs":1792828860000000,"actor":"Claude","type":"plan_published","subjectId":101,"detail":"{\"items\":2}"},
+      {"id":3,"lobbyId":51,"atUs":1792828890000000,"actor":"Codex","type":"plan_published","subjectId":102,"detail":"{\"items\":1}"},
+      {"id":4,"lobbyId":51,"atUs":1792828920000000,"actor":"Droid","type":"plan_published","subjectId":103,"detail":"{\"items\":2}"},
+      {"id":5,"lobbyId":51,"atUs":1792829000000000,"actor":"analysis","type":"contract_aligned","subjectId":602,"detail":"{\"key\":\"auth.server\"}"},
+      {"id":6,"lobbyId":51,"atUs":1792829040000000,"actor":"analysis","type":"proposal_created","subjectId":401,"detail":"{\"key\":\"auth.session\",\"revision\":1}"},
+      {"id":7,"lobbyId":51,"atUs":1792829070000000,"actor":"Claude","type":"response_recorded","subjectId":401,"detail":"{\"decision\":\"accept\"}"},
+      {"id":8,"lobbyId":51,"atUs":1792829100000000,"actor":"Codex","type":"proposal_rejected","subjectId":401,"detail":"{\"reason\":\"Prefer not to keep tokens in page JS; the cookie needs no client code.\"}"},
+      {"id":9,"lobbyId":51,"atUs":1792829160000000,"actor":"analysis","type":"proposal_created","subjectId":402,"detail":"{\"key\":\"auth.session\",\"revision\":2}"},
+      {"id":10,"lobbyId":51,"atUs":1792829220000000,"actor":"system","type":"proposal_accepted","subjectId":402,"detail":"{\"handshake\":\"2/2\"}"},
+      {"id":11,"lobbyId":51,"atUs":1792829220000000,"actor":"system","type":"contract_agreed","subjectId":601,"detail":"{\"key\":\"auth.session\"}"},
+      {"id":12,"lobbyId":51,"atUs":1792829400000000,"actor":"Claude","type":"head_reported","subjectId":801,"detail":"{}"},
+      {"id":13,"lobbyId":51,"atUs":1792829430000000,"actor":"Codex","type":"head_reported","subjectId":802,"detail":"{}"},
+      {"id":14,"lobbyId":51,"atUs":1792829460000000,"actor":"Droid","type":"head_reported","subjectId":803,"detail":"{}"},
+      {"id":15,"lobbyId":51,"atUs":1792829700000000,"actor":"verifier","type":"verification_recorded","subjectId":901,"detail":"{\"passed\":6,\"total\":6}"},
+      {"id":16,"lobbyId":51,"atUs":1792829760000000,"actor":"Droid SDK","type":"review_recorded","subjectId":1001,"detail":"{\"summary\":\"All three charter interfaces conform.\"}"}
+    ],
+    "head": [
+      {"id":801,"lobbyId":51,"participantId":1,"sha":"1111111111111111111111111111111111111111","outOfAreaFiles":[],"createdAtUs":1792829400000000},
+      {"id":802,"lobbyId":51,"participantId":2,"sha":"2222222222222222222222222222222222222222","outOfAreaFiles":[],"createdAtUs":1792829430000000},
+      {"id":803,"lobbyId":51,"participantId":3,"sha":"3333333333333333333333333333333333333333","outOfAreaFiles":[],"createdAtUs":1792829460000000}
+    ],
+    "verification": [{"id":901,"lobbyId":51,"assembledFrom":"{\"claude\":\"1111111111111111111111111111111111111111\",\"codex\":\"2222222222222222222222222222222222222222\",\"droid\":\"3333333333333333333333333333333333333333\"}","treeHash":"eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee","mergeTreeClean":true,"oracleHash":"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff","exitCode":0,"passed":6,"total":6,"reportHash":"dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd","verifierId":4,"createdAtUs":1792829700000000}],
+    "review": [{"id":1001,"lobbyId":51,"verificationId":901,"kind":"conformance","summary":"All three charter interfaces conform.","findings":"{\"summary\":\"All three charter interfaces conform.\",\"clauses\":[{\"clause\":\"auth.session: POST /api/login and GET /api/me use exactly one session transport.\",\"key\":\"auth.session\",\"verdict\":\"conforms\",\"evidence\":[{\"file\":\"src/auth/session.ts\",\"line\":42,\"note\":\"The login cookie is sent by same-origin fetch and no Authorization header is used.\"}]},{\"clause\":\"auth.server: use requireUser exported from src/auth/index.js.\",\"key\":\"auth.server\",\"verdict\":\"conforms\",\"evidence\":[{\"file\":\"src/auth/index.js\",\"line\":12,\"note\":\"requireUser is exported and used by protected routes.\"}]},{\"clause\":\"events.registration: POST /api/events/:eventId/registrations returns 201, 409, 404, or 401 as specified.\",\"key\":\"events.registration\",\"verdict\":\"conforms\",\"evidence\":[{\"file\":\"src/routes/events.ts\",\"line\":28,\"note\":\"The route returns the requested status and payload for each case.\"}]}],\"rootCause\":null}","model":"droid-sdk","sessionId":"review-51","createdAtUs":1792829760000000}],
+    "service": [{"name":"worker","lastBeatUs":1792829740000000,"detail":"{\"status\":\"online\"}"}]
+  }
+}
