@@ -33,6 +33,7 @@ import {
   promote,
   queue,
   role,
+  roundStartUs,
   schedulerOnly,
   text,
   writeContract,
@@ -465,8 +466,10 @@ export const respond = db.reducer(
       revision: a.revision,
     });
     if (a.decision === "reject") {
+      // Count only this round: a key reopened after a contract starts with no rejections.
+      const since = roundStartUs(ctx, l.id, proposal.key);
       const keyProposals = [...ctx.db.proposal.lobbyId.filter(l.id)]
-        .filter((q) => q.key === proposal.key)
+        .filter((q) => q.key === proposal.key && q.createdAtUs >= since)
         .map((q) => q.id);
       const rejections = [...ctx.db.response.lobbyId.filter(l.id)].filter(
         (r) => r.decision === "reject" && keyProposals.includes(r.proposalId),

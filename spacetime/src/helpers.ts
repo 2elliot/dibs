@@ -113,10 +113,21 @@ export const agents = (ctx: Ctx, lobbyId: number) =>
   [...ctx.db.participant.iter()].filter(
     (p) => p.role === "agent" && p.currentLobbyId === lobbyId,
   );
+/** When the key's current negotiation round began: its latest contract, or never (0). */
+export function roundStartUs(ctx: Ctx, lobbyId: number, key: string) {
+  return [...ctx.db.contract.lobbyId.filter(lobbyId)]
+    .filter((c) => c.key === key)
+    .reduce((max, c) => (c.createdAtUs > max ? c.createdAtUs : max), 0n);
+}
 export function unresolved(ctx: Ctx, lobbyId: number) {
   const proposals = [...ctx.db.proposal.lobbyId.filter(lobbyId)];
+  // The next submitted analysis answers a rejection, whatever it concluded: a new revision,
+  // an aligned contract, or no finding for the key at all.
+  const answeredUs = [...ctx.db.event.lobbyId.filter(lobbyId)]
+    .filter((e) => e.type === "analysis_submitted")
+    .reduce((max, e) => (e.atUs > max ? e.atUs : max), -1n);
   return [...ctx.db.response.lobbyId.filter(lobbyId)].filter((r) => {
-    if (r.decision !== "reject") return false;
+    if (r.decision !== "reject" || answeredUs > r.createdAtUs) return false;
     const p = proposals.find((p) => p.id === r.proposalId);
     return (
       p &&

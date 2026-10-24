@@ -379,6 +379,48 @@ describe("timers, failures and generated client integration", () => {
     await h.plan("codex");
     expect((await h.job(lobbyId)).inputKey).toMatch(/;r:$/);
   });
+  test("an analysis with no finding for the rejected key still answers the rejection", async () => {
+    const lobbyId = await h.planned();
+    await h.analyze(lobbyId);
+    await h.vote("claude", await h.proposal(lobbyId), "reject");
+    const revise = await h.job(lobbyId);
+    expect(revise.kind).toBe("revise");
+    expect(revise.inputKey).toMatch(/;r:\d+$/);
+    const args = await h.lease(lobbyId);
+    await h.peer.worker.reducers.submitAnalysis({
+      ...args,
+      findingsJson: JSON.stringify({ findings: [] }),
+    });
+    await waitFor(() => h.admin.db.job.id.find(args.jobId)?.state === "done");
+    await h.plan("droid", "cookie named sid");
+    const next = await h.job(lobbyId);
+    expect(next.kind).toBe("analyze");
+    expect(next.inputKey).toMatch(/;r:$/);
+  });
+  test("rule 4: a key reopened after its contract counts rejections from the new round only", async () => {
+    const lobbyId = await h.planned();
+    await h.analyze(lobbyId);
+    await h.vote("claude", await h.proposal(lobbyId), "reject");
+    await h.analyze(lobbyId, "conflict", "cookie, revised");
+    const second = await h.proposal(lobbyId);
+    for (const name of PROVIDERS) await h.vote(name, second);
+    await waitFor(() =>
+      [...h.admin.db.contract.iter()].some(
+        (c) => c.lobbyId === lobbyId && c.current && c.source === "agreed",
+      ),
+    );
+    // A changed plan reopens the agreed key (rule 8). One rejection in this round is not two.
+    await h.plan("codex", "bearer in an Authorization header");
+    await h.analyze(lobbyId, "conflict", "bearer");
+    const third = await h.proposal(lobbyId);
+    expect(third.revision).toBe(3);
+    await h.vote("claude", third, "reject");
+    await waitFor(
+      () => h.admin.db.proposal.id.find(third.id)?.state !== "proposed",
+    );
+    expect(h.admin.db.proposal.id.find(third.id)?.state).toBe("rejected");
+    expect((await h.job(lobbyId)).kind).toBe("revise");
+  });
   test("promote_job waits for every agent plan; a later plan promotes the latest job", async () => {
     const lobbyId = await h.lobby();
     await h.plan("claude");
