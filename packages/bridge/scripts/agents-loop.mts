@@ -7,6 +7,11 @@
 //   node node_modules/tsx/dist/cli.mjs packages/bridge/scripts/agents-loop.mts \
 //     [--uri http://127.0.0.1:4120] [--db dibs-i2-agents] [--codex-hooks]
 //
+// --live runs against an already deployed database (default dibs-ch13-dev on Maincloud)
+// without publishing: an admin invite comes from the database owner's CLI login (pass
+// --spacetime-config if that login lives in a separate cli.toml), and participant names get a
+// run suffix. --worker real leaves the analysis to the deployed worker instead of the canned one.
+//
 // Codex runs with the user's own login (CODEX_HOME untouched); trust for the temp clone is
 // passed with -c for this run only. Codex runs hooks only after their trust is accepted in its
 // TUI, which a headless run can't do, so by default Codex is checked through MCP alone.
@@ -31,15 +36,31 @@ const { values } = parseArgs({
     uri: { type: "string", default: "http://127.0.0.1:4120" },
     db: { type: "string", default: "dibs-i2-agents" },
     "codex-hooks": { type: "boolean", default: false },
+    live: { type: "boolean", default: false },
+    "spacetime-config": { type: "string" },
+    worker: { type: "string", default: "canned" },
   },
 });
-const uri = values.uri;
-const dbName = values.db;
+const live = values.live;
+const given = (flag: string) => process.argv.includes(flag);
+const uri =
+  live && !given("--uri") ? "https://maincloud.spacetimedb.com" : values.uri;
+const dbName = live && !given("--db") ? "dibs-ch13-dev" : values.db;
+const cannedWorker = values.worker !== "real";
 if (
-  !/^dibs-i2-/.test(dbName) ||
-  !/^https?:\/\/(127\.0\.0\.1|localhost)[:/]/.test(uri)
+  !live &&
+  (!/^dibs-i2-/.test(dbName) ||
+    !/^https?:\/\/(127\.0\.0\.1|localhost)[:/]/.test(uri))
 )
-  throw new Error("use a loopback server and a dibs-i2-* database");
+  throw new Error("use a loopback server and a dibs-i2-* database, or --live");
+const run = randomUUID().slice(0, 6);
+// On a shared database the names must not collide with earlier runs or real participants.
+const P = Object.fromEntries(
+  ["claude", "codex", "droid", "worker"].map((n) => [
+    n,
+    live ? `${n}-${run}` : n,
+  ]),
+) as Record<"claude" | "codex" | "droid" | "worker", string>;
 
 const KEY = "auth.session";
 const CONTRACT =
@@ -51,17 +72,19 @@ const home = fs.mkdtempSync(path.join(tmp, "dibs-agents-"));
 const codexHome = fs.mkdtempSync(path.join(tmp, "dibs-agents-codexhome-"));
 const log = (...parts: unknown[]) => console.error("[loop]", ...parts);
 
-spacetime([
-  "publish",
-  "--server",
-  uri,
-  "--module-path",
-  "spacetime",
-  "--yes",
-  "--delete-data",
-  dbName,
-]);
-const adminCode = JSON.parse(
+if (!live)
+  spacetime([
+    "publish",
+    "--server",
+    uri,
+    "--module-path",
+    "spacetime",
+    "--yes",
+    "--delete-data",
+    dbName,
+  ]);
+// The module's own admin invite if it's unclaimed; otherwise a fresh one from the owner.
+const openAdmin = JSON.parse(
   spacetime([
     "sql",
     "--server",
@@ -69,9 +92,24 @@ const adminCode = JSON.parse(
     "--format",
     "json",
     dbName,
-    "SELECT code FROM invite WHERE name = 'admin'",
+    "SELECT code FROM invite WHERE name = 'admin' AND used = false",
   ]),
-)[0].rows[0][0] as string;
+)[0].rows as string[][];
+let adminCode = openAdmin[0]?.[0];
+if (!adminCode) {
+  adminCode = randomUUID();
+  spacetime([
+    "call",
+    "--server",
+    uri,
+    dbName,
+    "create_invite",
+    JSON.stringify(adminCode),
+    JSON.stringify(`admin-${run}`),
+    '"claude"',
+    '"admin"',
+  ]);
+}
 
 const open: DbConnection[] = [];
 const admin = (await claim(adminCode)).conn;
@@ -84,24 +122,26 @@ for (const [name, provider, role] of [
   ["droid", "droid", "agent"],
   ["worker", "claude", "worker"],
 ] as const) {
+  if (name === "worker" && !cannedWorker) continue;
   const code = randomUUID();
-  await admin.reducers.createInvite({ code, name, provider, role });
+  await admin.reducers.createInvite({ code, name: P[name], provider, role });
   const session = await claim(code);
   tokens[name] = session.token;
   conns[name] = session.conn;
 }
 await admin.reducers.createLobby({
-  scenario: `agents-${randomUUID().slice(0, 8)}`,
+  scenario: `agents-${run}`,
   mode: "dibs",
   baseSha: "0".repeat(40),
   vocabularyJson: JSON.stringify([
     { key: KEY, description: "How the browser stays logged in after login" },
   ]),
-  charter:
-    "Issue 2 live loop: real Claude Code and Codex, canned Droid and worker.",
+  charter: `Issue 2 live loop: real Claude Code and Codex, canned Droid, ${cannedWorker ? "canned" : "deployed"} worker.`,
   buildHash: hash,
 });
-const lobby = await waitFor(() => [...admin.db.lobby.iter()].at(-1));
+const lobby = await waitFor(() =>
+  [...admin.db.lobby.iter()].find((l) => l.scenario === `agents-${run}`),
+);
 const lobbyId = lobby.id;
 for (const name of ["claude", "codex", "droid"])
   await conns[name].reducers.joinLobby({ lobbyId, buildHash: hash });
@@ -113,8 +153,8 @@ const running = await waitFor(() => {
 // The bridges connect with these identities; close ours first so presence belongs to them.
 conns.claude.disconnect();
 conns.codex.disconnect();
-const id = (name: string) =>
-  [...admin.db.participant.iter()].find((p) => p.name === name)!.id;
+const id = (name: keyof typeof P) =>
+  [...admin.db.participant.iter()].find((p) => p.name === P[name])!.id;
 
 fs.writeFileSync(
   path.join(home, "config.json"),
@@ -139,13 +179,13 @@ for (const name of ["claude", "codex"] as const) {
     "base",
   ]);
   clones[name] = clone;
-  const dir = path.join(home, name);
+  const dir = path.join(home, P[name]);
   fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(path.join(dir, "token"), tokens[name]);
   fs.writeFileSync(
     path.join(dir, "session.json"),
     JSON.stringify({
-      participant: name,
+      participant: P[name],
       provider: name,
       lobbyId,
       mode: "dibs",
@@ -157,7 +197,7 @@ for (const name of ["claude", "codex"] as const) {
     }),
   );
   writeProvider({
-    participant: name,
+    participant: P[name],
     provider: name,
     clonePath: clone,
     home,
@@ -176,12 +216,12 @@ const brief = (role: string, keyLine: string, file: string) =>
 const prompts = {
   claude: brief(
     "backend",
-    `You produce ${KEY}: say how login keeps the user signed in.`,
+    `You produce ${KEY}: say how login keeps the user signed in. Your own preference is a bearer token in the login JSON, sent back in an Authorization header.`,
     "auth.js",
   ),
   codex: brief(
     "frontend",
-    `You require ${KEY}: say what the browser code needs from login.`,
+    `You require ${KEY}: say what the browser code needs from login. Your own preference is an HttpOnly session cookie the browser sends automatically.`,
     "client.js",
   ),
 };
@@ -200,7 +240,7 @@ await conns.droid.reducers.publishPlan({
   notes: "",
 });
 
-const claudeFiles = launchFiles("claude", home, "claude");
+const claudeFiles = launchFiles("claude", home, P.claude);
 const claudeRun = launch(
   "claude",
   [
@@ -257,7 +297,7 @@ const canned = (async () => {
     const job = [...admin.db.job.iter()].find(
       (j) => j.lobbyId === lobbyId && j.state === "queued",
     );
-    if (job) {
+    if (job && cannedWorker) {
       const leaseToken = randomUUID();
       const items = [...admin.db.planItem.iter()].filter(
         (i) => i.lobbyId === lobbyId && i.current && i.key === KEY,
@@ -321,14 +361,14 @@ const canned = (async () => {
 const agreed = await waitFor(
   () =>
     [...admin.db.contract.iter()].find(
-      (c) => c.lobbyId === lobbyId && c.current && c.source === "agreed",
+      (c) => c.lobbyId === lobbyId && c.current,
     ),
   10 * 60_000,
 ).catch(() => undefined);
 log(
   agreed
-    ? `contract agreed: ${agreed.text}`
-    : "no agreed contract within 10 minutes",
+    ? `contract ${agreed.source}: ${agreed.text}`
+    : "no contract within 10 minutes",
 );
 // Let both agents write their file, then stop whatever is still running.
 await Promise.race([
@@ -339,6 +379,7 @@ for (const run of [claudeRun, codexRun])
   await killTree(run.pid).catch(() => undefined);
 stop = true;
 await canned;
+await admin.reducers.stopLobby({ lobbyId }).catch(() => undefined);
 
 const name = (pid: number) =>
   [...admin.db.participant.iter()].find((p) => p.id === pid)?.name ??
@@ -365,6 +406,27 @@ const report = {
   proposalDeliveries: [...admin.db.delivery.iter()]
     .filter((d) => d.lobbyId === lobbyId && d.kind === "proposal")
     .map((d) => `${name(d.targetId)}: ${d.stage}`),
+  // Only a hook moves an inbox file to shown/, after printing it into the agent's context.
+  printedByHook: Object.fromEntries(
+    (["claude", "codex"] as const).map((who) => {
+      const dir = path.join(home, P[who], "shown");
+      const kinds = fs.existsSync(dir)
+        ? fs
+            .readdirSync(dir)
+            .map(
+              (f) =>
+                JSON.parse(fs.readFileSync(path.join(dir, f), "utf8")).kind,
+            )
+        : [];
+      return [who, kinds];
+    }),
+  ),
+  hookAlive: Object.fromEntries(
+    (["claude", "codex"] as const).map((who) => [
+      who,
+      fs.existsSync(path.join(home, P[who], "hook-alive.json")),
+    ]),
+  ),
   eventTypes: [...new Set(events.map((e) => e.type))].join(", "),
   claude: evidence(claudeRun.logPath),
   codex: evidence(codexRun.logPath),
@@ -437,6 +499,8 @@ function evidence(logPath: string) {
 }
 
 function spacetime(args: string[]): string {
+  if (values["spacetime-config"])
+    args = ["--config-path", values["spacetime-config"], ...args];
   const exe = path.join(
     process.env.LOCALAPPDATA ?? "",
     "SpacetimeDB",

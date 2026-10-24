@@ -77,9 +77,9 @@ Per-project memory is off for the clone (plan §5.5): `"autoMemoryEnabled": fals
 
 - Trust is keyed by the native long path, `[projects.'C:\Users\…\clone']` (any case). A forward-slash or 8.3 short path (`SMARTO~1`) is silently untrusted, and Codex then ignores `.codex/config.toml` and `hooks.json`. `prep` writes the `realpath` of the clone.
 - npm installs Codex as a `.cmd` shim plus an extensionless sh script; neither spawns without a shell. `dibs session start` runs the shim's `codex.js` with Node instead.
-- Hooks run only after their trust is accepted once in the Codex TUI (stored as `[hooks.state."…"] trusted_hash` in `~/.codex/config.toml`). Headless runs need `--dangerously-bypass-hook-trust`.
+- Hooks run only after their trust is accepted once in the Codex TUI (stored as `[hooks.state."…"] trusted_hash` in `~/.codex/config.toml`). Headless runs need `--dangerously-bypass-hook-trust`. With it, `codex exec` ran SessionStart (`hook-alive.json`) and printed the proposal and the agreed contract through the hook.
 
-`scripts/agents-loop.mts` runs the issue's loop on a local server with real agents: headless Claude Code and `codex exec` (your own Codex login) as `claude` and `codex`, a canned Droid and a canned worker. It spends API credit on both CLIs. Codex is checked through MCP alone unless you pass `--codex-hooks`, which adds `--dangerously-bypass-hook-trust`.
+`scripts/agents-loop.mts` runs the issue's loop on a local server with real agents: headless Claude Code and `codex exec` (your own Codex login) as `claude` and `codex`, a canned Droid and a canned worker. It spends API credit on both CLIs. Codex is checked through MCP alone unless you pass `--codex-hooks`, which adds `--dangerously-bypass-hook-trust`. The report lists which items each agent's hook printed (from `shown/`). `--live` runs against a deployed database instead (default `dibs-ch13-dev`), without publishing; `--worker real` leaves the analysis to the deployed worker.
 
 ```bash
 npm run build -w @dibs/bridge
@@ -88,19 +88,18 @@ node node_modules/tsx/dist/cli.mjs packages/bridge/scripts/agents-loop.mts --uri
 
 ## Manual checks still open
 
-These need the other machines. Record the result in `docs/compatibility.md`.
+Record the result in `docs/compatibility.md`. Codex was checked on Windows instead of a Mac. **Droid is deferred for v1: not tested.** Its templates are generated but unverified.
 
-Codex (macOS per the issue; the MCP path is covered on Windows by `scripts/agents-loop.mts`):
+Codex (MCP and hooks are covered on Windows by `scripts/agents-loop.mts`; still open):
 
-- MCP `initialize` finishes inside the startup timeout, including a reconnect.
+- MCP reconnect after a dropped database connection.
 - Hook trust, accepted once in the TUI, survives a byte-identical rewrite of `.codex/hooks.json`.
-- `systemMessage` is visible. Stop block works. PostToolUse JSON reaches the model.
-- The bridge and the hook can write `DIBS_HOME` from inside the sandbox.
+- `systemMessage` is visible in the TUI. Stop block works.
 - `sandbox_workspace_write.network_access` lets Codex curl its own localhost server.
 - `/dibs` shows up as `/dibs` or `/prompts:dibs`.
 - No per-project memory carries into the next fresh session.
 
-Droid on Windows:
+Droid on Windows (deferred):
 
 - Which shell runs hooks and commands. Quote the bridge path if it can contain spaces.
 - `droid rules check --json` accepts `droid.settings.json`. Adjust `permissionRules` if the field names differ.
