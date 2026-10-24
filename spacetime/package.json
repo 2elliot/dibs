@@ -1,0 +1,14 @@
+{
+  "name": "@dibs/spacetime",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit -p .",
+    "test": "vitest run --config vitest.config.ts"
+  },
+  "dependencies": {
+    "spacetimedb": "^2.13.0",
+    "@dibs/protocol": "*"
+  }
+}
