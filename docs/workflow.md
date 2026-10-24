@@ -99,7 +99,7 @@ npm run build:plugin
 
 Then:
 
-1. Copy `.env.example` to `~/.dibs/.env` and fill it in. The shared database is already filled in (`dib` on Maincloud); add your name and an Anthropic API key.
+1. Copy `.env.example` to `~/.dibs/.env` and fill it in. The shared database is already filled in (`dibs` on Maincloud); add your name and an Anthropic API key.
 2. Copy `dashboard/.env.example` to `dashboard/.env.local` if you're running the dashboard.
 3. Try the plugin: `claude --plugin-dir ./plugin`.
 

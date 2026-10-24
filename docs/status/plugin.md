@@ -13,7 +13,7 @@ Owner: _TBD_ · Branch: `plugin/mcp-tools` · Updated: 2026-10-23
 ## Next
 
 - [ ] **By H2:** `npm run build:plugin`, then `claude --plugin-dir ./plugin` in a real session against the shared database. Agree on the MCP tool signatures with the team.
-- [ ] Cut hook latency. Measured against Maincloud `dib`: about 0.7 s per hook run (150 ms Node startup plus about 500 ms to connect and subscribe to every table). That cost lands on every edit, and PostToolUse adds it to every tool call. Options: subscribe to only the rows a hook needs, use SpacetimeDB's HTTP SQL API, or have the long-lived MCP server keep a cache the hooks read.
+- [ ] Cut hook latency. Measured against Maincloud: about 0.7 s per hook run (150 ms Node startup plus about 500 ms to connect and subscribe to every table). That cost lands on every edit, and PostToolUse adds it to every tool call. Options: subscribe to only the rows a hook needs, use SpacetimeDB's HTTP SQL API, or have the long-lived MCP server keep a cache the hooks read.
 - [ ] **H2–H10:** with core, `publish_intent` end to end: two sessions on one laptop, and the second gets an overlap alert
 - [ ] **H10–H18:** move to two laptops
 - [ ] **H18–H26:** stub swap when a contract is delivered; tune the skill so agents follow the protocol
