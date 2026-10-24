@@ -1,1 +1,1 @@
-You are writing the contributing guide. Your area is `docs/**`. Write `docs/CONTRIBUTING.md` as the charter describes.
+You are writing the contributing guide. Your area is `docs/**`. Write `docs/CONTRIBUTING.md` as the charter describes. No one can answer questions during this task; make reasonable assumptions and keep going.
