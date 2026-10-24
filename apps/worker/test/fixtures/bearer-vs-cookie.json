@@ -1,0 +1,70 @@
+{
+  "lobbyId": 1,
+  "jobId": 10,
+  "jobKind": "analyze",
+  "inputKey": "p:1,2,3;r:",
+  "charter": "Implement POST /api/login ({email,password} -> 200; bad credentials -> 401), GET /api/me (-> 200 {id,email}; unauthenticated -> 401), POST /api/events/:eventId/registrations (-> 201 {id,eventId,userId}; same user again -> 409; unauthenticated -> 401; unknown event -> 404). Use exactly one session transport: an httpOnly cookie, OR a bearer token returned by login as {token} and sent as Authorization: Bearer <token>. Other server routes get the current user through a helper exported from src/auth/index.js. Shared interfaces: auth.session (client transport + /api/me), auth.server (the helper), events.registration (request/response/errors the UI relies on).",
+  "vocabulary": [
+    {
+      "key": "auth.session",
+      "description": "How login establishes a session and how /api/me reads it (client transport)."
+    },
+    {
+      "key": "auth.server",
+      "description": "The helper other routes call to get the current user; name and signature."
+    },
+    {
+      "key": "events.registration",
+      "description": "POST registration request/response/errors the UI relies on."
+    }
+  ],
+  "items": [
+    {
+      "id": 1,
+      "planId": 1,
+      "planRevision": 1,
+      "participantId": 1,
+      "participant": "claude",
+      "provider": "claude",
+      "kind": "produces",
+      "key": "auth.session",
+      "text": "POST /api/login returns {token} and the client sends Authorization: Bearer <token>; /api/me reads the Authorization header. No cookies."
+    },
+    {
+      "id": 2,
+      "planId": 1,
+      "planRevision": 1,
+      "participantId": 1,
+      "participant": "claude",
+      "provider": "claude",
+      "kind": "produces",
+      "key": "auth.server",
+      "text": "Export currentUser(req) from src/auth/index.js returning {id,email} or null, reading the bearer token from the Authorization header."
+    },
+    {
+      "id": 3,
+      "planId": 2,
+      "planRevision": 1,
+      "participantId": 2,
+      "participant": "codex",
+      "provider": "codex",
+      "kind": "requires",
+      "key": "auth.session",
+      "text": "The UI calls fetch('/api/login') and then fetch('/api/me') relying on the browser sending the session cookie automatically; no token handling in the client."
+    }
+  ],
+  "contracts": [],
+  "openProposals": [],
+  "rejections": [],
+  "recordedFindings": {
+    "findings": [
+      {
+        "key": "auth.session",
+        "relation": "conflict",
+        "citedItemIds": [1, 3],
+        "explanation": "claude produces a bearer-token session (no cookie); codex's UI assumes an httpOnly cookie sent automatically. The charter allows exactly one transport, so these cannot coexist. The producer of /api/login and /api/me is claude, so the contract follows the bearer transport and codex's UI must store and send the token.",
+        "contractText": "Transport: bearer token. POST /api/login returns 200 {token:string} on success, 401 on bad credentials. The UI must store token (in-memory or localStorage) and send Authorization: Bearer <token> on every authenticated request. GET /api/me returns 200 {id:string,email:string} when the header carries a valid token, else 401. No session cookie is set or read."
+      }
+    ]
+  }
+}

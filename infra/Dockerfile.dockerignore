@@ -1,0 +1,15 @@
+# BuildKit reads this for infra/Dockerfile. Keeps the source upload small (ACR limit 200 MB) and
+# secrets out of the image.
+node_modules
+**/node_modules
+.git
+.env
+.env.*
+**/.env
+**/.env.*
+bench/results
+bench/oracle*
+**/dist
+**/*.log
+**/.live-module
+**/.test-module
