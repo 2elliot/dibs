@@ -11,14 +11,14 @@ Read `docs/tracks.md` and `docs/pitch.md` when the task touches what judges will
 
 ## Architecture
 
-| Piece           | Where             | What it is                                                                                 |
-| --------------- | ----------------- | ------------------------------------------------------------------------------------------ |
-| Backend         | `spacetime/`      | SpacetimeDB module: the tables and the transactional reducers that change them             |
-| Shared contract | `packages/shared` | Generated SpacetimeDB bindings plus the operation types every lane builds against          |
-| Core            | `packages/core`   | Runs on each laptop: embeddings, brute-force similarity, the Claude judge, stubs and tests |
-| Plugin          | `plugin/`         | Claude Code plugin: MCP server tools, hooks that enforce dibs, the agent-facing skill      |
-| Dashboard       | `dashboard/`      | Next.js page subscribed to the same SpacetimeDB tables                                     |
-| Demo target     | `demo/`           | The study-group app the agents work on during the demo                                     |
+| Piece           | Where             | What it is                                                                                             |
+| --------------- | ----------------- | ------------------------------------------------------------------------------------------------------ |
+| Backend         | `spacetime/`      | SpacetimeDB module: the tables and the transactional reducers that change them                         |
+| Shared contract | `packages/shared` | Generated SpacetimeDB bindings plus the operation types every lane builds against                      |
+| Core            | `packages/core`   | Runs on each laptop: embeddings, brute-force similarity, the Claude judge, stubs and tests             |
+| Plugin          | `plugin/`         | Claude Code plugin: MCP tools, hook adapters over core's enforcement decisions, the agent-facing skill |
+| Dashboard       | `dashboard/`      | Next.js page subscribed to the same SpacetimeDB tables                                                 |
+| Demo target     | `demo/`           | The study-group app the agents work on during the demo                                                 |
 
 The plugin calls `@dibs/core`, which talks to SpacetimeDB. The dashboard subscribes to SpacetimeDB directly. Reducers can't call outside services, so anything that does (embeddings, Claude) lives in core.
 

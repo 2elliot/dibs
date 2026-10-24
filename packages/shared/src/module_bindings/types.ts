@@ -14,6 +14,7 @@ export const Agent = __t.object("Agent", {
   id: __t.u64(),
   sessionId: __t.string(),
   name: __t.string(),
+  kind: __t.string(),
   repo: __t.option(__t.string()),
   status: __t.string(),
   createdAt: __t.timestamp(),

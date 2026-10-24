@@ -38,7 +38,7 @@ function Board() {
       <ul>
         {agents.map((agent) => (
           <li key={agent.id.toString()}>
-            {agent.name} ({agent.status})
+            {agent.name} · {agent.kind} ({agent.status})
           </li>
         ))}
       </ul>

@@ -1,11 +1,11 @@
-// Public API of the core lane. The plugin's MCP tools and hooks call these; the input and
-// output types come from @dibs/shared, so the signatures here are part of the contract.
+// Public API of the core lane. The plugin's MCP tools and each agent's hook adapter call
+// these; the input and output types come from @dibs/shared, so the signatures here are part
+// of the contract.
 //
 // State changes go through the SpacetimeDB reducers in spacetime/src/index.ts. Anything
 // that calls the outside world (embeddings, the Claude judge) happens here first.
 
 import type {
-  Agent,
   Contract,
   InboxResult,
   MarkDeliveredInput,
@@ -14,18 +14,16 @@ import type {
   PublishIntentResult,
   RequestFeatureInput,
 } from "@dibs/shared";
+import { db } from "./db";
+import { takeUnread } from "./hooks";
 
 export { loadConfig, CONFIG_FILE, type DibsConfig } from "./config";
 export { db } from "./db";
 export { cosine, nearestIntents } from "./similarity";
+export { startSession, checkEdit, pendingContext, normalizePath } from "./hooks";
 
 function notImplemented(name: string): never {
   throw new Error(`@dibs/core: ${name} isn't implemented yet`);
-}
-
-/** Register (or refresh) the agent for a Claude Code session. Called from SessionStart. */
-export async function registerAgent(sessionId: string, repo: string | null): Promise<Agent> {
-  return notImplemented("registerAgent");
 }
 
 /** Embed the intent, publish it, find similar live intents, and have Claude judge the closest. */
@@ -50,10 +48,5 @@ export async function markDelivered(input: MarkDeliveredInput): Promise<Contract
 
 /** Unread messages for an agent. Marks them read. */
 export async function getInbox(agentId: bigint): Promise<InboxResult> {
-  return notImplemented("getInbox");
-}
-
-/** Which agent owns a file through an active intent, if any. Used by the PreToolUse hook. */
-export async function fileOwner(path: string): Promise<Agent | null> {
-  return notImplemented("fileOwner");
+  return { messages: await takeUnread(await db(), agentId) };
 }

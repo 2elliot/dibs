@@ -12,6 +12,7 @@ export * from "./module_bindings/types";
 
 // Values the module stores as plain strings. Keep in sync with spacetime/src/index.ts.
 export type AgentStatus = "active" | "idle" | "gone";
+export type AgentKind = "claude-code" | "codex" | "gemini";
 export type IntentStatus = "active" | "blocked" | "delivered" | "abandoned";
 export type OverlapVerdict = "duplicate" | "partial" | "independent";
 export type ContractStatus = "proposed" | "agreed" | "delivered" | "verified";
@@ -62,4 +63,32 @@ export interface MarkDeliveredInput {
 
 export interface InboxResult {
   messages: Message[];
+}
+
+// Hook decisions: core makes them, and each coding agent's hook adapter only translates its
+// own input and output format. Supporting a new agent means writing that translation.
+
+export interface StartSessionInput {
+  sessionId: string;
+  kind: AgentKind;
+  repo: string | null;
+}
+
+export interface StartSessionResult {
+  agent: Agent;
+  /** Text to put in the agent's context: its agent id and what teammates are building. */
+  context: string;
+}
+
+export interface CheckEditInput {
+  sessionId: string;
+  /** The file the agent is about to write, absolute or relative to cwd. */
+  path: string;
+  cwd: string;
+}
+
+export type EditDecision = { allow: true } | { allow: false; reason: string };
+
+export interface PendingContextInput {
+  sessionId: string;
 }

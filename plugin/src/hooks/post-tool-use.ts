@@ -1,9 +1,10 @@
-// PostToolUse on every tool: the realtime channel. Delivers unread inbox messages to Claude
-// mid-task through additionalContext. Quiet by default: print nothing when the inbox is empty.
-import { readInput, type ToolHookInput } from "./io";
+// PostToolUse on every tool: the realtime channel. Delivers unread messages from other agents
+// to Claude mid-task. Quiet by default: prints nothing when the inbox is empty.
+import { pendingContext } from "@dibs/core";
+import { addContext, failOpen, readInput, type ToolHookInput } from "./io";
 
-const input = await readInput<ToolHookInput>();
-
-// TODO(plugin lane): core.getInbox(agentId) and, if there's anything,
-// addContext("PostToolUse", formatted messages).
-void input;
+await failOpen(async () => {
+  const input = await readInput<ToolHookInput>();
+  const text = await pendingContext({ sessionId: input.session_id });
+  if (text) addContext("PostToolUse", text);
+});

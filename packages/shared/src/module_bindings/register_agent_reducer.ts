@@ -13,5 +13,6 @@ import {
 export default {
   sessionId: __t.string(),
   name: __t.string(),
+  kind: __t.string(),
   repo: __t.option(__t.string()),
 };

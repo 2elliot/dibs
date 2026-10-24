@@ -19,6 +19,8 @@ A Claude Code plugin each teammate installs, a SpacetimeDB backend, and a live d
 - **PreToolUse:** exit code 2 blocks the tool call and shows stderr to Claude. Block the first file write until the agent has published an intent. After that, block edits to files another agent owns, saying who owns them and how to request what you need.
 - **PostToolUse:** `additionalContext` injects inbox messages into Claude's context mid-task. This is the realtime channel.
 
+The decisions behind these hooks live in core (`startSession`, `checkEdit`, `pendingContext`), and each agent's hooks only translate formats. Codex and Gemini CLI both have MCP and blocking hooks, so their adapters are thin.
+
 ## The core loop (MVP)
 
 1. Agent A plans and publishes its intent.

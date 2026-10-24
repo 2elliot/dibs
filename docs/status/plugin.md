@@ -4,22 +4,26 @@ Owner: _TBD_ · Branch: `plugin/mcp-tools` · Updated: 2026-10-23
 
 ## Now
 
-- Nothing started. Skeleton is in `plugin/`: MCP server with all five tools stubbed, three hooks that allow everything.
+- All three hooks are wired as thin adapters over core and tested end to end against a local SpacetimeDB:
+  - SessionStart registers the agent and tells Claude its `agent_id` and the team's intents.
+  - PreToolUse blocks edits before `publish_intent` and on other agents' files.
+  - PostToolUse delivers unread messages once.
+- All three fail open. The MCP server has all five tools; `get_inbox` works, and the others wait on core.
 
 ## Next
 
-- [ ] **By H2:** `npm run build:plugin`, then `claude --plugin-dir ./plugin`; confirm the dibs tools and hooks load. Agree on the MCP tool signatures with the team.
-- [ ] Decide how a tool call learns its agent id (see the TODO in `plugin/src/server.ts`) and record it in `docs/decisions/`
-- [ ] **H2–H10:** SessionStart registers the agent through core; `publish_intent` and `get_inbox`; PreToolUse blocks edits until an intent is published
-- [ ] **H10–H18:** move to two laptops; PostToolUse delivers inbox messages via `additionalContext`; PreToolUse blocks edits to files another agent owns
+- [ ] **By H2:** `npm run build:plugin`, then `claude --plugin-dir ./plugin` in a real session against the shared database. Agree on the MCP tool signatures with the team.
+- [ ] Measure the hook round trip against Maincloud. Each hook opens its own connection; if PostToolUse is too slow, cache or switch to SpacetimeDB's HTTP SQL API (see `docs/decisions/2026-10-23-agent-neutral-hooks.md`).
+- [ ] **H2–H10:** with core, `publish_intent` end to end: two sessions on one laptop, and the second gets an overlap alert
+- [ ] **H10–H18:** move to two laptops
 - [ ] **H18–H26:** stub swap when a contract is delivered; tune the skill so agents follow the protocol
 - [ ] Anthropic track: a one-command install and a clear README. Decide between committing `plugin/dist` (so `/plugin install dibs@dibs` from GitHub works) and building on each laptop.
-- [ ] Stretch after about H22: the Codex adapter, only if the loop is solid
+- [ ] Stretch after about H22: a Codex adapter (hooks in `.codex/`, same core calls, `kind: "codex"`). Gemini CLI would be the same via an extension.
 
 ## Needs from other lanes
 
-- core: `registerAgent`, `publishIntent`, `getInbox`, `fileOwner` (signatures in `packages/core/src/index.ts`)
+- core: `publishIntent`, `requestFeature`, `proposeContract`, `markDelivered` (signatures in `packages/core/src/index.ts`)
 
 ## Notes for teammates
 
--
+- Hooks never block a session when dibs is down or unconfigured. They let the edit through.

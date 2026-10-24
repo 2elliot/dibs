@@ -5,11 +5,13 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import * as core from "@dibs/core";
 import { z } from "zod";
 
+// stdout carries MCP's JSON-RPC, and the SpacetimeDB SDK logs with console.log.
+console.log = console.error;
+
 const server = new McpServer({ name: "dibs", version: "0.0.0" });
 
 // SpacetimeDB ids are u64, which JSON can't carry, so tools take them as digit strings.
-// TODO(plugin lane): decide how a tool call learns its agent_id. One option: the
-// SessionStart hook registers the agent and tells Claude its id in additionalContext.
+// The SessionStart hook registers the agent and tells Claude its agent_id.
 const idString = z.string().regex(/^\d+$/, 'ids are digit strings, like "42"');
 const agentId = idString.describe("Your dibs agent id, from the dibs session context");
 

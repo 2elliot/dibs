@@ -9,6 +9,7 @@
 import { schema, table, t, SenderError } from "spacetimedb/server";
 
 const AGENT_STATUS = ["active", "idle", "gone"] as const;
+const AGENT_KINDS = ["claude-code", "codex", "gemini"] as const;
 const VERDICTS = ["duplicate", "partial", "independent"] as const;
 
 const agent = table(
@@ -17,6 +18,8 @@ const agent = table(
     id: t.u64().primaryKey().autoInc(),
     sessionId: t.string().unique(),
     name: t.string(),
+    // Which coding agent this session runs in, so one team can mix them.
+    kind: t.string(),
     repo: t.option(t.string()),
     status: t.string(),
     createdAt: t.timestamp(),
@@ -84,10 +87,11 @@ function oneOf<T extends string>(field: string, value: string, allowed: readonly
   return value as T;
 }
 
-/** SessionStart: create or refresh the agent for a Claude Code session. */
+/** Session start: create or refresh the agent for one coding-agent session. */
 export const registerAgent = spacetimedb.reducer(
-  { sessionId: t.string(), name: t.string(), repo: t.option(t.string()) },
-  (ctx, { sessionId, name, repo }) => {
+  { sessionId: t.string(), name: t.string(), kind: t.string(), repo: t.option(t.string()) },
+  (ctx, { sessionId, name, kind, repo }) => {
+    const checkedKind = oneOf("kind", kind, AGENT_KINDS);
     const existing = ctx.db.agent.sessionId.find(sessionId);
     if (existing) {
       ctx.db.agent.id.update({ ...existing, status: "active", lastSeenAt: ctx.timestamp });
@@ -97,6 +101,7 @@ export const registerAgent = spacetimedb.reducer(
       id: 0n,
       sessionId,
       name,
+      kind: checkedKind,
       repo,
       status: "active",
       createdAt: ctx.timestamp,

@@ -1,11 +1,12 @@
-// PreToolUse on file edits: this is what makes dibs mandatory instead of optional.
-import { readInput, type ToolHookInput } from "./io";
+// PreToolUse on file edits: this is what makes dibs mandatory instead of optional. Edits are
+// blocked until the agent has called dibs, and on files another agent owns.
+import { checkEdit } from "@dibs/core";
+import { block, failOpen, readInput, type ToolHookInput } from "./io";
 
-const input = await readInput<ToolHookInput>();
-
-// TODO(plugin lane):
-// 1. If this agent hasn't published an intent yet, block() with "call publish_intent first".
-// 2. If core.fileOwner(path) is another agent, block() naming the owner and telling Claude
-//    to use request_feature instead.
-// Until then every edit is allowed.
-void input;
+await failOpen(async () => {
+  const input = await readInput<ToolHookInput>();
+  const path = input.tool_input.file_path ?? input.tool_input.notebook_path;
+  if (typeof path !== "string") return;
+  const decision = await checkEdit({ sessionId: input.session_id, path, cwd: input.cwd });
+  if (!decision.allow) block(decision.reason);
+});

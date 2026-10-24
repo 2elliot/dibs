@@ -14,6 +14,7 @@ export default __t.row({
   id: __t.u64().primaryKey(),
   sessionId: __t.string().name("session_id"),
   name: __t.string(),
+  kind: __t.string(),
   repo: __t.option(__t.string()),
   status: __t.string(),
   createdAt: __t.timestamp().name("created_at"),
