@@ -1,13 +1,16 @@
 // Entry point for the Azure Container App. Always starts the HTTP server (liveness, status, config,
-// dashboard). The analysis loop runs only once a real DibsDb over @dibs/client exists (Phase B,
-// after issue 1's [module-ready]); until then the server runs and reports db:"unknown" so the
-// container is healthy and the dashboard can be served. Logging goes to stderr.
+// dashboard). The analysis loop starts when both SPACETIME_TOKEN and ANTHROPIC_API_KEY are set;
+// otherwise it stays server-only (healthy container, dashboard served, db reported accordingly).
+// Logging goes to stderr.
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { existsSync } from "node:fs";
 import { loadConfig, publicConfig } from "./config.ts";
 import { HealthState } from "./http/health.ts";
 import { createServer, startServer } from "./http/server.ts";
+import { AnthropicModelClient } from "./model/anthropic.ts";
+import { SpacetimeDibsDb } from "./worker/spacetime-db.ts";
+import { WorkerLoop } from "./worker/loop.ts";
 
 async function main(): Promise<void> {
   const config = loadConfig();
@@ -33,18 +36,38 @@ async function main(): Promise<void> {
 
   if (!config.spacetimeToken) {
     console.error(
-      "[worker] SPACETIME_TOKEN not set: analysis loop disabled (Phase B wires @dibs/client once issue 1 ships [module-ready]).",
+      "[worker] SPACETIME_TOKEN not set: analysis loop disabled (server-only mode).",
     );
     return;
   }
-  // Phase B: construct the real DibsDb over @dibs/client and the model client, then:
-  //   const model = config.anthropicApiKey
-  //     ? new AnthropicModelClient({ apiKey: config.anthropicApiKey, model: config.anthropicModel })
-  //     : <fake/deterministic>;
-  //   new WorkerLoop({ db, model, health }).start();
-  console.error(
-    "[worker] SPACETIME_TOKEN set but the real DB client is not wired yet (Phase B).",
-  );
+  if (!config.anthropicApiKey) {
+    // The loop needs a model to produce findings; without a key we stay server-only rather than
+    // leasing jobs we can't analyze.
+    console.error(
+      "[worker] ANTHROPIC_API_KEY not set: analysis loop disabled (server-only mode).",
+    );
+    return;
+  }
+
+  try {
+    const db = await SpacetimeDibsDb.connect({
+      uri: config.dbUri,
+      dbName: config.dbName,
+      token: config.spacetimeToken,
+    });
+    health.setDb("connected");
+    const model = new AnthropicModelClient({
+      apiKey: config.anthropicApiKey,
+      model: config.anthropicModel,
+    });
+    new WorkerLoop({ db, model, health }).start();
+    console.error(
+      `[worker] analysis loop started (model ${config.anthropicModel}).`,
+    );
+  } catch (e) {
+    health.setDb("disconnected");
+    console.error("[worker] failed to start analysis loop:", e);
+  }
 }
 
 main().catch((e) => {
