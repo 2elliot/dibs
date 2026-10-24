@@ -39,4 +39,11 @@ if (typeof command.main !== "function") {
   console.error(`dibs ${name}: ${target} doesn't export main(args)`);
   process.exit(1);
 }
-await command.main(args);
+try {
+  await command.main(args);
+} catch (error) {
+  console.error(
+    `dibs ${name}: ${error instanceof Error ? error.message : String(error)}`,
+  );
+  process.exitCode = 1;
+}
