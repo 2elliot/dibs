@@ -9,7 +9,7 @@ Owner: _TBD_ · Branch: `core/schema` · Updated: 2026-10-23
 
 ## Next
 
-- [ ] **By H2:** SpacetimeDB go/no-go. `spacetime login`, `npm run publish:maincloud`, share the database name in chat. If it fights us, fall back to Supabase (see `docs/decisions/2026-10-23-spacetimedb-backend.md`).
+- [x] **By H2:** SpacetimeDB go/no-go. Passed. Published to Maincloud as `dib` (https://spacetimedb.com/dib).
 - [ ] **H2–H10:** `publishIntent`: embed, call the `publishIntent` reducer, `nearestIntents`, then the judge
 - [ ] Pick the embedding model and record it in `docs/decisions/`
 - [ ] **H10–H18:** the Claude judge (duplicate / partial / independent) → `recordOverlap`; `requestFeature` saves the contract
@@ -27,4 +27,5 @@ Owner: _TBD_ · Branch: `core/schema` · Updated: 2026-10-23
 
 ## Notes for teammates
 
--
+- The shared database is `dib` on Maincloud, already the default in both `.env.example` files. It's empty and there's no auth, so don't run test scripts against it. Use a local `spacetime start` and `npm run publish:local` instead.
+- Republishing after a column change needs `--delete-data`, which wipes `dib` for everyone. Ask in chat first.

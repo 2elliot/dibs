@@ -14,4 +14,4 @@ Rules every adapter follows:
 
 The SessionStart context now tells the agent its `agent_id` for the MCP tools.
 
-Open question for the plugin lane: each hook run opens its own SpacetimeDB connection. That takes about 150 ms locally; measure it against Maincloud, since PostToolUse runs after every tool call.
+Open question for the plugin lane: each hook run opens its own SpacetimeDB connection. Against Maincloud that is about 0.7 s per run, and PostToolUse runs after every tool call. See `docs/status/plugin.md` for options.

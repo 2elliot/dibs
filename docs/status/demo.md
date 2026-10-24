@@ -20,7 +20,7 @@ Covers the dashboard, the demo app, the baseline, and pitch and glue.
 
 ## Needs from other lanes
 
-- core: the SpacetimeDB database name once it's published
+-
 
 ## Notes for teammates
 
