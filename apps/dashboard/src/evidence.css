@@ -1,0 +1,21 @@
+.revision-note {
+  margin-top: 8px;
+  padding: 7px 8px;
+  border-left: 2px solid var(--amber);
+  background: #29231d;
+  color: #e9c394;
+  font: 10px/1.45 var(--mono);
+}
+
+.assembled-roots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  padding-bottom: 10px;
+  color: #a7bab8;
+  font: 9px var(--mono);
+}
+
+@media (prefers-color-scheme: light) {
+  .revision-note { background: #fbf3e8; color: #73512d; }
+}
