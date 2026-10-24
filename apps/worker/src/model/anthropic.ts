@@ -25,7 +25,7 @@ export class AnthropicModelClient implements ModelClient {
   constructor(opts: AnthropicClientOptions) {
     this.model = opts.model;
     this.name = `anthropic:${opts.model}`;
-    this.client = new Anthropic({ apiKey: opts.apiKey });
+    this.client = new Anthropic({ apiKey: opts.apiKey, maxRetries: 0 });
   }
 
   async analyze(
@@ -36,7 +36,8 @@ export class AnthropicModelClient implements ModelClient {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), opts.timeoutMs);
     const onAbort = () => controller.abort();
-    if (opts.signal)
+    if (opts.signal?.aborted) controller.abort();
+    else if (opts.signal)
       opts.signal.addEventListener("abort", onAbort, { once: true });
 
     try {
@@ -49,6 +50,7 @@ export class AnthropicModelClient implements ModelClient {
           tools: [
             {
               name: TOOL_NAME,
+              strict: true,
               description:
                 "Report the per-key analysis findings for this lobby.",
               // FINDINGS_SCHEMA is a plain closed JSON Schema; the SDK's InputSchema type is looser.

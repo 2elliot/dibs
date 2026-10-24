@@ -24,8 +24,14 @@ az extension add -n containerapp --upgrade
 az provider register -n Microsoft.App
 az provider register -n Microsoft.OperationalInsights
 az group create -n dibs-rg -l westus2
+# Build this exact Dockerfile from the repository root, then deploy the image.
+# `az containerapp up --source .` would search for a root Dockerfile, not infra/Dockerfile.
+az acr create -n <acr> -g dibs-rg --sku Basic --admin-enabled true
+az acr build -r <acr> -f infra/Dockerfile --platform linux/amd64 -t dibs:<sha> .
+az acr credential show -n <acr>
 az containerapp up -n dibs -g dibs-rg -l westus2 --environment dibs-env \
-  --source . --ingress external --target-port 8080
+  --image <acr>.azurecr.io/dibs:<sha> --registry-server <acr>.azurecr.io \
+  --registry-username <user> --registry-password <pass> --ingress external --target-port 8080
 ```
 
 If ACR cloud builds are blocked (`TasksOperationsNotAllowed` on trial/student credits), build locally
@@ -49,6 +55,9 @@ az containerapp update -n dibs -g dibs-rg --min-replicas 1 --max-replicas 1 \
   --set-env-vars ANTHROPIC_API_KEY=secretref:anthropic-key SPACETIME_TOKEN=secretref:stdb-token \
   SPACETIME_URI=https://maincloud.spacetimedb.com SPACETIME_DB=dibs-ch13-dev ANTHROPIC_MODEL=<id>
 ```
+
+For a default live lobby, also set `DIBS_LOBBY_ID=<id>`; otherwise open the dashboard with
+`?lobby=<id>`. `/config.json` supplies both protocol and dashboard field names.
 
 Changing a secret needs a revision restart. Always pass the same `--environment`.
 

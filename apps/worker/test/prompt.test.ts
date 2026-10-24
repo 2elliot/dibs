@@ -29,9 +29,7 @@ describe("prompt builder", () => {
     const input = loadFixture("bearer-vs-cookie");
     const user = buildUserPrompt(input);
     // auth.session is produced by claude and required by codex -> shared.
-    const sharedSection = user.slice(
-      user.indexOf("Keys shared by more than one participant"),
-    );
+    const sharedSection = user.slice(user.indexOf("Keys to analyze"));
     expect(sharedSection).toContain("- auth.session");
     // auth.server is only claude's here -> not in the shared list.
     const sharedLines = sharedSection.slice(

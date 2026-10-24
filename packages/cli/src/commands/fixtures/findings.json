@@ -1,0 +1,20 @@
+{
+  "s2": {
+    "key": "auth.session",
+    "relation": "conflict",
+    "explanation": "The producer uses bearer tokens while both consumers expect cookies.",
+    "contractText": "Use an HttpOnly session cookie. Login sets the cookie; browser requests send credentials; protected routes resolve the same cookie to the current user."
+  },
+  "aligned": {
+    "key": "auth.session",
+    "relation": "compatible",
+    "explanation": "All three plans explicitly use the same session cookie.",
+    "contractText": "Use an HttpOnly session cookie."
+  },
+  "revised": {
+    "key": "auth.session",
+    "relation": "conflict",
+    "explanation": "SIMULATION: a revised proposal after the first rejection.",
+    "contractText": "Use a signed HttpOnly session cookie with SameSite=Lax. Login sets it and protected routes resolve it to the current user."
+  }
+}

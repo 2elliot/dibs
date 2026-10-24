@@ -26,7 +26,7 @@ describe("runAnalysisWithRetry", () => {
     const nowMs = 1_000_000;
     const fallbackAtUs = (nowMs + 200_000) * 1000; // 200 s left > 90 s window
     const outcome = await runAnalysisWithRetry(input, model, {
-      nowMs,
+      now: () => nowMs,
       fallbackAtUs,
     });
     expect(outcome.attempts).toBe(2);
@@ -39,7 +39,7 @@ describe("runAnalysisWithRetry", () => {
     const nowMs = 1_000_000;
     const fallbackAtUs = (nowMs + 10_000) * 1000; // only 10 s left < 90 s window
     await expect(
-      runAnalysisWithRetry(input, model, { nowMs, fallbackAtUs }),
+      runAnalysisWithRetry(input, model, { now: () => nowMs, fallbackAtUs }),
     ).rejects.toThrow("timeout");
     expect(model.calls).toHaveLength(1);
   });
@@ -55,10 +55,10 @@ describe("runAnalysisWithRetry", () => {
       runAnalysisWithRetry(
         input,
         model,
-        { nowMs, fallbackAtUs },
+        { now: () => nowMs, fallbackAtUs },
         { signal: controller.signal },
       ),
     ).rejects.toThrow();
-    expect(model.calls).toHaveLength(1);
+    expect(model.calls).toHaveLength(0);
   });
 });

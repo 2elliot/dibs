@@ -5,7 +5,11 @@ node_modules
 .git
 .env
 .env.*
+**/.env
+**/.env.*
 bench/results
 bench/oracle*
 **/dist
 **/*.log
+**/.live-module
+**/.test-module

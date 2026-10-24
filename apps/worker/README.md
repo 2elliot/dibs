@@ -28,7 +28,7 @@ src/
     loop.ts              lease -> analyze -> submit/fail; one call per lobby; heartbeat
     fake-db.ts           in-memory DibsDb for tests
   cli/analyze.ts         dry-run: print the prompt (+ findings with a key or --fake)
-  index.ts               entry: starts the HTTP server; loop is wired in Phase B
+  index.ts               entry: HTTP server + real worker loop with initial connection retry
 test/                    vitest unit tests + S2-style fixtures
 ```
 
@@ -50,26 +50,40 @@ PORT=4130 npm run start -w @dibs/worker
 This dev machine has **no `ANTHROPIC_API_KEY`**, so tests use the fake. The real client
 (`model/anthropic.ts`) compiles and is used automatically when the key is set. Env:
 
-| Var                                                  | Required          | Default                    | Notes                               |
-| ---------------------------------------------------- | ----------------- | -------------------------- | ----------------------------------- |
-| `ANTHROPIC_API_KEY`                                  | for real analysis | —                          | Secret; never logged.               |
-| `ANTHROPIC_MODEL`                                    | no                | `claude-3-7-sonnet-latest` | Confirm the id at 08:45 (plan §1).  |
-| `PORT`                                               | no                | `8080`                     | Use `4130` locally (issue 3 range). |
-| `SPACETIME_URI` / `SPACETIME_DB` / `SPACETIME_TOKEN` | Phase B           | local dev DB               | Loop stays idle without the token.  |
+| Var                                                  | Required          | Default             | Notes                                                    |
+| ---------------------------------------------------- | ----------------- | ------------------- | -------------------------------------------------------- |
+| `ANTHROPIC_API_KEY`                                  | for real analysis | —                   | Secret; never logged.                                    |
+| `ANTHROPIC_MODEL`                                    | no                | `claude-sonnet-4-6` | Override with a model supporting forced strict tool use. |
+| `PORT`                                               | no                | `8080`              | Use `4130` locally (issue 3 range).                      |
+| `SPACETIME_URI` / `SPACETIME_DB` / `SPACETIME_TOKEN` | Phase B           | local dev DB        | Loop stays idle without the token.                       |
+| `DIBS_LOBBY_ID`                                      | no                | unset               | Default dashboard lobby; otherwise open `?lobby=<id>`.   |
 
-The model call uses streaming + a forced tool whose `input_schema` is `FINDINGS_SCHEMA`, a 90 s
-timeout, and one retry only if a full window still fits before the lobby's `fallbackAtUs`. Latency and
-token usage are logged per call; the prompt and source are never logged.
+The model call uses streaming and a strict forced tool with `FINDINGS_SCHEMA`. SDK retries are
+disabled so the worker owns the retry budget. One retry is allowed only if at least 90 seconds
+remain before fallback, measured after the first attempt. The frozen database lease lasts 60 seconds,
+so production worker model work (including retries) has a shared 54-second deadline; 6 seconds remain
+for recording success/failure before expiry. The standalone dry-run tool retains the 90-second cap.
+Invalid output fails the job rather than silently submitting empty findings. Latency and token usage
+are logged; prompts and source are never logged.
+
+`/config.json` preserves the protocol's `dbUri`/`dbName` and also supplies the dashboard's `uri`/`db`
+aliases and optional `lobby`. Initial connection failures retry with capped exponential backoff;
+established connections use the shared client's automatic reconnect. Disconnected cached rows do
+not count as a connected database in `/health/status`.
 
 ## Phases
 
 - **A (done):** prompt builder, validator, fake model, HTTP server, dry-run tool, Dockerfile, unit
   tests — all against `packages/protocol` + `docs/API.md`.
-- **B (after issue 1 `[module-ready]`):** `git merge issue/1-state`, implement `DibsDb` over
-  `@dibs/client`, wire `WorkerLoop` in `index.ts`, and verify against a local published module:
+- **B (done, with issue 1 integrated):** `DibsDb` uses `@dibs/client`, `WorkerLoop` is wired in
+  `index.ts`, and the live suite verifies against a local published module:
   a queued job becomes a proposal; a `compatible` fixture yields an `aligned` contract; a stale
   `inputKey` is rejected and the job re-leased; a killed worker's lease is re-leased by a second
   instance.
+
+See [VERIFY.md](VERIFY.md) for automated regression and live database commands. A Docker daemon and
+a real Anthropic key are needed for their respective smoke checks; fake/model-protocol tests do not
+claim to assess live model quality.
 
 ## Tuning disclosure
 

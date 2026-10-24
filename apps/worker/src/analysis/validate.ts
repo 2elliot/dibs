@@ -12,6 +12,8 @@ import type {
 export interface DroppedFinding {
   finding: Finding;
   reason: string;
+  /** A valid finding deliberately ignored because its agreed basis has not changed. */
+  ignored?: boolean;
 }
 
 export interface ValidationResult {
@@ -30,6 +32,14 @@ export function validateFindings(
   raw: Findings,
   input: AnalysisInput,
 ): ValidationResult {
+  if (
+    !raw ||
+    typeof raw !== "object" ||
+    !Array.isArray(raw.findings) ||
+    raw.findings.length > 100
+  ) {
+    throw new Error("invalid model findings: expected a findings array");
+  }
   const kept: Finding[] = [];
   const dropped: DroppedFinding[] = [];
 
@@ -40,7 +50,21 @@ export function validateFindings(
 
   const relations = new Set<string>(RELATIONS);
 
-  for (const finding of raw.findings ?? []) {
+  for (const finding of raw.findings) {
+    if (
+      !finding ||
+      typeof finding !== "object" ||
+      typeof finding.key !== "string" ||
+      typeof finding.relation !== "string" ||
+      !Array.isArray(finding.citedItemIds) ||
+      !finding.citedItemIds.every((id) => Number.isSafeInteger(id) && id > 0) ||
+      typeof finding.explanation !== "string" ||
+      !finding.explanation.trim() ||
+      finding.explanation.length > 4000 ||
+      typeof finding.contractText !== "string" ||
+      finding.contractText.length > 4000
+    )
+      throw new Error("invalid model finding fields");
     const drop = (reason: string) => dropped.push({ finding, reason });
 
     if (!relations.has(finding.relation)) {
@@ -58,12 +82,12 @@ export function validateFindings(
 
     // Rule 3: cited ids must exist in the lobby's current items.
     const cited = finding.citedItemIds ?? [];
-    const missing = cited.filter((id) => !itemById.has(id));
+    const missing = cited.filter((id) => itemById.get(id)?.key !== finding.key);
     if (missing.length > 0) {
-      drop(`cites nonexistent item id(s) ${missing.join(", ")}`);
+      drop(`cites nonexistent item or wrong-key id(s) ${missing.join(", ")}`);
       continue;
     }
-    if (finding.relation !== "unowned" && cited.length === 0) {
+    if (cited.length === 0) {
       drop(`${finding.relation} finding cites no items`);
       continue;
     }
@@ -77,28 +101,19 @@ export function validateFindings(
       continue;
     }
 
-    // Rule 8: a key with a current agreed contract is only reopened if the finding cites an item
-    // that is NOT in the contract's basis and whose text differs from the basis item for the same
-    // participant. Otherwise it's a re-handshake and we drop it.
+    // Rule 8: unchanged basis ids need no new handshake. The reducer has historical rows and
+    // performs the authoritative text comparison when a new id is cited.
     const contract = contractByKey.get(finding.key);
     if (contract && contract.source === "agreed") {
       const basis = new Set(contract.basisItemIds);
-      const basisByParticipant = new Map<number, string>();
-      for (const id of contract.basisItemIds) {
-        const it = itemById.get(id);
-        if (it) basisByParticipant.set(it.participantId, it.text);
-      }
-      const bringsSomethingNew = cited.some((id) => {
-        if (basis.has(id)) return false;
-        const it = itemById.get(id);
-        if (!it) return false;
-        const prior = basisByParticipant.get(it.participantId);
-        return prior === undefined || prior !== it.text;
-      });
+      // Historical basis items are absent from AnalysisInput; the reducer compares their text.
+      const bringsSomethingNew = cited.some((id) => !basis.has(id));
       if (!bringsSomethingNew) {
-        drop(
-          `key "${finding.key}" already has an agreed contract and the finding cites nothing new`,
-        );
+        dropped.push({
+          finding,
+          reason: `key ${finding.key} already has an agreed contract`,
+          ignored: true,
+        });
         continue;
       }
     }

@@ -10,6 +10,7 @@ ENV NODE_ENV=development
 COPY package.json package-lock.json tsconfig.base.json ./
 COPY packages ./packages
 COPY apps ./apps
+COPY spacetime/package.json ./spacetime/package.json
 RUN npm ci
 RUN if [ -f apps/dashboard/package.json ]; then npm run build -w @dibs/dashboard; fi
 

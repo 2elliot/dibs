@@ -11,6 +11,7 @@ import { createServer, startServer } from "./http/server.ts";
 import { AnthropicModelClient } from "./model/anthropic.ts";
 import { SpacetimeDibsDb } from "./worker/spacetime-db.ts";
 import { WorkerLoop } from "./worker/loop.ts";
+import { connectWithRetry } from "./worker/connect.ts";
 
 async function main(): Promise<void> {
   const config = loadConfig();
@@ -50,11 +51,15 @@ async function main(): Promise<void> {
   }
 
   try {
-    const db = await SpacetimeDibsDb.connect({
+    const connection = {
       uri: config.dbUri,
       dbName: config.dbName,
       token: config.spacetimeToken,
-    });
+    };
+    const db = await connectWithRetry(
+      () => SpacetimeDibsDb.connect(connection),
+      health,
+    );
     health.setDb("connected");
     const model = new AnthropicModelClient({
       apiKey: config.anthropicApiKey,

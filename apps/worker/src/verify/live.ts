@@ -88,7 +88,7 @@ async function main(): Promise<void> {
   if (mode === "crash-after-lease") {
     const ok = await db.leaseJob(job.jobId, leaseToken);
     console.error(
-      `leased=${ok} token=${leaseToken}. Exiting WITHOUT submitting (simulated crash).`,
+      `leased=${ok}. Exiting WITHOUT submitting (simulated crash).`,
     );
     console.error(
       `Wait ${TIMING.leaseSec}s, then run \`analyze\` to confirm the job is re-leased.`,
@@ -103,12 +103,23 @@ async function main(): Promise<void> {
     console.error(
       `leased=${ok}. Submitting with a STALE inputKey; the module must reject it (rule 2).`,
     );
-    await db.submitAnalysis(
-      job.jobId,
-      leaseToken,
-      input.inputKey + ":stale",
-      findings,
-    );
+    if (!ok) throw new Error("could not lease the job");
+    try {
+      await db.submitAnalysis(
+        job.jobId,
+        leaseToken,
+        input.inputKey + ":stale",
+        findings,
+      );
+      throw new Error("stale inputKey was unexpectedly accepted");
+    } catch (error) {
+      if (
+        !String(error).includes("stale inputKey") ||
+        String(error).includes("unexpectedly accepted")
+      )
+        throw error;
+      console.error("Confirmed: stale inputKey rejected.");
+    }
     console.error(
       `Done. The job should still be 'leased' (not 'done'); wait ${TIMING.leaseSec}s then run \`analyze\` to re-lease.`,
     );

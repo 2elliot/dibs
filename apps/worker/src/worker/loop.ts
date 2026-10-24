@@ -9,6 +9,9 @@ import type { HealthState } from "../http/health.ts";
 import { runAnalysisWithRetry } from "../analysis/analyze.ts";
 import type { DibsDb } from "./db.ts";
 
+// Leave enough time for a 5 s reducer call before the frozen 60 s lease expires.
+export const LEASE_RESERVE_MS = TIMING.bridgeCallTimeoutSec * 1000 + 1000;
+
 export interface LoopOptions {
   db: DibsDb;
   model: ModelClient;
@@ -69,7 +72,7 @@ export class WorkerLoop {
   async tick(): Promise<void> {
     let job;
     try {
-      job = await this.db.nextLeasableJob();
+      job = await this.db.nextLeasableJob(this.inFlight);
       this.health.setDb("connected");
       this.health.setQueueOldest(await this.db.oldestQueuedAtMs());
     } catch (e) {
@@ -83,6 +86,8 @@ export class WorkerLoop {
     this.inFlight.add(job.lobbyId);
     try {
       await this.process(job.jobId, job.lobbyId);
+    } catch (e) {
+      this.log("job processing failed", { jobId: job.jobId, error: String(e) });
     } finally {
       this.inFlight.delete(job.lobbyId);
     }
@@ -90,6 +95,7 @@ export class WorkerLoop {
 
   private async process(jobId: number, lobbyId: number): Promise<void> {
     const leaseToken = randomUUID();
+    const deadlineMs = this.now() + TIMING.leaseSec * 1000 - LEASE_RESERVE_MS;
     const leased = await this.db.leaseJob(jobId, leaseToken);
     if (!leased) {
       this.log("job no longer leasable", { jobId });
@@ -101,10 +107,15 @@ export class WorkerLoop {
 
     let outcome;
     try {
-      outcome = await runAnalysisWithRetry(input, this.model, {
-        nowMs: this.now(),
-        fallbackAtUs,
-      });
+      outcome = await runAnalysisWithRetry(
+        input,
+        this.model,
+        {
+          now: this.now,
+          fallbackAtUs,
+        },
+        { deadlineMs },
+      );
     } catch (e) {
       this.health.recordAnthropicError();
       this.log("analysis failed; failing job", { jobId, error: String(e) });

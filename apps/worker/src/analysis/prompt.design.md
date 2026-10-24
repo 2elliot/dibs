@@ -6,9 +6,9 @@ keys**. This note records why the prompt is shaped the way it is, so tuning does
 
 ## What the model is asked to do
 
-One finding per **shared key** — a key more than one participant has an item on. The user prompt
-pre-computes that shared set and lists it, so the model doesn't have to infer sharing and can't
-drift onto private keys. Keys outside the fixture vocabulary are out of scope.
+One finding per **shared key**, plus every **unowned requirement**, including a single consumer
+with no producer. The user prompt pre-computes this analysis set and lists it. Private produced
+keys remain out of scope. Keys outside the fixture vocabulary are out of scope.
 
 ## The five relations
 
@@ -35,9 +35,11 @@ clause by clause, and the bar an agent needs to actually code against the contra
 
 ## Citations are evidence
 
-Every non-`unowned` finding must cite real `plan_item` ids. The reducer drops a finding whose cited
+Every finding, including `unowned`, must cite real `plan_item` ids for that same key. The reducer drops a finding whose cited
 ids don't exist (rule 3) and ignores a finding on an already-`agreed` key unless it cites a genuinely
-new/changed item (rule 8). `validate.ts` enforces the same locally so we never waste a `submit`.
+new/changed item (rule 8). Local validation rejects invalid model output. It skips unchanged basis
+ids; the reducer remains authoritative for historical text comparisons because AnalysisInput
+contains only current items.
 
 ## Tuning discipline
 

@@ -11,6 +11,7 @@ import type {
   Provider,
   VocabularyEntry,
 } from "@dibs/protocol";
+import { LIMITS } from "@dibs/protocol";
 
 export interface RowJob {
   id: number;
@@ -20,6 +21,7 @@ export interface RowJob {
   inputKey: string;
   leaseExpiresUs: bigint;
   updatedAtUs: bigint;
+  calls?: number;
 }
 export interface RowLobby {
   id: number;
@@ -94,8 +96,9 @@ export interface LobbyRows {
 /** A `queued` job, or a `leased` job whose lease has expired (so a crashed worker's job retries). */
 export function pickLeasableJob(jobs: RowJob[], nowUs: bigint): RowJob | null {
   for (const j of jobs) {
+    if ((j.calls ?? 0) >= LIMITS.analysisCallsPerLobby) continue;
     if (j.state === "queued") return j;
-    if (j.state === "leased" && j.leaseExpiresUs < nowUs) return j;
+    if (j.state === "leased" && j.leaseExpiresUs <= nowUs) return j;
   }
   return null;
 }

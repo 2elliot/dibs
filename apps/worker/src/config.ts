@@ -12,6 +12,7 @@ export interface WorkerConfig {
   /** Absent on this dev machine; the real model client is only built when it is set. */
   anthropicApiKey: string | undefined;
   anthropicModel: string;
+  lobbyId?: number;
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): WorkerConfig {
@@ -20,18 +21,34 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): WorkerConfig {
   if (!Number.isFinite(port) || port <= 0) {
     throw new Error(`invalid PORT: ${portRaw}`);
   }
+  const lobbyId = env.DIBS_LOBBY_ID ? Number(env.DIBS_LOBBY_ID) : undefined;
+  if (lobbyId !== undefined && (!Number.isSafeInteger(lobbyId) || lobbyId <= 0))
+    throw new Error("DIBS_LOBBY_ID must be a positive integer");
   return {
     port,
     dbUri: env.SPACETIME_URI ?? "http://127.0.0.1:3000",
     dbName: env.SPACETIME_DB ?? "dibs-i3-dev",
     spacetimeToken: env.SPACETIME_TOKEN || undefined,
     anthropicApiKey: env.ANTHROPIC_API_KEY || undefined,
-    // Confirmed at 08:45 in the plan; overridable so tuning never needs a code change.
-    anthropicModel: env.ANTHROPIC_MODEL ?? "claude-3-7-sonnet-latest",
+    // Pin a model supporting forced strict tool use; deployments can override it explicitly.
+    anthropicModel: env.ANTHROPIC_MODEL ?? "claude-sonnet-4-6",
+    lobbyId,
   };
 }
 
 /** The subset served at /config.json; never includes tokens or keys. */
-export function publicConfig(c: WorkerConfig): DibsConfig {
-  return { dbUri: c.dbUri, dbName: c.dbName };
+export interface DashboardConfig extends DibsConfig {
+  uri: string;
+  db: string;
+  lobby?: number;
+}
+
+export function publicConfig(c: WorkerConfig): DashboardConfig {
+  return {
+    dbUri: c.dbUri,
+    dbName: c.dbName,
+    uri: c.dbUri,
+    db: c.dbName,
+    ...(c.lobbyId === undefined ? {} : { lobby: c.lobbyId }),
+  };
 }

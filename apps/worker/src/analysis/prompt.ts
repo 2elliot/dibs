@@ -23,7 +23,7 @@ export const MAX_OUTPUT_TOKENS = 4000;
 
 const SYSTEM = `You are the analysis service for "dibs", a tool that coordinates a team whose developers each run a different coding agent on their own machine. Each agent has published a short plan of what it will PRODUCE and what it REQUIRES, keyed by a fixed shared vocabulary. Your job is to compare these plans and, for every SHARED key, decide how the plans relate and write the single contract the affected developers should build against.
 
-A key is shared when more than one participant has an item on it (for example one produces it and another requires it). Analyze only keys in the provided vocabulary. Ignore a key that only one participant touches and that no one else requires.
+A key is shared when more than one participant has an item on it (for example one produces it and another requires it). Also analyze every unowned requirement: a key with at least one requires item and no produces item, even if only one participant touches it. Analyze only keys in the provided vocabulary. Ignore private produced keys with no other participant and no unowned requirement.
 
 For each shared key, choose exactly one relation:
 - "conflict": the plans make incompatible assumptions (e.g. one returns a bearer token, another expects a cookie). Write the contract that resolves it.
@@ -36,7 +36,7 @@ Rules you must follow:
 - contractText must be precise enough to write code against: exact routes and methods, request and response JSON shapes, header or cookie names, status codes, exported function names with signatures, and file paths. No vague language.
 - Cite only plan_item ids that appear in the input. The citedItemIds are your evidence; every finding except "unowned" must cite at least one real id.
 - A developer's explicitly stated requirement is non-negotiable. Do not propose a contract that silently overrides it; if two stated requirements truly conflict, pick the one the charter favors (or the producer's, for its own output) and say so in the explanation.
-- Output one finding per shared key, no duplicates. Do not output findings for keys nobody shares.
+- Output one finding per listed analysis key, no duplicates. Include unowned requirements even when only one participant requires them.
 - Report through the report_findings tool only.`;
 
 function keysOf(items: AnalysisItem[]): string[] {
@@ -106,7 +106,9 @@ export function buildUserPrompt(input: AnalysisInput): string {
     (key) =>
       new Set(
         input.items.filter((i) => i.key === key).map((i) => i.participantId),
-      ).size > 1,
+      ).size > 1 ||
+      (input.items.some((i) => i.key === key && i.kind === "requires") &&
+        !input.items.some((i) => i.key === key && i.kind === "produces")),
   );
   const reviseNote =
     input.jobKind === "revise"
@@ -125,7 +127,7 @@ ${renderVocabulary(input.vocabulary)}
 
 ${renderItemsByKey(input.items)}
 
-# Keys shared by more than one participant (analyze these)
+# Keys to analyze (shared keys and unowned requirements)
 
 ${shared.length ? shared.map((k) => `- ${k}`).join("\n") : "(none yet)"}
 
@@ -141,7 +143,7 @@ ${renderOpenProposals(input.openProposals)}
 
 ${renderRejections(input.rejections)}
 ${reviseNote}
-Return one finding per shared key through report_findings. Each finding: key, relation, citedItemIds (real ids above), explanation, contractText (concrete; "" only for unowned).`;
+Return one finding per listed analysis key through report_findings. Each finding: key, relation, citedItemIds (real ids above, including for unowned), explanation, contractText (concrete; "" only for unowned).`;
 }
 
 export function buildAnalysisRequest(input: AnalysisInput): AnalysisRequest {

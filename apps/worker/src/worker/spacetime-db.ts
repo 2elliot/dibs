@@ -3,10 +3,8 @@
 // to pick leasable jobs and assemble AnalysisInput, and calls the worker reducers. Row -> input
 // mapping lives in mapping.ts (unit-tested); this file only wires it to the live connection.
 //
-// NOTE: not exercised in this sandbox (no `spacetime` CLI / local server). It typechecks and is the
-// Phase B integration seam; run it against a local published module to verify the "Done when" items.
+// The opt-in live suite exercises this adapter against the real local module (see VERIFY.md).
 import { call, connect, DbConnection, tables } from "@dibs/client";
-import type { SubscriptionHandle } from "@dibs/bindings";
 import type { Findings } from "@dibs/protocol";
 import type { AnalysisInput } from "@dibs/protocol";
 import type { DibsDb, LeasableJob } from "./db.ts";
@@ -49,31 +47,41 @@ export interface SpacetimeConnectOptions {
 export class SpacetimeDibsDb implements DibsDb {
   private constructor(private readonly conn: DbConnection) {}
 
+  disconnect(): void {
+    this.conn.disconnect();
+  }
+
   static async connect(
     opts: SpacetimeConnectOptions,
   ): Promise<SpacetimeDibsDb> {
     const { conn } = await connect(opts);
-    await new Promise<void>((resolve, reject) => {
-      const timer = setTimeout(
-        () => reject(new Error("worker subscription timed out")),
-        10_000,
-      );
-      conn
-        .subscriptionBuilder()
-        .onApplied(() => {
-          clearTimeout(timer);
-          resolve();
-        })
-        .onError((ctx) => {
-          clearTimeout(timer);
-          reject(ctx.event);
-        })
-        .subscribe(WORKER_TABLES.map((q) => q));
-    });
+    try {
+      await new Promise<void>((resolve, reject) => {
+        const timer = setTimeout(
+          () => reject(new Error("worker subscription timed out")),
+          10_000,
+        );
+        conn
+          .subscriptionBuilder()
+          .onApplied(() => {
+            clearTimeout(timer);
+            resolve();
+          })
+          .onError((ctx) => {
+            clearTimeout(timer);
+            reject(ctx.event);
+          })
+          .subscribe(WORKER_TABLES.map((q) => q));
+      });
+    } catch (error) {
+      conn.disconnect();
+      throw error;
+    }
     return new SpacetimeDibsDb(conn);
   }
 
   private rows(): LobbyRows {
+    this.requireActive();
     const db = this.conn.db;
     return {
       job: Array.from(db.job.iter()) as unknown as RowJob[],
@@ -89,9 +97,26 @@ export class SpacetimeDibsDb implements DibsDb {
     };
   }
 
-  async nextLeasableJob(): Promise<LeasableJob | null> {
+  private requireActive(): void {
+    if (!this.conn.isActive) throw new Error("database disconnected");
+  }
+
+  async nextLeasableJob(
+    excludedLobbyIds?: ReadonlySet<number>,
+  ): Promise<LeasableJob | null> {
+    this.requireActive();
     const jobs = Array.from(this.conn.db.job.iter()) as unknown as RowJob[];
-    const job = pickLeasableJob(jobs, nowUs());
+    const running = new Set(
+      Array.from(this.conn.db.lobby.iter())
+        .filter((l) => l.state === "running")
+        .map((l) => l.id),
+    );
+    const job = pickLeasableJob(
+      jobs.filter(
+        (j) => running.has(j.lobbyId) && !excludedLobbyIds?.has(j.lobbyId),
+      ),
+      nowUs(),
+    );
     if (!job) return null;
     return {
       jobId: job.id,
@@ -136,8 +161,8 @@ export class SpacetimeDibsDb implements DibsDb {
       findingsJson: JSON.stringify(findings),
     });
     if (res.status !== "ok") {
-      console.error(
-        `[worker] submitAnalysis ${jobId} -> ${res.status}: ${res.error ?? ""}`,
+      throw new Error(
+        `submitAnalysis ${jobId} -> ${res.status}: ${res.error ?? ""}`,
       );
     }
   }
@@ -149,9 +174,7 @@ export class SpacetimeDibsDb implements DibsDb {
   ): Promise<void> {
     const res = await call(this.conn, "failJob", { jobId, leaseToken, error });
     if (res.status !== "ok") {
-      console.error(
-        `[worker] failJob ${jobId} -> ${res.status}: ${res.error ?? ""}`,
-      );
+      throw new Error(`failJob ${jobId} -> ${res.status}: ${res.error ?? ""}`);
     }
   }
 
@@ -159,13 +182,16 @@ export class SpacetimeDibsDb implements DibsDb {
     name: string,
     detail: Record<string, unknown>,
   ): Promise<void> {
-    await call(this.conn, "heartbeat", {
+    const res = await call(this.conn, "heartbeat", {
       name,
       detailJson: JSON.stringify(detail),
     });
+    if (res.status !== "ok")
+      throw new Error(`heartbeat -> ${res.status}: ${res.error ?? ""}`);
   }
 
   async oldestQueuedAtMs(): Promise<number | null> {
+    this.requireActive();
     const queued = (
       Array.from(this.conn.db.job.iter()) as unknown as RowJob[]
     ).filter((j) => j.state === "queued");

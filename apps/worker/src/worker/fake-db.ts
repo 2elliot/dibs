@@ -36,8 +36,11 @@ export class FakeDb implements DibsDb {
     this.fallbacks.set(job.lobbyId, fallbackAtUs);
   }
 
-  async nextLeasableJob(): Promise<LeasableJob | null> {
-    return this.jobs.shift() ?? null;
+  async nextLeasableJob(
+    excludedLobbyIds?: ReadonlySet<number>,
+  ): Promise<LeasableJob | null> {
+    const index = this.jobs.findIndex((j) => !excludedLobbyIds?.has(j.lobbyId));
+    return index < 0 ? null : this.jobs.splice(index, 1)[0];
   }
   async buildAnalysisInput(jobId: number): Promise<AnalysisInput> {
     const input = this.inputs.get(jobId);

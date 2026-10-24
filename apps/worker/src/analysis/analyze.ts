@@ -1,15 +1,10 @@
-// Orchestrates one analysis: build the request, call the model with a timeout, validate the result.
-// The retry policy (one retry only if 90 s remain before the lobby's fallback) lives here too, as a
-// pure function of the clock, so it's testable without the DB.
 import { TIMING } from "@dibs/protocol";
 import type { AnalysisInput, Finding, Findings } from "@dibs/protocol";
 import type { ModelClient, ModelUsage } from "../model/types.ts";
 import { buildAnalysisRequest } from "./prompt.ts";
-import { validateFindings } from "./validate.ts";
-import type { DroppedFinding } from "./validate.ts";
+import { validateFindings, type DroppedFinding } from "./validate.ts";
 
 export interface AnalysisOutcome {
-  /** The findings that passed local validation; what submit_analysis gets. */
   kept: Finding[];
   dropped: DroppedFinding[];
   raw: Findings;
@@ -20,59 +15,93 @@ export interface AnalysisOutcome {
 }
 
 export interface RunOptions {
-  /** Defaults to TIMING.analysisTimeoutSec. */
   timeoutMs?: number;
   signal?: AbortSignal;
+  /** A job-wide deadline, including retries, reserved inside the database lease. */
+  deadlineMs?: number;
+  now?: () => number;
 }
 
-/** One model call + validation. No retry; see runAnalysisWithRetry for the budgeted retry. */
 export async function runAnalysis(
   input: AnalysisInput,
   model: ModelClient,
   opts: RunOptions = {},
 ): Promise<AnalysisOutcome> {
-  const timeoutMs = opts.timeoutMs ?? TIMING.analysisTimeoutSec * 1000;
-  const req = buildAnalysisRequest(input);
-  const result = await model.analyze(req, { timeoutMs, signal: opts.signal });
-  const { kept, dropped } = validateFindings(result.findings, input);
-  return {
-    kept,
-    dropped,
-    raw: result.findings,
-    usage: result.usage,
-    latencyMs: result.latencyMs,
-    model: result.model,
-    attempts: 1,
-  };
+  const now = opts.now ?? Date.now;
+  const timeoutMs = Math.min(
+    opts.timeoutMs ?? TIMING.analysisTimeoutSec * 1000,
+    opts.deadlineMs === undefined ? Infinity : opts.deadlineMs - now(),
+  );
+  if (timeoutMs <= 0) throw new Error("analysis lease budget exhausted");
+  if (opts.signal?.aborted) throw new Error("analysis aborted");
+
+  const controller = new AbortController();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let onAbort: (() => void) | undefined;
+  const interrupted = new Promise<never>((_resolve, reject) => {
+    onAbort = () => {
+      controller.abort();
+      reject(new Error("analysis aborted"));
+    };
+    opts.signal?.addEventListener("abort", onAbort, { once: true });
+    timer = setTimeout(() => {
+      controller.abort();
+      reject(new Error("analysis timed out"));
+    }, timeoutMs);
+  });
+  try {
+    const result = await Promise.race([
+      model.analyze(buildAnalysisRequest(input), {
+        timeoutMs,
+        signal: controller.signal,
+      }),
+      interrupted,
+    ]);
+    const { kept, dropped } = validateFindings(result.findings, input);
+    // Invalid output must not turn a conflicted key into "clear" by submitting empty findings.
+    const invalid = dropped.filter((d) => !d.ignored);
+    if (invalid.length) {
+      throw new Error(
+        "invalid model findings: " + invalid.map((d) => d.reason).join("; "),
+      );
+    }
+    return {
+      kept,
+      dropped,
+      raw: result.findings,
+      usage: result.usage,
+      latencyMs: result.latencyMs,
+      model: result.model,
+      attempts: 1,
+    };
+  } finally {
+    clearTimeout(timer);
+    if (onAbort) opts.signal?.removeEventListener("abort", onAbort);
+  }
 }
 
 export interface RetryClock {
-  /** Date.now()-style milliseconds. */
-  nowMs: number;
-  /** The lobby's fallback time, in microseconds (the `fallbackAtUs` column). */
+  now: () => number;
   fallbackAtUs: number;
 }
 
-/**
- * Retry once, but only if a full analysis window (timeout) still fits before the fallback — this is
- * the plan's "one retry only if 90 s remain before fallbackAtUs". A retry is never attempted when
- * the model call was aborted by the caller's signal.
- */
 export async function runAnalysisWithRetry(
   input: AnalysisInput,
   model: ModelClient,
   clock: RetryClock,
   opts: RunOptions = {},
 ): Promise<AnalysisOutcome> {
-  const timeoutMs = opts.timeoutMs ?? TIMING.analysisTimeoutSec * 1000;
+  const runOpts = { ...opts, now: clock.now };
   try {
-    return await runAnalysis(input, model, { ...opts, timeoutMs });
+    return await runAnalysis(input, model, runOpts);
   } catch (firstError) {
     if (opts.signal?.aborted) throw firstError;
-    const fallbackAtMs = clock.fallbackAtUs / 1000;
-    const msLeft = fallbackAtMs - clock.nowMs;
-    if (msLeft < timeoutMs) throw firstError;
-    const outcome = await runAnalysis(input, model, { ...opts, timeoutMs });
+    const now = clock.now();
+    if (clock.fallbackAtUs / 1000 - now < TIMING.analysisTimeoutSec * 1000)
+      throw firstError;
+    if (opts.deadlineMs !== undefined && opts.deadlineMs <= now)
+      throw firstError;
+    const outcome = await runAnalysis(input, model, runOpts);
     return { ...outcome, attempts: 2 };
   }
 }

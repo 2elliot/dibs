@@ -14,7 +14,9 @@ export interface LeasableJob {
 
 export interface DibsDb {
   /** A `queued` job, or a `leased` job whose lease has expired, or null. One per lobby in flight. */
-  nextLeasableJob(): Promise<LeasableJob | null>;
+  nextLeasableJob(
+    excludedLobbyIds?: ReadonlySet<number>,
+  ): Promise<LeasableJob | null>;
   /** Build the model input for a job from the lobby's current rows. */
   buildAnalysisInput(jobId: number): Promise<AnalysisInput>;
   /** The lobby's fallbackAtUs (microseconds), for the retry budget. */
