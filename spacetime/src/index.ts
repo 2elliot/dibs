@@ -27,11 +27,13 @@ import {
   inputKey,
   items,
   json,
+  keyUnchangedSince,
   now,
   once,
   promote,
   queue,
   role,
+  roundStartUs,
   schedulerOnly,
   text,
   writeContract,
@@ -464,8 +466,10 @@ export const respond = db.reducer(
       revision: a.revision,
     });
     if (a.decision === "reject") {
+      // Count only this round: a key reopened after a contract starts with no rejections.
+      const since = roundStartUs(ctx, l.id, proposal.key);
       const keyProposals = [...ctx.db.proposal.lobbyId.filter(l.id)]
-        .filter((q) => q.key === proposal.key)
+        .filter((q) => q.key === proposal.key && q.createdAtUs >= since)
         .map((q) => q.id);
       const rejections = [...ctx.db.response.lobbyId.filter(l.id)].filter(
         (r) => r.decision === "reject" && keyProposals.includes(r.proposalId),
@@ -718,6 +722,16 @@ export const submitAnalysis = db.reducer(
         ),
       ].sort((a, b) => a - b);
       if (f.relation === "unowned") {
+        // Every analysis covers every key; send the notice again only after the plans change.
+        const lastUs = [...ctx.db.event.lobbyId.filter(l.id)]
+          .filter(
+            (e) =>
+              e.type === "notice_sent" &&
+              e.detail === canonical({ key: f.key }),
+          )
+          .reduce((max, e) => (e.atUs > max ? e.atUs : max), -1n);
+        if (lastUs >= 0n && keyUnchangedSince(ctx, l.id, f.key, lastUs))
+          continue;
         for (const p of agents(ctx, l.id))
           deliver(
             ctx,
