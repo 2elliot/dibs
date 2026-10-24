@@ -1,6 +1,6 @@
 # Issue 4 (bench) + issue 5 (dashboard): status
 
-**As of Sat 15:35 PT** (Elliot's same-page reply folded in) · owner: Chris (C, M3 Mac) · branch `issue/4-bench` (PR #13) · dashboard `issue/5-dashboard` (PR #10)
+**As of Sat 15:50 PT** (Elliot's and Ren Jie's same-page replies folded in) · owner: Chris (C, M3 Mac) · branch `issue/4-bench` (PR #13) · dashboard `issue/5-dashboard` (PR #10)
 
 The bench side is done and checked end to end. It holds the test app, the prompts, the hidden oracle, `dibs verify` and the Droid review. The S2 pilot fails exactly as designed (5/6), and the Droid review names the cause. What's left is wiring it to the shared database and running it on real dibs-mode lobbies.
 
@@ -73,7 +73,36 @@ Droid SDK review of 901 (real Factory account): `auth.session` **violates** (roo
 
 **Fixed from Elliot's report (issue 5, `295001f`):** the dashboard's "Analysis online" badge looked for a service row named `analysis`. The worker can only heartbeat under its own name (`worker`), so the badge showed offline. It now reads `worker`, falling back to `analysis`.
 
-**Ren Jie (issues 1, 2):** reply pending.
+**Ren Jie (issues 1, 2), 15:40 (relayed by Chris): same page, yes.** One action item: re-pin the bridge build (see risks).
+
+| #   | Ren Jie's finding                                                                                                                                                                                                                                                                                                   |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A1  | Correct. `dibs session start` commits, pushes `HEAD` to `refs/heads/lobby/<id>/<provider>` on the `--lobbies` URL, then calls `report_head` with that SHA.                                                                                                                                                          |
+| A2  | Correct, with a caveat. `prep` doesn't clone or fetch. It resets the existing `--clone` folder to `<base>` (plus `git clean`), so `f4001dc` must already be in that clone (the runbook's `git push … f4001dc:refs/heads/base` step does this). Out-of-area files are checked against the clone's `dibs.json` areas. |
+| A3  | Correct, **only if the operator passes the composed prompt**. `prep` uses `--prompt` / `--prompt-file` verbatim and never calls `composePrompt`. Always pass `compose-prompt` output via `--prompt-file`.                                                                                                           |
+| A4  | Correct. `record_verification`, `mark_verified` and `record_review` are verifier-only. Only the `verifier` invite is needed (from Elliot).                                                                                                                                                                          |
+| A6  | Unknown for M2 credits. **The Droid provider config has never been run.** Someone on M2 must run the Droid checklist in `packages/bridge/README.md`.                                                                                                                                                                |
+| A7  | Correct for issues 1 and 2. `dibs session` kills the agent's process tree at `endsAtUs`.                                                                                                                                                                                                                            |
+
+**Answers:**
+
+- **PR #15's loop:** used a scratch app (an empty repo with a README), so it tested coordination, not the oracle. Trials use `--clone` at `f4001dc`, later `dibs-fixture`.
+- **Clone location:** wherever `--clone` points; the runbook uses `~/dibs-clones/<provider>/fixture`. **dibs does not enforce isolation**, and Codex's sandbox limits writes, not reads. Use one agent clone per machine, with no sibling clones, dibs repo or `bench/` files under `~/dibs-clones`.
+- **Admin:** fine on Elliot's laptop. Ren Jie still owns the Maincloud database and can mint a fresh admin invite. Test rows from his live check: participants `*-460c0e`, lobby 2 (stopped).
+- **Merges:** #15 → `issue/2-agents` (15:29), **#12 → `real` (15:30, `4d425ec`)**. #9, #13 and #10 should merge `origin/real`.
+- **Simulator `dibs-i5-*`:** not yet. A one-line change to allow `dibs-i[1-5]-*`, loopback-only; he can push it.
+- **Gate 0 (a), hooks:** Claude Code on Windows done. Codex on Windows done headless. **Codex on Mac and Droid not yet.**
+- **Gate 0 (b), Mac → Windows:** **not yet.** All of his runs were on one Windows laptop.
+
+**Codex hook trust on M3** (Chris does this once per new build): after `dibs session prep`, run `codex` interactively in `~/dibs-clones/codex/fixture`, accept the hook-trust prompt, and quit. Fallback: `--dangerously-bypass-hook-trust`.
+
+**Risks for the first shared-DB lobby:**
+
+1. **The bridge build pin is stale.** `infra/E2E_RUNBOOK.md` pins `0f9c811d…`, but `real` (`4d425ec`) now builds `ac6cda3a3028cc4b…` on Windows (Codex fixes, the hook double-delivery fix, `--home`, memory off). Rebuild from `real` on M1 and M3, compare hashes, then `lobby create --build <new>`.
+2. **The new `hooks.json` adds `--home`,** so any hook trust M3 accepted on the old build is void. Re-accept once after `prep`.
+3. **Possible duplicate TOML table:** if M3's `~/.codex/config.toml` already has a `[projects."…/dibs-clones/codex/fixture"]` table, `prep` adds the same key, and Codex may refuse the config. Delete the old one first.
+
+**Done from Ren Jie's ask (`d30256e`):** every role prompt now ends with "No one can answer questions during this task; make reasonable assumptions and keep going." `promptsHash` is now **`3209eb28…`**. New composed S2/dibs prompt hashes: claude `d73169de…`, codex `68e049e1…`, droid `70ff2304…`. **Elliot: update `infra/E2E_RUNBOOK.md`.**
 
 ## Assumptions this part makes (please confirm or correct)
 
@@ -101,8 +130,8 @@ Droid SDK review of 901 (real Factory account): `auth.session` **violates** (roo
 
 ## Questions for Ren Jie and Elliot (are we on the same page?)
 
-1. **Ren Jie:** PR #15's live loop with real Claude Code + Codex reached an agreed `auth.session` contract. Great. But it describes files like `auth.js` and `client.js`, which aren't in `fixture/`. Was that run on a scratch app? For trials, `dibs session prep` must clone `dibs-fixture` (this `fixture/`), or verify and the oracle won't apply (A2).
-2. **Ren Jie:** where does `dibs session` put the clone on each machine, and can it be a folder with no sibling checkouts (finding 1)?
+1. ~~PR #15's app~~: answered. It was a scratch app; trials use `f4001dc`.
+2. ~~Clone location~~: answered. `~/dibs-clones/<provider>/fixture`; isolation is up to us.
 3. ~~Invite codes~~: answered. Elliot holds admin and will send `codex` + `verifier` privately.
 4. ~~Worker and model~~: answered. Connected since 14:02, `claude-sonnet-4-6`.
 5. **Both:** anything in A1–A7 that's wrong, or anything you need from issue 4 or 5 (fixture changes, prompt wording, verify/review output fields, dashboard panels)?
