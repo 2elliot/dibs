@@ -1,0 +1,133 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__dibs",
+      "Bash(npm run *)",
+      "Bash(npm test *)",
+      "Bash(node *)",
+      "Bash(curl *)",
+      "Bash(ls *)",
+      "Bash(cat *)",
+      "Bash(grep *)",
+      "Bash(find *)",
+      "Bash(sleep *)",
+      "Bash(kill *)",
+      "Bash(git status *)",
+      "Bash(git diff *)",
+      "Bash(git log *)",
+      "PowerShell(npm run *)",
+      "PowerShell(npm test *)",
+      "PowerShell(node *)",
+      "PowerShell(curl.exe *)",
+      "PowerShell(Invoke-WebRequest *)",
+      "PowerShell(Get-ChildItem *)",
+      "PowerShell(Get-Content *)",
+      "PowerShell(Select-String *)",
+      "PowerShell(Start-Sleep *)",
+      "PowerShell(Stop-Process *)",
+      "PowerShell(git status *)",
+      "PowerShell(git diff *)",
+      "PowerShell(git log *)"
+    ],
+    "deny": [
+      "Bash(git commit *)",
+      "Bash(git push *)",
+      "PowerShell(git commit *)",
+      "PowerShell(git push *)"
+    ]
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node",
+            "args": [
+              "__HOOK__",
+              "--participant",
+              "__PARTICIPANT__",
+              "--provider",
+              "__PROVIDER__"
+            ],
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node",
+            "args": [
+              "__HOOK__",
+              "--participant",
+              "__PARTICIPANT__",
+              "--provider",
+              "__PROVIDER__"
+            ],
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node",
+            "args": [
+              "__HOOK__",
+              "--participant",
+              "__PARTICIPANT__",
+              "--provider",
+              "__PROVIDER__"
+            ],
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PostToolUseFailure": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node",
+            "args": [
+              "__HOOK__",
+              "--participant",
+              "__PARTICIPANT__",
+              "--provider",
+              "__PROVIDER__"
+            ],
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node",
+            "args": [
+              "__HOOK__",
+              "--participant",
+              "__PARTICIPANT__",
+              "--provider",
+              "__PROVIDER__"
+            ],
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

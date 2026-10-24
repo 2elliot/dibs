@@ -9,7 +9,8 @@
   "scripts": {
     "build": "node build.mjs",
     "typecheck": "tsc --noEmit -p .",
-    "test": "node build.mjs && vitest run"
+    "test": "node build.mjs && vitest run",
+    "test:live": "node build.mjs && set DIBS_LIVE=1&& vitest run test/live-port4001.test.ts"
   },
   "dependencies": {
     "@dibs/protocol": "*",
