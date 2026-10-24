@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "dibs": {
+      "command": "node",
+      "args": [
+        "__BRIDGE__",
+        "--participant",
+        "__PARTICIPANT__",
+        "--provider",
+        "__PROVIDER__",
+        "--home",
+        "__HOME__"
+      ]
+    }
+  }
+}

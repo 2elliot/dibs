@@ -1,0 +1,1 @@
+Call `dibs_status` with `waitSec: 0` and summarize for the human in at most 6 lines: lobby and mode, each shared key's status, proposals awaiting you, agreed contracts, and `fallbackInSec`. Don't edit code.

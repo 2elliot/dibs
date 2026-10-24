@@ -1,0 +1,22 @@
+{
+  "sessionDefaultSettings": {
+    "autonomyLevel": "medium"
+  },
+  "permissionRules": {
+    "allow": [
+      "node",
+      "npm run",
+      "npm test",
+      "curl",
+      "ls",
+      "cat",
+      "grep",
+      "find",
+      "sleep",
+      "git status",
+      "git diff",
+      "git log"
+    ],
+    "deny": ["git commit", "git push"]
+  }
+}
