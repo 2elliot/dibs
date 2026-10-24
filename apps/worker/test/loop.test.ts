@@ -1,6 +1,6 @@
 import { afterEach, describe, it, expect, vi } from "vitest";
 import { TIMING, type Findings } from "@dibs/protocol";
-import { REFUSED_NAME_RETRY_MS, WorkerLoop } from "../src/worker/loop.ts";
+import { WorkerLoop } from "../src/worker/loop.ts";
 import { FakeDb } from "../src/worker/fake-db.ts";
 import { FakeModelClient } from "../src/model/fake.ts";
 import type { ModelClient } from "../src/model/types.ts";
@@ -101,7 +101,7 @@ describe("WorkerLoop.tick", () => {
     loop.stop();
     // start() fires one immediate beat.
     await new Promise((r) => setTimeout(r, 10));
-    expect(db.heartbeats.map((h) => h.name)).toEqual(["analysis", "worker"]);
+    expect(db.heartbeats.map((h) => h.name)).toEqual(["worker"]);
   });
 });
 
@@ -252,51 +252,6 @@ describe("WorkerLoop.start", () => {
     expect(scans).toBeLessThan(20);
   });
 
-  it("heartbeats as analysis and worker, retrying a refused name every few minutes", async () => {
-    vi.useFakeTimers();
-    const db = new FakeDb();
-    db.rejectedHeartbeats.add("analysis"); // today's module: only the caller's own name
-    const attempts = vi.spyOn(db, "heartbeat");
-    const log = vi.fn();
-    const loop = new WorkerLoop({
-      db,
-      model: new FakeModelClient(),
-      health: new HealthState(),
-      log,
-    });
-    loop.start();
-    await vi.advanceTimersByTimeAsync(45_000); // the immediate beat and three more
-
-    expect(db.heartbeats.map((h) => h.name)).toEqual([
-      "worker",
-      "worker",
-      "worker",
-      "worker",
-    ]);
-    const tried = () =>
-      attempts.mock.calls.filter(([name]) => name === "analysis").length;
-    expect(tried()).toBe(1);
-    expect(log.mock.calls.filter(([m]) => m === "heartbeat failed")).toEqual([
-      [
-        "heartbeat failed",
-        { name: "analysis", error: expect.stringContaining("own name") },
-      ],
-    ]);
-
-    // The module starts accepting the name; the next retry picks it up.
-    db.rejectedHeartbeats.clear();
-    await vi.advanceTimersByTimeAsync(REFUSED_NAME_RETRY_MS - 45_000);
-    expect(tried()).toBe(2);
-    expect(db.heartbeats.slice(-2).map((h) => h.name)).toEqual([
-      "analysis",
-      "worker",
-    ]);
-    expect(log).toHaveBeenCalledWith("heartbeat recovered", {
-      name: "analysis",
-    });
-    loop.stop();
-  });
-
   it("retries a heartbeat that failed for another reason on the next beat", async () => {
     vi.useFakeTimers();
     const db = new FakeDb();
@@ -312,7 +267,7 @@ describe("WorkerLoop.start", () => {
     expect(db.heartbeats).toHaveLength(0);
     down = false;
     await vi.advanceTimersByTimeAsync(15_000);
-    expect(db.heartbeats.map((h) => h.name)).toEqual(["analysis", "worker"]);
+    expect(db.heartbeats.map((h) => h.name)).toEqual(["worker"]);
     loop.stop();
   });
 });

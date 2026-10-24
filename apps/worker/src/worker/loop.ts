@@ -13,15 +13,6 @@ import type { DibsDb, LeasableJob, QueuedJob } from "./db.ts";
 // Leave enough time for a 5 s reducer call before the frozen 60 s lease expires.
 export const LEASE_RESERVE_MS = TIMING.bridgeCallTimeoutSec * 1000 + 1000;
 
-// `service` rows the worker heartbeats. The dashboard's "Analysis online" badge reads `analysis`;
-// `worker` is the worker participant's own name. Today's module only accepts the caller's own
-// participant name, so the `analysis` beat is rejected until the module or the worker's
-// participant name changes; each name is beaten independently so one rejection can't stop the other.
-export const SERVICE_NAMES = ["analysis", "worker"] as const;
-// A name the module refuses as not ours is retried this rarely: every refusal is an ERROR line in
-// the module's log. Other failures (a dropped connection) are retried on the next beat.
-export const REFUSED_NAME_RETRY_MS = 5 * 60_000;
-
 export interface LoopOptions {
   db: DibsDb;
   model: ModelClient;
@@ -52,8 +43,6 @@ export class WorkerLoop {
   private scanning?: Promise<Promise<void>[]>;
   private rescan = false;
   private kickPending = false;
-  private readonly failingBeats = new Set<string>();
-  private readonly refusedUntil = new Map<string, number>();
   private unsubscribe?: () => void;
   private pollTimer?: ReturnType<typeof setInterval>;
   private heartbeatTimer?: ReturnType<typeof setInterval>;
@@ -225,25 +214,14 @@ export class WorkerLoop {
   }
 
   private async beat(): Promise<void> {
-    const status = this.health.report(this.now()) as unknown as Record<
-      string,
-      unknown
-    >;
-    for (const name of SERVICE_NAMES) {
-      if ((this.refusedUntil.get(name) ?? 0) > this.now()) continue;
-      try {
-        await this.db.heartbeat(name, status);
-        this.refusedUntil.delete(name);
-        if (this.failingBeats.delete(name))
-          this.log("heartbeat recovered", { name });
-      } catch (e) {
-        if (String(e).includes("own name"))
-          this.refusedUntil.set(name, this.now() + REFUSED_NAME_RETRY_MS);
-        // Logged once per outage rather than on every beat.
-        if (!this.failingBeats.has(name))
-          this.log("heartbeat failed", { name, error: String(e) });
-        this.failingBeats.add(name);
-      }
+    try {
+      const status = this.health.report(this.now());
+      await this.db.heartbeat(
+        "worker",
+        status as unknown as Record<string, unknown>,
+      );
+    } catch (e) {
+      this.log("heartbeat failed", { error: String(e) });
     }
   }
 }

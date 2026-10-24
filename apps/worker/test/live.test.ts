@@ -276,12 +276,10 @@ describe.skipIf(!uri)("live SpacetimeDB worker", () => {
       },
     };
     // The rescan never fires during the test, so only the job row's update can start the lease.
-    const logs: [string, Record<string, unknown> | undefined][] = [];
     const loop = new WorkerLoop({
       db: worker,
       model,
       health: new HealthState(),
-      log: (msg, extra) => logs.push([msg, extra]),
       pollMs: 3_600_000,
       heartbeatMs: 3_600_000,
     });
@@ -304,13 +302,6 @@ describe.skipIf(!uri)("live SpacetimeDB worker", () => {
       expect(Number(leasedUs - queuedUs) / 1000).toBeLessThan(2000);
       const beat = await waitFor(() => admin.db.service.name.find("worker"));
       expect(beat.lastBeatUs).toBeGreaterThan(0n);
-      // Today's module refuses the `analysis` alias (own name only); the worker must recognise
-      // that refusal to back off instead of logging a module ERROR every beat.
-      const refused = logs.find(
-        ([msg, extra]) =>
-          msg === "heartbeat failed" && extra?.name === "analysis",
-      );
-      if (refused) expect(String(refused[1]?.error)).toContain("own name");
     } finally {
       loop.stop();
     }

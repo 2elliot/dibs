@@ -24,8 +24,6 @@ export class FakeDb implements DibsDb {
   private queuedListeners = new Set<(job: QueuedJob) => void>();
   /** jobIds that leaseJob should refuse (e.g. taken by another worker / stale). */
   unleasable = new Set<number>();
-  /** Heartbeat names the module would reject (it only accepts the caller's own name). */
-  rejectedHeartbeats = new Set<string>();
 
   readonly leaseCalls: { jobId: number; leaseToken: string }[] = [];
   readonly submitCalls: SubmitCall[] = [];
@@ -90,8 +88,6 @@ export class FakeDb implements DibsDb {
     name: string,
     detail: Record<string, unknown>,
   ): Promise<void> {
-    if (this.rejectedHeartbeats.has(name))
-      throw new Error("heartbeat -> error: heartbeat must use own name");
     this.heartbeats.push({ name, detail });
   }
   async oldestQueuedAtMs(): Promise<number | null> {
