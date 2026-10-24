@@ -1,7 +1,7 @@
-// SpacetimeDB-backed store. The generated client is loaded at runtime from @dibs/client,
-// which does not exist until issue 1's [module-ready] commit. Tests pass a fake builder.
+// SpacetimeDB-backed store. The live connection uses @dibs/client. Tests pass a fake builder.
 
-import type { Provider } from "@dibs/protocol";
+import type { PlanInput, Provider } from "@dibs/protocol";
+import { DbConnection } from "@dibs/client";
 import { settleCall, type CallResult } from "./calls.ts";
 import type { RespondInput } from "./memory.ts";
 import type { AgentStore } from "./store.ts";
@@ -12,7 +12,6 @@ import {
   type RawTables,
   type World,
 } from "./world.ts";
-import type { PlanInput } from "@dibs/protocol";
 
 export interface RawTable {
   iter?: () => Iterable<Record<string, unknown>>;
@@ -313,23 +312,10 @@ export class RemoteStore implements AgentStore {
   }
 }
 
-export async function loadDbBuilder(): Promise<() => DbBuilder> {
-  const name = "@dibs/client";
-  let mod: { DbConnection?: { builder?: () => DbBuilder } };
-  try {
-    mod = (await import(name)) as {
-      DbConnection?: { builder?: () => DbBuilder };
-    };
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    throw new Error(
-      `@dibs/client is not installed (${message}). Issue 1 has not reached [module-ready].`,
-    );
-  }
-  if (!mod.DbConnection?.builder)
-    throw new Error("@dibs/client does not export DbConnection.builder");
-  const build = mod.DbConnection.builder.bind(mod.DbConnection);
-  return () => build();
+export function loadDbBuilder(): Promise<() => DbBuilder> {
+  return Promise.resolve(
+    () => DbConnection.builder() as unknown as DbBuilder,
+  );
 }
 
 class LiveSession implements RemoteSession {

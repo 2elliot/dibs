@@ -25,7 +25,7 @@ It answers MCP `initialize` before it connects to SpacetimeDB. Logs go to stderr
 
 Tools follow `TOOLS_BY_MODE`. Every tool has `destructiveHint: false`. `dibs_status` also has `readOnlyHint: true`. `waitSec` defaults to 0 and caps at 45; a longer wait returns early when the phase, keys, proposals, messages, or roster change. Reducer calls time out after 5 seconds (`pending`, same `requestId` on an identical retry) or return `offline` when the database is disconnected.
 
-Set `DIBS_BRIDGE_STORE=memory` to run with no database. The default `spacetime` store loads `@dibs/client` at runtime. That package arrives with issue 1's `[module-ready]` commit. Until then the bridge stays up and tools return `offline`.
+The default `spacetime` store connects with `@dibs/client`'s `DbConnection.builder()` and the generated reducers. `npm run test -w @dibs/bridge` covers that path with a fake connection. With a local server published as `dibs-i2-bridge`, `DIBS_DB=1 npx vitest run test/db-loop.test.ts` drives `dibs_plan`, a second agent, a fake worker, the hook, and `dibs_respond` until `spacetime sql` shows the contract `agreed`.
 
 On startup the bridge writes an inbox file for every delivery that has not reached `shown`. Every second it marks `shown/` files in the database and returns `claimed/` files older than 60 seconds to `inbox/`.
 
@@ -99,5 +99,3 @@ No protocol change is required. Private files, not in `packages/protocol`:
 - `hook-state.json` — whether the offline notice was already shown
 - `seen-messages.json` — message ids already returned by `dibs_status`
 - `machine.json`, `prompt.txt`, `agent.pid`, `agent.log`, `last-head.json` — session bookkeeping
-
-Phase B (a real lobby, `debug_deliver` or `dibs sim`, hook delivery, `dibs_respond`, and `spacetime sql` showing `agreed`) waits on `[module-ready]` from `issue/1-state`. The adapter in `src/spacetime.ts` expects `@dibs/client` to export `DbConnection.builder()` with `withUri`, `withDatabaseName`, `withToken`, `onConnect`, `subscriptionBuilder().onApplied().subscribe(sql)`, and camelCase `reducers`.
