@@ -1,0 +1,26 @@
+node_modules/
+dist/
+.next/
+next-env.d.ts
+*.tsbuildinfo
+coverage/
+
+# Secrets. Only the .env.example files are committed.
+.env
+.env.*
+!.env.example
+
+# Personal, never shared
+CLAUDE.local.md
+.claude/settings.local.json
+
+# Supabase CLI scratch
+supabase/.temp/
+supabase/.branches/
+
+.DS_Store
+Thumbs.db
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+.idea/

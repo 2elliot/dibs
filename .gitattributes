@@ -1,0 +1,8 @@
+# Same line endings on every laptop, so Windows and macOS teammates never
+# produce whole-file diffs (and fake merge conflicts) just by saving a file.
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.ico binary
+*.woff2 binary

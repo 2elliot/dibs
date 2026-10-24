@@ -1,0 +1,18 @@
+{
+  "name": "@dibs/core",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "types": "./src/index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.3.0",
+    "@dibs/shared": "*",
+    "@supabase/supabase-js": "^2.118.0"
+  }
+}

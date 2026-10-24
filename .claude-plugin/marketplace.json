@@ -1,0 +1,14 @@
+{
+  "name": "dibs",
+  "description": "The dibs plugin, installable straight from this repo.",
+  "owner": {
+    "name": "dibs team"
+  },
+  "plugins": [
+    {
+      "name": "dibs",
+      "source": "./plugin",
+      "description": "Lets your team's coding agents call dibs on features and build against each other's contracts."
+    }
+  ]
+}

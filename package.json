@@ -1,0 +1,27 @@
+{
+  "name": "dibs",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "plugin",
+    "dashboard"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "build:plugin": "npm run build -w @dibs/plugin",
+    "dev:plugin": "npm run watch -w @dibs/plugin",
+    "dev:dashboard": "npm run dev -w @dibs/dashboard",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "prettier": "^3.9.10",
+    "typescript": "~5.9"
+  }
+}

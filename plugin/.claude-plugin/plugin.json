@@ -1,0 +1,9 @@
+{
+  "name": "dibs",
+  "description": "Lets your team's coding agents call dibs on features, catch overlapping work in realtime, and build against each other's contracts instead of building the same thing twice.",
+  "author": {
+    "name": "dibs team"
+  },
+  "repository": "https://github.com/2elliot/dibs",
+  "keywords": ["collaboration", "multi-agent", "coordination"]
+}
