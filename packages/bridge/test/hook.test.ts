@@ -7,6 +7,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { DIBS_FILES, LIMITS } from "@dibs/protocol";
 import { describe, expect, it } from "vitest";
 import {
+  claimFile,
   FILES,
   HOOK_CONTEXT_CHARS,
   STOP_BLOCKS_MAX,
@@ -356,6 +357,51 @@ process.stdout.write(JSON.stringify(inbox.claimAll(4).map((entry) => entry.item.
       (a: number, b: number) => a - b,
     );
     expect(ids).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
+  });
+
+  it("skips a file another hook is still claiming, without replacing its copy", () => {
+    const dir = temp("dibs-claimed-");
+    const inbox = new Inbox(dir);
+    inbox.ensureDirs();
+    const item = {
+      deliveryId: 1,
+      lobbyId: 4,
+      kind: "notice",
+      refId: 1,
+      summary: "n1",
+      queuedAtUs: 1,
+    };
+    fs.writeFileSync(path.join(dir, "inbox", "1.json"), JSON.stringify(item));
+    // The other hook has linked the file into claimed/ but not yet removed it from inbox/.
+    fs.writeFileSync(path.join(dir, "claimed", "1.json"), "theirs");
+    expect(inbox.claimAll(4)).toEqual([]);
+    expect(fs.readFileSync(path.join(dir, "claimed", "1.json"), "utf8")).toBe(
+      "theirs",
+    );
+    expect(fs.existsSync(path.join(dir, "inbox", "1.json"))).toBe(true);
+  });
+
+  it("undoes a claim when the inbox copy can't be removed", () => {
+    const dir = temp("dibs-unlink-");
+    const from = path.join(dir, "a");
+    const to = path.join(dir, "b");
+    fs.writeFileSync(from, "x");
+    const original = fs.unlinkSync;
+    fs.unlinkSync = ((file: fs.PathLike) => {
+      if (file === from) {
+        const error = new Error("locked") as NodeJS.ErrnoException;
+        error.code = "EBUSY";
+        throw error;
+      }
+      return original(file);
+    }) as typeof fs.unlinkSync;
+    try {
+      expect(claimFile(from, to)).toBe(false);
+    } finally {
+      fs.unlinkSync = original;
+    }
+    expect(fs.existsSync(from)).toBe(true);
+    expect(fs.existsSync(to)).toBe(false);
   });
 
   it("retries a rename that fails with EPERM", () => {

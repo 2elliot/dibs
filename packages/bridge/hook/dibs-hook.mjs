@@ -6,7 +6,7 @@
 // The provider runs it for SessionStart, UserPromptSubmit, PostToolUse, PostToolUseFailure
 // (Claude only) and Stop, and passes the event as JSON on stdin (`hook_event_name`, `cwd`,
 // `session_id`). The bridge (the agent's MCP server) writes one file per delivery into
-// <DIBS_HOME>/<participant>/inbox/; this script claims files by atomic rename into claimed/,
+// <DIBS_HOME>/<participant>/inbox/; this script claims files by hard link into claimed/,
 // prints them, and moves them to shown/, where the bridge marks them `shown` in the database.
 //
 // Rules (docs/plan.md §5.4, docs/API.md "Local files"):
@@ -120,11 +120,21 @@ export function renameWithRetry(
   /** @type {string} */ from,
   /** @type {string} */ to,
 ) {
+  try {
+    retrying(() => fs.renameSync(from, to));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Retry a Windows sharing violation (EPERM/EBUSY/EACCES) for up to 200 ms. */
+function retrying(/** @type {() => void} */ step) {
   const deadline = Date.now() + RENAME_RETRY_MS;
   for (;;) {
     try {
-      fs.renameSync(from, to);
-      return true;
+      step();
+      return;
     } catch (error) {
       const code = /** @type {NodeJS.ErrnoException} */ (error).code;
       if (
@@ -134,9 +144,45 @@ export function renameWithRetry(
         sleepSync(10);
         continue;
       }
+      throw error;
+    }
+  }
+}
+
+/**
+ * Move an inbox file to `to` only if `to` doesn't exist, so that of two hooks racing for one
+ * file exactly one claims it. A hard link fails when the destination exists; a rename (on
+ * Windows and POSIX alike) replaces it, which would let both hooks print the same update.
+ * Returns false when another hook has the file, or when it can't be moved yet (it stays in
+ * inbox/ for the next checkpoint).
+ */
+export function claimFile(
+  /** @type {string} */ from,
+  /** @type {string} */ to,
+) {
+  try {
+    retrying(() => fs.linkSync(from, to));
+  } catch (error) {
+    const code = /** @type {NodeJS.ErrnoException} */ (error).code;
+    // EEXIST: another hook linked it first. ENOENT: another hook already finished with it.
+    if (code === "EEXIST" || code === "ENOENT") return false;
+    // No hard links on this file system (FAT, some network shares): rename is the best we have.
+    return renameWithRetry(from, to);
+  }
+  try {
+    retrying(() => fs.unlinkSync(from));
+  } catch (error) {
+    if (/** @type {NodeJS.ErrnoException} */ (error).code !== "ENOENT") {
+      // Leaving both names would deliver the update again at a later checkpoint; undo instead.
+      try {
+        fs.unlinkSync(to);
+      } catch {
+        // Already gone.
+      }
       return false;
     }
   }
+  return true;
 }
 
 /** Resolved, real (symlinks followed) and, on Windows, lowercased, because Claude passes C:\…. */
@@ -247,22 +293,10 @@ export class Inbox {
     /** @type {Claimed[]} */
     const claimed = [];
     for (const name of this.pending()) {
-      const source = path.join(this.inbox, name);
       const target = path.join(this.claimed, name);
-      // A hard link fails if the destination already exists, so only one hook can claim the file.
-      // Rename on Windows is not exclusive when two processes race.
-      try {
-        fs.linkSync(source, target);
-        try {
-          fs.unlinkSync(source);
-        } catch {
-          // The claimed link is the copy that matters.
-        }
-      } catch {
-        if (!renameWithRetry(source, target)) continue;
-      }
-      // A rename keeps the old mtime; without this the bridge's 60 s sweep could return the file
-      // to inbox/ while we print it.
+      if (!claimFile(path.join(this.inbox, name), target)) continue;
+      // A link or rename keeps the old mtime; without this the bridge's 60 s sweep could return
+      // the file to inbox/ while we print it.
       try {
         const now = new Date();
         fs.utimesSync(target, now, now);
