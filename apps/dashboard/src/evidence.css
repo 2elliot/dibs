@@ -16,6 +16,95 @@
   font: 9px var(--mono);
 }
 
+.panel-tabs {
+  display: flex;
+  gap: 8px;
+  margin: 14px 0 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.panel-tabs button {
+  position: relative;
+  border: 1px solid transparent;
+  border-bottom: 0;
+  border-radius: 7px 7px 0 0;
+  background: transparent;
+  color: var(--muted);
+  padding: 10px 16px;
+  cursor: pointer;
+  font: 600 12px var(--display);
+}
+
+.panel-tabs button.selected {
+  color: var(--text);
+  background: var(--panel);
+  border-color: var(--line);
+}
+
+.panel-tabs button i {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-left: 9px;
+  border-radius: 50%;
+  background: var(--lime);
+  box-shadow: 0 0 8px #b8ed7580;
+}
+
+.content-grid.proof-view {
+  grid-template-columns: minmax(0, 1.5fr) minmax(320px, 1fr);
+  grid-template-rows: auto;
+  align-items: start;
+  margin-top: 12px;
+}
+
+.proof-view .handoff-panel {
+  grid-column: 1;
+  grid-row: 1;
+  max-height: calc(100vh - 315px);
+  overflow: auto;
+}
+
+.proof-view .scorecard-panel {
+  grid-column: 2;
+  grid-row: 1;
+  align-self: start;
+}
+
+.hidden-for-proof { display: none !important; }
+
+.failed-check {
+  margin-top: 10px;
+  border-left: 2px solid var(--red);
+  padding: 7px 9px;
+  background: #302221;
+  color: #ffc2b9;
+  font: 10px/1.4 var(--mono);
+}
+
+.clause-verdict {
+  width: auto !important;
+  height: auto !important;
+  min-width: 68px;
+  padding: 3px 6px;
+  align-self: start;
+  border-radius: 12px !important;
+  white-space: nowrap;
+  font: 9px var(--mono) !important;
+}
+
+@media (max-width: 900px) {
+  .content-grid.proof-view { grid-template-columns: minmax(0, 1.25fr) minmax(250px, .75fr); }
+  .proof-view .handoff-panel { max-height: calc(100vh - 285px); }
+}
+
+@media (max-width: 680px) {
+  .content-grid.proof-view { grid-template-columns: 1fr; }
+  .proof-view .handoff-panel, .proof-view .scorecard-panel { grid-column: 1; grid-row: auto; }
+  .proof-view .handoff-panel { max-height: none; }
+  .panel-tabs button { flex: 1; padding: 9px 6px; }
+}
+
 @media (prefers-color-scheme: light) {
   .revision-note { background: #fbf3e8; color: #73512d; }
 }
