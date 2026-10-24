@@ -431,6 +431,36 @@ describe("timers, failures and generated client integration", () => {
       [...h.admin.db.delivery.iter()].filter((d) => d.kind === "aligned"),
     ).toHaveLength(3);
   });
+  test("re-analysis repeats an aligned contract only after the key's plans change", async () => {
+    const lobbyId = await h.planned();
+    const aligned = () =>
+      [...h.admin.db.delivery.iter()].filter((d) => d.kind === "aligned");
+    await h.analyze(lobbyId, "compatible", "cookie");
+    expect(aligned()).toHaveLength(3);
+    // Same words in a new plan revision, and the model rewords its answer: nothing new.
+    await h.plan("claude");
+    await h.analyze(lobbyId, "compatible", "a cookie session");
+    expect(h.admin.db.contract.count()).toBe(1n);
+    expect(aligned()).toHaveLength(3);
+    // A real change on the key: a new revision, and every party hears about it.
+    await h.plan("codex", "cookie named sid");
+    await h.analyze(lobbyId, "compatible", "cookie named sid");
+    expect(h.admin.db.contract.count()).toBe(2n);
+    expect(aligned()).toHaveLength(6);
+  });
+  test("re-analysis repeats an unowned-requirement notice only after the key's plans change", async () => {
+    const lobbyId = await h.planned();
+    const notices = () =>
+      [...h.admin.db.delivery.iter()].filter((d) => d.kind === "notice");
+    await h.analyze(lobbyId, "unowned", "");
+    expect(notices()).toHaveLength(3);
+    await h.plan("claude");
+    await h.analyze(lobbyId, "unowned", "");
+    expect(notices()).toHaveLength(3);
+    await h.plan("droid", "cookie or bearer");
+    await h.analyze(lobbyId, "unowned", "");
+    expect(notices()).toHaveLength(6);
+  });
   test("worker failure emits deterministic overlap notices, no proposal or contract", async () => {
     const lobbyId = await h.planned(),
       args = await h.lease(lobbyId);

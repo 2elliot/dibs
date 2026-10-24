@@ -27,6 +27,7 @@ import {
   inputKey,
   items,
   json,
+  keyUnchangedSince,
   now,
   once,
   promote,
@@ -718,6 +719,16 @@ export const submitAnalysis = db.reducer(
         ),
       ].sort((a, b) => a - b);
       if (f.relation === "unowned") {
+        // Every analysis covers every key; send the notice again only after the plans change.
+        const lastUs = [...ctx.db.event.lobbyId.filter(l.id)]
+          .filter(
+            (e) =>
+              e.type === "notice_sent" &&
+              e.detail === canonical({ key: f.key }),
+          )
+          .reduce((max, e) => (e.atUs > max ? e.atUs : max), -1n);
+        if (lastUs >= 0n && keyUnchangedSince(ctx, l.id, f.key, lastUs))
+          continue;
         for (const p of agents(ctx, l.id))
           deliver(
             ctx,

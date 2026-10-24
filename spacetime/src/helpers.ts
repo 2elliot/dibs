@@ -224,6 +224,34 @@ export function closeProposal(ctx: Ctx, id: number, state: string) {
     closedAtUs: now(ctx),
   });
 }
+/**
+ * True when every current plan item on `key` already existed, word for word, at `sinceUs`.
+ * Re-analysis runs over every key after any plan change, and a model may reword its output each
+ * time, so "nothing to tell the agents" is decided by the plans themselves, not by the text.
+ */
+export function keyUnchangedSince(
+  ctx: Ctx,
+  lobbyId: number,
+  key: string,
+  sinceUs: bigint,
+) {
+  const onKey = [...ctx.db.planItem.lobbyId.filter(lobbyId)].filter(
+    (i) => i.key === key,
+  );
+  const before = onKey.filter(
+    (i) => (ctx.db.plan.id.find(i.planId)?.createdAtUs ?? 0n) <= sinceUs,
+  );
+  return onKey
+    .filter((i) => i.current)
+    .every((i) =>
+      before.some(
+        (b) =>
+          b.participantId === i.participantId &&
+          b.kind === i.kind &&
+          b.text === i.text,
+      ),
+    );
+}
 export function writeContract(
   ctx: Ctx,
   lobbyId: number,
@@ -238,6 +266,12 @@ export function writeContract(
   );
   const current = rows.find((c) => c.current);
   if (current?.source === "agreed" && source === "aligned") return;
+  if (
+    current?.source === "aligned" &&
+    source === "aligned" &&
+    keyUnchangedSince(ctx, lobbyId, key, current.createdAtUs)
+  )
+    return;
   if (current) ctx.db.contract.id.update({ ...current, current: false });
   const c = ctx.db.contract.insert({
     id: 0,
