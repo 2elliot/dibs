@@ -1,0 +1,42 @@
+{
+  "protocolVersion": 1,
+  "label": "S2 / None / trial 1",
+  "lobbyId": 52,
+  "exportedAtUs": 1792830000000000,
+  "tables": {
+    "lobby": [{"id":52,"scenario":"S2 — auth session transport","mode":"none","baseSha":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","vocabulary":["auth.session"],"vocabularyJson":"[{\"key\":\"auth.session\",\"description\":\"Authentication session transport\"}]","charter":"Preserve authenticated sessions across browser requests.","buildHash":"bench-v1","state":"verified","analyzeAnywayFired":false,"createdAtUs":1792828800000000,"startedAtUs":1792828800000000,"fallbackAtUs":1792829160000000,"endsAtUs":1792829700000000}],
+    "participant": [
+      {"id":1,"identity":"claude-identity","name":"Claude","provider":"claude","role":"agent","online":true,"buildHash":"bench-v1","currentLobbyId":52},
+      {"id":2,"identity":"codex-identity","name":"Codex","provider":"codex","role":"agent","online":true,"buildHash":"bench-v1","currentLobbyId":52},
+      {"id":3,"identity":"droid-identity","name":"Droid","provider":"droid","role":"agent","online":false,"buildHash":"bench-v1","currentLobbyId":52}
+    ],
+    "plan": [
+      {"id":111,"lobbyId":52,"participantId":1,"revision":1,"goal":"Keep browser sessions authenticated.","notes":"","requestId":"plan-c","current":true,"createdAtUs":1792828950000000},
+      {"id":112,"lobbyId":52,"participantId":2,"revision":1,"goal":"Keep browser sessions authenticated.","notes":"","requestId":"plan-x","current":true,"createdAtUs":1792828980000000},
+      {"id":113,"lobbyId":52,"participantId":3,"revision":1,"goal":"Review the session boundary.","notes":"","requestId":"plan-d","current":true,"createdAtUs":1792829010000000}
+    ],
+    "plan_item": [
+      {"id":211,"planId":111,"lobbyId":52,"participantId":1,"kind":"produces","key":"auth.session","text":"Use a signed bearer token in the Authorization header for API calls.","current":true},
+      {"id":212,"planId":112,"lobbyId":52,"participantId":2,"kind":"requires","key":"auth.session","text":"Read the opaque session from the HttpOnly cookie on every request.","current":true},
+      {"id":213,"planId":113,"lobbyId":52,"participantId":3,"kind":"requires","key":"auth.session","text":"Keep the browser cookie HttpOnly and same-site.","current":true}
+    ],
+    "message": [], "job": [], "proposal": [], "response": [], "contract": [], "delivery": [],
+    "event": [
+      {"id":1,"lobbyId":52,"atUs":1792828800000000,"actor":"system","type":"lobby_started","subjectId":52,"detail":"{}"},
+      {"id":2,"lobbyId":52,"atUs":1792828950000000,"actor":"Claude","type":"plan_published","subjectId":111,"detail":"{\"items\":1}"},
+      {"id":3,"lobbyId":52,"atUs":1792828980000000,"actor":"Codex","type":"plan_published","subjectId":112,"detail":"{\"items\":1}"},
+      {"id":4,"lobbyId":52,"atUs":1792829010000000,"actor":"Droid","type":"plan_published","subjectId":113,"detail":"{\"items\":1}"},
+      {"id":5,"lobbyId":52,"atUs":1792829700000000,"actor":"system","type":"lobby_stopped","subjectId":52,"detail":"{\"reason\":\"time limit\"}"},
+      {"id":6,"lobbyId":52,"atUs":1792829760000000,"actor":"verifier","type":"verification_recorded","subjectId":902,"detail":"{\"passed\":4,\"total\":6}"},
+      {"id":7,"lobbyId":52,"atUs":1792829820000000,"actor":"Droid SDK","type":"review_recorded","subjectId":1002,"detail":"{\"summary\":\"The API route accepts the wrong session source.\"}"}
+    ],
+    "head": [
+      {"id":811,"lobbyId":52,"participantId":1,"sha":"1111111111111111111111111111111111111111","outOfAreaFiles":[],"createdAtUs":1792829580000000},
+      {"id":812,"lobbyId":52,"participantId":2,"sha":"2222222222222222222222222222222222222222","outOfAreaFiles":[],"createdAtUs":1792829610000000},
+      {"id":813,"lobbyId":52,"participantId":3,"sha":"3333333333333333333333333333333333333333","outOfAreaFiles":[],"createdAtUs":1792829640000000}
+    ],
+    "verification": [{"id":902,"lobbyId":52,"assembledFrom":"{\"claude\":\"1111111111111111111111111111111111111111\",\"codex\":\"2222222222222222222222222222222222222222\",\"droid\":\"3333333333333333333333333333333333333333\"}","treeHash":"eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee","mergeTreeClean":true,"oracleHash":"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff","exitCode":1,"passed":4,"total":6,"reportHash":"dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd","verifierId":4,"createdAtUs":1792829760000000}],
+    "review": [{"id":1002,"lobbyId":52,"verificationId":902,"kind":"diagnosis","summary":"The API route accepts the wrong session source.","findings":"{\"summary\":\"The API route accepts the wrong session source.\",\"clauses\":[{\"clause\":\"API clients must authenticate with a bearer token.\",\"key\":\"auth.session\",\"verdict\":\"violates\",\"evidence\":[{\"file\":\"src/auth/api.ts\",\"line\":18,\"note\":\"The route reads a browser cookie.\"}]}],\"rootCause\":{\"key\":\"auth.session\",\"violator\":\"codex\",\"explanation\":\"The API handler trusts the browser cookie rather than the bearer header.\"}}","model":"droid-sdk","sessionId":"review-52","createdAtUs":1792829820000000}],
+    "service": [{"name":"analysis","lastBeatUs":1792829790000000,"detail":"{\"status\":\"online\"}"}]
+  }
+}
