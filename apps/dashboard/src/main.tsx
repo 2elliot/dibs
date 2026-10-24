@@ -43,7 +43,9 @@ function App() {
   const lobby = obj(snapshot.lobby[0]);
   const events = [...snapshot.event].sort((a,b) => num(b,'atUs') - num(a,'atUs'));
   const participants = snapshot.participant;
-  const service = snapshot.service.find(row => row.name === 'analysis');
+  // The worker heartbeats under its own participant name (the module only accepts the caller's
+  // name), so the live row is `worker`; older replay exports call it `analysis`.
+  const service = snapshot.service.find(row => row.name === 'worker') ?? snapshot.service.find(row => row.name === 'analysis');
   const mode = MODES.find(candidate => candidate === str(lobby,'mode'));
   const replayTimeUs = replay ? (clock || replay.endUs) : Date.now() * 1000;
   const analysisOnline = Boolean(service && num(service,'lastBeatUs') > 0 && Math.abs(replayTimeUs-num(service,'lastBeatUs')) < 60_000_000);
