@@ -8,7 +8,7 @@ import os from "node:os";
 import path from "node:path";
 import { connect, subscribeLobby } from "@dibs/client";
 import { connectSession, loadDbBuilder } from "../src/spacetime.ts";
-import { writeProvider } from "../src/providers.ts";
+import { trustKey, writeProvider } from "../src/providers.ts";
 import { resolveExe } from "../src/proc.ts";
 
 const uri = "https://maincloud.spacetimedb.com";
@@ -140,6 +140,9 @@ const codexLog = await run(
     clone,
     "-s",
     "read-only",
+    // Without trust Codex ignores the clone's .codex/config.toml, so dibs never loads.
+    "-c",
+    `projects={'${trustKey(clone)}'={trust_level="trusted"}}`,
     prompt,
   ],
   { DIBS_HOME: home },

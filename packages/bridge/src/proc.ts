@@ -50,6 +50,27 @@ export function spawnAgent(
   return { pid: child.pid, exited };
 }
 
+/**
+ * The argv prefix that runs `name` without a shell. On Windows an npm-installed CLI (Codex) is
+ * only a `.cmd` shim plus an extensionless sh script, and neither spawns without a shell, so
+ * run the JavaScript entry the shim names with this Node instead.
+ */
+export function resolveCommand(name: string): string[] {
+  const exe = resolveExe(name);
+  if (process.platform !== "win32" || exe.toLowerCase().endsWith(".exe"))
+    return [exe];
+  const shim = exe.toLowerCase().endsWith(".cmd") ? exe : `${exe}.cmd`;
+  try {
+    const entry = /"%dp0%\\([^"]+\.[cm]?js)"/i.exec(
+      fs.readFileSync(shim, "utf8"),
+    )?.[1];
+    if (entry) return [process.execPath, path.join(path.dirname(shim), entry)];
+  } catch {
+    // Not an npm shim; let spawn report the error.
+  }
+  return [exe];
+}
+
 /** Prefer a real executable. Node throws EINVAL when it spawns a Windows `.cmd` without a shell. */
 export function resolveExe(name: string): string {
   const override = process.env[`DIBS_${name.toUpperCase()}_BIN`];

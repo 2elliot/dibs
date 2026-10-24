@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
+import { LIMITS } from "@dibs/protocol";
 import { describe, expect, it } from "vitest";
 import { pidAlive } from "../src/home.ts";
 import { createBridge } from "../src/mcp.ts";
@@ -117,6 +118,45 @@ describe("MCP bridge", () => {
       await client.callTool({ name: "dibs_status", arguments: { waitSec: 0 } }),
     ) as { messages: unknown[] };
     expect(again.messages).toEqual([]);
+  });
+
+  it("advertises the plan limits and lists the vocabulary for an unknown key", async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "dibs-mcp-"));
+    const store = new MemoryStore({
+      participant: "codex",
+      provider: "codex",
+      lobbyId: 3,
+      mode: "dibs",
+    });
+    await store.connect();
+    const client = await clientFor(store, "dibs", dir);
+    const tool = (await client.listTools()).tools.find(
+      (t) => t.name === "dibs_plan",
+    );
+    expect(JSON.stringify(tool?.inputSchema)).toContain(
+      `"maxLength":${LIMITS.textChars}`,
+    );
+    const unknown = text(
+      await client.callTool({
+        name: "dibs_plan",
+        arguments: {
+          goal: "browser",
+          produces: [{ key: "frontend.client", statement: "client.js" }],
+        },
+      }),
+    ) as { error: string; vocabulary: string[] };
+    expect(unknown.error).toBe("unknown vocabulary key");
+    expect(unknown.vocabulary).toContain("auth.session");
+    const long = await client.callTool({
+      name: "dibs_plan",
+      arguments: {
+        goal: "browser",
+        requires: [
+          { key: "auth.session", assumption: "x".repeat(LIMITS.textChars + 1) },
+        ],
+      },
+    });
+    expect(long.isError).toBe(true);
   });
 
   it("answers initialize before a database is available and then exits", async () => {

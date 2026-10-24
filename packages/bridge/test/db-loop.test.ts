@@ -37,7 +37,8 @@ describe("database loop", () => {
       const hash = localBuildHash();
       const open: DbConnection[] = [];
       const admin = await claim(
-        await inviteCode("admin", "admin", "claude", "admin"),
+        // The first run claims the module's own admin invite; later runs need a fresh name.
+        await inviteCode(`a${run}`, "admin", "claude", "admin"),
       );
       open.push(admin);
       await subscribeAll(admin);

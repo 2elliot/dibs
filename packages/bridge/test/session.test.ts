@@ -7,8 +7,9 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { localBuildHash, packageRoot } from "../src/build-hash.ts";
 import { git } from "../src/git.ts";
-import { pidAlive } from "../src/home.ts";
-import { killTree, spawnAgent } from "../src/proc.ts";
+import { forwardSlash, pidAlive } from "../src/home.ts";
+import { killTree, resolveCommand, spawnAgent } from "../src/proc.ts";
+import { providerCommand, renderProvider } from "../src/providers.ts";
 import { prep, startSession } from "../src/session.ts";
 
 const exec = promisify(execFile);
@@ -202,10 +203,70 @@ describe("dibs session", () => {
     const trust = fs.readFileSync(path.join(codexHome, "config.toml"), "utf8");
     expect(trust).toContain('model = "gpt"');
     expect(trust.match(/dibs:trust:start/g)).toHaveLength(1);
+    // Codex keys trust by the native real path; on Windows a forward-slash key is ignored.
+    expect(trust).toContain(`[projects.'${fs.realpathSync.native(clone)}']`);
     expect(
       fs.readFileSync(path.join(clone, ".codex", "config.toml"), "utf8"),
     ).toContain("--provider");
   });
+
+  it("names DIBS_HOME in every bridge and hook command", () => {
+    const home = temp("dibs-home-");
+    const clone = temp("dibs-clone-");
+    for (const provider of ["claude", "codex", "droid"] as const) {
+      const files = renderProvider({
+        participant: provider,
+        provider,
+        clonePath: clone,
+        home,
+        codexHome: temp("dibs-codex-"),
+      });
+      const commands = files.filter((f) => f.body.includes("--provider"));
+      expect(commands.length).toBeGreaterThan(0);
+      for (const file of commands) {
+        // Codex starts MCP servers with a filtered environment, so DIBS_HOME can't be inherited.
+        const runs = file.body.split("--provider").length - 1;
+        const homes = file.body.split(forwardSlash(home)).length - 1;
+        expect(homes, file.path).toBe(runs);
+      }
+    }
+  });
+
+  it("launches provider CLIs without carrying memory between lobbies", () => {
+    const settings = JSON.parse(
+      fs.readFileSync(
+        path.join(packageRoot(), "templates", "claude.settings.json"),
+        "utf8",
+      ),
+    ) as { autoMemoryEnabled?: boolean };
+    expect(settings.autoMemoryEnabled).toBe(false);
+    expect(providerCommand("codex", {}, "go").join(" ")).toContain(
+      "-c features.memories=false",
+    );
+  });
+
+  it.runIf(process.platform === "win32")(
+    "runs an npm .cmd shim through node",
+    () => {
+      const bin = temp("dibs-shim-");
+      const shim = path.join(bin, "fakecli.cmd");
+      fs.writeFileSync(
+        shim,
+        '@ECHO off\r\n"%_prog%"  "%dp0%\\node_modules\\fake\\bin\\cli.js" %*\r\n',
+      );
+      const previous = process.env.DIBS_FAKECLI_BIN;
+      process.env.DIBS_FAKECLI_BIN = shim;
+      try {
+        expect(resolveCommand("fakecli")).toEqual([
+          process.execPath,
+          path.join(bin, "node_modules", "fake", "bin", "cli.js"),
+        ]);
+      } finally {
+        if (previous === undefined) delete process.env.DIBS_FAKECLI_BIN;
+        else process.env.DIBS_FAKECLI_BIN = previous;
+      }
+    },
+  );
 
   it("stops a process tree", async () => {
     const root = temp("dibs-kill-");

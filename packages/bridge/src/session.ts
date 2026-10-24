@@ -28,7 +28,7 @@ import {
   tokenPath,
   writeJsonAtomic,
 } from "./home.ts";
-import { killTree, resolveExe, spawnAgent } from "./proc.ts";
+import { killTree, resolveCommand, spawnAgent } from "./proc.ts";
 import { launchFiles, providerCommand, writeProvider } from "./providers.ts";
 import { connectSession, loadDbBuilder, RemoteStore } from "./spacetime.ts";
 
@@ -536,9 +536,12 @@ function builtInCommand(
   prompt: string,
 ): string[] {
   const files = launchFiles(session.provider, home, session.participant);
-  const command = providerCommand(session.provider, files, prompt);
-  command[0] = resolveExe(command[0] ?? session.provider);
-  return command;
+  const [bin = session.provider, ...args] = providerCommand(
+    session.provider,
+    files,
+    prompt,
+  );
+  return [...resolveCommand(bin), ...args];
 }
 
 function agentOverride(): string[] | undefined {

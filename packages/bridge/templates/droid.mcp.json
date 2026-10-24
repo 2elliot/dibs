@@ -8,7 +8,9 @@
         "--participant",
         "__PARTICIPANT__",
         "--provider",
-        "__PROVIDER__"
+        "__PROVIDER__",
+        "--home",
+        "__HOME__"
       ]
     }
   }
