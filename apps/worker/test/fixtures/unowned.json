@@ -1,0 +1,59 @@
+{
+  "lobbyId": 3,
+  "jobId": 30,
+  "jobKind": "analyze",
+  "inputKey": "p:1,2;r:",
+  "charter": "Implement POST /api/login, GET /api/me, POST /api/events/:eventId/registrations. Use exactly one session transport. Shared interfaces: auth.session, auth.server, events.registration.",
+  "vocabulary": [
+    {
+      "key": "auth.session",
+      "description": "How login establishes a session and how /api/me reads it (client transport)."
+    },
+    {
+      "key": "auth.server",
+      "description": "The helper other routes call to get the current user; name and signature."
+    },
+    {
+      "key": "events.registration",
+      "description": "POST registration request/response/errors the UI relies on."
+    }
+  ],
+  "items": [
+    {
+      "id": 1,
+      "planId": 2,
+      "planRevision": 1,
+      "participantId": 2,
+      "participant": "codex",
+      "provider": "codex",
+      "kind": "requires",
+      "key": "events.registration",
+      "text": "The UI posts to /api/events/evt-1/registrations and shows 'Registered' on 201 or 'Already registered' on 409; needs the response shape {id,eventId,userId}."
+    },
+    {
+      "id": 2,
+      "planId": 2,
+      "planRevision": 1,
+      "participantId": 2,
+      "participant": "codex",
+      "provider": "codex",
+      "kind": "requires",
+      "key": "auth.session",
+      "text": "UI relies on auth.session for the logged-in user before registering."
+    }
+  ],
+  "contracts": [],
+  "openProposals": [],
+  "rejections": [],
+  "recordedFindings": {
+    "findings": [
+      {
+        "key": "events.registration",
+        "relation": "unowned",
+        "citedItemIds": [1],
+        "explanation": "codex's UI requires events.registration but no participant produces it (droid's plan is missing). This requirement is unowned; someone must own POST /api/events/:eventId/registrations.",
+        "contractText": ""
+      }
+    ]
+  }
+}
