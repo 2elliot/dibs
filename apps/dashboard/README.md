@@ -6,6 +6,8 @@ Big screen view for a single dibs lobby. The dashboard reads exported protocol t
 
 From the repository root, run `npm run dev -w @dibs/dashboard`. Vite serves the app at `http://localhost:4150`. The default is the bundled `s2-dibs` replay. Load another export with `?replay=/fixtures/s2-none.json`; any URL returning a valid `EventsExport` JSON can be used. Replay playback, stepping, scrubbing, and speed controls update all panels at the selected event time. Every replay carries a visible REPLAY label.
 
+The Contracts tab is the default demo view. Select **Handoff + Scorecard** to fit the assembled heads, merge tree, oracle, review, and run scorecard together on a projector.
+
 ## Live
 
 Serve the static `dist` build alongside a runtime `/config.json` containing:
