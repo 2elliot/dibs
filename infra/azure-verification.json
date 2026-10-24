@@ -1,0 +1,30 @@
+{
+  "url": "https://dibs.grayriver-bbcb643c.westus2.azurecontainerapps.io",
+  "live": {
+    "status": "live",
+    "uptimeSec": 36
+  },
+  "status": {
+    "db": "connected",
+    "queueAgeSec": null,
+    "lastAnalysisLatencyMs": null,
+    "anthropicErrors": 0,
+    "uptimeSec": 36
+  },
+  "config": {
+    "dbUri": "https://maincloud.spacetimedb.com",
+    "dbName": "dibs-ch13-dev",
+    "uri": "https://maincloud.spacetimedb.com",
+    "db": "dibs-ch13-dev"
+  },
+  "dashboardHttp": 200,
+  "assetHttp": 200,
+  "verifiedAtUtc": "2026-10-24T21:03:10.8478718Z",
+  "followupStatus": {
+    "db": "connected",
+    "queueAgeSec": null,
+    "lastAnalysisLatencyMs": null,
+    "anthropicErrors": 0,
+    "uptimeSec": 103
+  }
+}
