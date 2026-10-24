@@ -1,0 +1,15 @@
+{
+  "name": "@dibs/cli",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "dibs": "./src/dibs.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p ."
+  },
+  "dependencies": {
+    "@dibs/protocol": "*"
+  }
+}

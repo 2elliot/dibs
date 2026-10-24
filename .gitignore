@@ -1,0 +1,28 @@
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+.vite/
+test-results/
+playwright-report/
+
+# Secrets and local state. Only .env.example files are committed.
+.env
+.env.*
+!.env.example
+.dibs/
+
+# Benchmark outputs and the plaintext oracle never get committed
+bench/results/
+bench/oracle/
+
+# Personal
+CLAUDE.local.md
+.claude/settings.local.json
+
+# Planning drafts kept outside the repo
+AGENTMESH_TEAM_PLAN*.md
+
+.DS_Store
+Thumbs.db
+.idea/
