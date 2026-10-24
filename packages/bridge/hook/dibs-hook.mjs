@@ -247,38 +247,19 @@ export class Inbox {
     /** @type {Claimed[]} */
     const claimed = [];
     for (const name of this.pending()) {
-      const token = `${process.pid}.${Math.random().toString(36).slice(2)}`;
-      const mine = path.join(this.claimed, `.${name}.${token}`);
-      // Rename onto a name only this process uses. Two hooks can both "win" a rename onto the
-      // same destination on Windows; a private destination can be created only once.
-      if (!renameWithRetry(path.join(this.inbox, name), mine)) continue;
+      const source = path.join(this.inbox, name);
       const target = path.join(this.claimed, name);
-      // `wx` is the exclusive step. A second hook finds the name taken and drops its copy.
+      // A hard link fails if the destination already exists, so only one hook can claim the file.
+      // Rename on Windows is not exclusive when two processes race.
       try {
-        fs.closeSync(fs.openSync(target, "wx"));
+        fs.linkSync(source, target);
+        try {
+          fs.unlinkSync(source);
+        } catch {
+          // The claimed link is the copy that matters.
+        }
       } catch {
-        try {
-          fs.unlinkSync(mine);
-        } catch {
-          // Already gone.
-        }
-        continue;
-      }
-      try {
-        fs.copyFileSync(mine, target);
-        fs.unlinkSync(mine);
-      } catch {
-        try {
-          fs.unlinkSync(mine);
-        } catch {
-          // Already gone.
-        }
-        try {
-          fs.unlinkSync(target);
-        } catch {
-          // Already gone.
-        }
-        continue;
+        if (!renameWithRetry(source, target)) continue;
       }
       // A rename keeps the old mtime; without this the bridge's 60 s sweep could return the file
       // to inbox/ while we print it.

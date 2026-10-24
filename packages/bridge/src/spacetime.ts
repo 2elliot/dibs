@@ -178,16 +178,24 @@ export function connectSession(
         `SELECT * FROM lobby WHERE id = ${options.lobbyId}`,
       ]);
       const first = snapshot(conn, options, true);
-      if (first.meId === null)
-        throw new Error(
-          `participant ${options.participant} has not claimed an invite`,
+      if (first.meId === null) {
+        log(
+          `participant ${options.participant} has not claimed an invite; deliveries and join are skipped`,
         );
-      await subscribe(conn, lobbyQueries(options.lobbyId, first.meId));
+      }
+      await subscribe(
+        conn,
+        first.meId === null
+          ? lobbyQueries(options.lobbyId, 0).filter(
+              (query) => !query.includes("delivery"),
+            )
+          : lobbyQueries(options.lobbyId, first.meId),
+      );
       session = new LiveSession(conn, options, log);
       watch(conn, () => session?.refresh());
       session.refresh();
       applied = true;
-      if (options.join !== false) {
+      if (options.join !== false && first.meId !== null) {
         try {
           await conn.reducers.joinLobby({
             lobbyId: options.lobbyId,
