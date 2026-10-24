@@ -1,4 +1,7 @@
 import { EXPORTED_TABLES, type EventsExport, type ExportedTable } from '@dibs/protocol';
+import { normalizeExport } from './data/normalize';
+import { replayBounds, snapshotAt } from './data/replay';
+import type { Dataset } from './data/rows';
 
 export type DashboardRows = Record<ExportedTable, Record<string, unknown>[]>;
 export interface LobbySource {
@@ -17,42 +20,45 @@ export function emptyRows(): DashboardRows {
 export class ReplayLobbySource implements LobbySource {
   readonly mode = 'replay' as const;
   readonly label: string;
-  private atUs: number;
+  private readonly data: Dataset;
+  private readonly start: number;
+  private readonly end: number;
+  private cursor: number;
   private readonly listeners = new Set<() => void>();
-  constructor(private readonly data: EventsExport) {
-    this.label = data.label;
-    this.atUs = Math.max(...data.tables.event.map(row => Number(row.atUs ?? 0)));
-    if (!Number.isFinite(this.atUs)) this.atUs = 0;
+  constructor(data: EventsExport) {
+    const loaded = normalizeExport(data);
+    this.label = loaded.label;
+    this.data = loaded.data;
+    const bounds = replayBounds(this.data);
+    this.start = bounds.start;
+    this.end = bounds.end;
+    this.cursor = this.end;
   }
-  get startUs() { return Math.min(...this.data.tables.event.map(row => Number(row.atUs ?? 0)).filter(Boolean)) || 0; }
-  get endUs() { return Math.max(...this.data.tables.event.map(row => Number(row.atUs ?? 0))) || this.startUs; }
-  setTime(atUs: number) { this.atUs = atUs; for (const listener of this.listeners) listener(); }
-  getSnapshot(atUs = this.atUs): DashboardRows {
-    const rows = emptyRows();
-    for (const name of EXPORTED_TABLES) {
-      rows[name] = this.data.tables[name].filter(row => rowAt(row, name, this.data) <= atUs).map(row => ({ ...row }));
-    }
-    // Values such as state are stored as a final snapshot; reconstruct the proposal's
-    // open/rejected state at the selected event time from its lifecycle events.
-    for (const proposal of rows.proposal) {
-      const closedAt = Number(proposal.closedAtUs ?? 0);
-      if (closedAt > atUs) proposal.state = 'proposed';
-    }
-    return rows;
+  get startUs() { return this.start; }
+  get endUs() { return this.end; }
+  setTime(atUs: number) { this.cursor = atUs; for (const listener of this.listeners) listener(); }
+  getSnapshot(atUs = this.cursor): DashboardRows {
+    const snapshot = snapshotAt(this.data, atUs);
+    return {
+      lobby: snapshot.lobby ? [snapshot.lobby as unknown as Record<string, unknown>] : [],
+      participant: snapshot.participants as unknown as Record<string, unknown>[],
+      plan: snapshot.plans as unknown as Record<string, unknown>[],
+      plan_item: snapshot.planItems as unknown as Record<string, unknown>[],
+      message: snapshot.messages as unknown as Record<string, unknown>[],
+      job: snapshot.jobs as unknown as Record<string, unknown>[],
+      proposal: snapshot.proposals as unknown as Record<string, unknown>[],
+      response: snapshot.responses as unknown as Record<string, unknown>[],
+      contract: snapshot.contracts as unknown as Record<string, unknown>[],
+      delivery: snapshot.deliveries as unknown as Record<string, unknown>[],
+      event: snapshot.events as unknown as Record<string, unknown>[],
+      head: snapshot.heads as unknown as Record<string, unknown>[],
+      verification: snapshot.verifications as unknown as Record<string, unknown>[],
+      review: snapshot.reviews as unknown as Record<string, unknown>[],
+      service: snapshot.services as unknown as Record<string, unknown>[],
+    };
   }
   subscribe(listener: () => void) { this.listeners.add(listener); return () => this.listeners.delete(listener); }
   disconnect() { this.listeners.clear(); }
-}
-
-function rowAt(row: Record<string, unknown>, table: ExportedTable, data: EventsExport): number {
-  const direct = ['atUs', 'createdAtUs', 'updatedAtUs', 'queuedAtUs', 'lastBeatUs'].map(k => row[k]).find(v => typeof v === 'number' && v > 0);
-  if (typeof direct === 'number') return direct;
-  if (table === 'plan_item') {
-    const plan = data.tables.plan.find(p => p.id === row.planId);
-    return Number(plan?.createdAtUs ?? 0);
-  }
-  if (table === 'participant' || table === 'lobby' || table === 'service') return 0;
-  return 0;
 }
 
 export async function loadReplay(url: string): Promise<ReplayLobbySource> {
