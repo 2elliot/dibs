@@ -84,6 +84,15 @@ Answer these:
 
 See `packages/verifier/README.md`.
 
+## Metrics and comparison
+
+Per-lobby numbers (time, coordination, lines, tokens) and none-vs-dibs comparisons with intervals: see [`METRICS.md`](METRICS.md).
+
+```sh
+npx tsx bench/scripts/metrics.ts <lobbyId> --transcript codex=<rollout.jsonl> --interventions 0
+npx tsx bench/scripts/compare.ts --all
+```
+
 ## Revision timing
 
 Early implementation is allowed (lobby 3 decision). For each agent, this records whether its last edit to a shared file came after the first contract delivery it could see. A shared file is one in its area, minus `test/**`.

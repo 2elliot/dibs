@@ -1,0 +1,78 @@
+{
+  "schema": "dibs.oracle-mutants/v1",
+  "base": "Lobby 7's assembled tree (6/6 on bench-v1). Each mutant changes one behaviour; the oracle must fail every check in mustFail and pass every check in mustPass.",
+  "mutants": [
+    {
+      "id": "ui-drops-auth-header",
+      "description": "The UI stops sending the token: T1's failure, reintroduced.",
+      "file": "public/app.js",
+      "find": "      headers: { Authorization: `Bearer ${token}` },\n",
+      "replace": "",
+      "mustFail": [6],
+      "mustPass": [1, 2, 3, 4, 5]
+    },
+    {
+      "id": "ui-wrong-success-status",
+      "description": "The UI treats 200, not 201, as success.",
+      "file": "public/app.js",
+      "find": "if (response.status === 201) status.textContent = 'Registered';",
+      "replace": "if (response.status === 200) status.textContent = 'Registered';",
+      "mustFail": [6],
+      "mustPass": [1, 2, 3, 4, 5]
+    },
+    {
+      "id": "login-accepts-bad-password",
+      "description": "Login no longer checks the password.",
+      "file": "src/auth/routes.js",
+      "find": "if (!user || user.password !== password) {",
+      "replace": "if (!user) {",
+      "mustFail": [2],
+      "mustPass": [1, 3, 4, 5, 6]
+    },
+    {
+      "id": "login-token-renamed",
+      "description": "Login returns {accessToken} instead of {token}.",
+      "file": "src/auth/routes.js",
+      "find": "res.status(200).json({ token: createSession(user.id) });",
+      "replace": "res.status(200).json({ accessToken: createSession(user.id) });",
+      "mustFail": [1, 6],
+      "mustPass": [2]
+    },
+    {
+      "id": "helper-always-null",
+      "description": "The auth helper never finds a user.",
+      "file": "src/auth/index.js",
+      "find": "  return user ? { id: user.id, email: user.email } : null;",
+      "replace": "  return null;",
+      "mustFail": [1, 3, 4],
+      "mustPass": [2, 5]
+    },
+    {
+      "id": "repeat-registration-201",
+      "description": "Registering twice succeeds instead of 409.",
+      "file": "src/events/routes.js",
+      "find": "    return res.status(409).json({ error: \"Already registered\" });",
+      "replace": "    return res.status(201).json({ error: \"Already registered\" });",
+      "mustFail": [3],
+      "mustPass": [1, 2, 4, 5, 6]
+    },
+    {
+      "id": "unauth-registration-crashes",
+      "description": "The route forgets its 401 and crashes on a missing user.",
+      "file": "src/events/routes.js",
+      "find": "  if (!user) {\n    return res.status(401).json({ error: \"Unauthorized\" });\n  }\n",
+      "replace": "",
+      "mustFail": [5],
+      "mustPass": [1, 2, 3, 4, 6]
+    },
+    {
+      "id": "registration-reuses-id",
+      "description": "Every registration for an event gets the same id.",
+      "file": "src/events/routes.js",
+      "find": "    id: randomUUID(),",
+      "replace": "    id: event.id,",
+      "mustFail": [4],
+      "mustPass": [1, 2, 3, 5, 6]
+    }
+  ]
+}

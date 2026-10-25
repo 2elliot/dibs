@@ -5,7 +5,13 @@
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { AssembledFrom, ReviewKind } from "@dibs/protocol";
-import { call, connect, subscribeLobby, type DbConnection } from "@dibs/client";
+import {
+  call,
+  connect,
+  subscribeLobby,
+  toJson,
+  type DbConnection,
+} from "@dibs/client";
 import { readConfig, readToken, saveToken } from "@dibs/client/node";
 
 /** Arguments of the `record_verification` reducer (docs/API.md). */
@@ -58,6 +64,8 @@ export interface Recorder {
   >;
   /** The lobby's deliveries with their target's provider, when connected. */
   deliveries(lobbyId: number): Promise<DeliveryTimes[] | undefined>;
+  /** Every row of the lobby, table by table, as plain JSON, when connected. */
+  dumpLobby(lobbyId: number): Promise<Record<string, unknown[]> | undefined>;
   close(): void;
   readonly description: string;
 }
@@ -98,6 +106,9 @@ export class LocalRecorder implements Recorder {
     return undefined;
   }
   async deliveries() {
+    return undefined;
+  }
+  async dumpLobby() {
     return undefined;
   }
   close() {}
@@ -225,6 +236,42 @@ export class DbRecorder implements Recorder {
         receivedAtUs: Number(d.receivedAtUs),
         shownAtUs: Number(d.shownAtUs),
       }));
+  }
+
+  async dumpLobby(lobbyId: number) {
+    const tables = [
+      "participant",
+      "lobby",
+      "plan",
+      "planItem",
+      "message",
+      "job",
+      "proposal",
+      "response",
+      "contract",
+      "delivery",
+      "event",
+      "head",
+      "verification",
+      "review",
+    ] as const;
+    await subscribeLobby(this.conn, lobbyId, tables);
+    const db = this.conn.db as unknown as Record<
+      string,
+      { iter(): Iterable<unknown> }
+    >;
+    return Object.fromEntries(
+      tables.map((name) => [
+        name,
+        [...db[name]!.iter()]
+          .map(toJson)
+          .filter(
+            (row: Record<string, unknown>) =>
+              name === "participant" ||
+              (name === "lobby" ? row.id : row.lobbyId) === lobbyId,
+          ),
+      ]),
+    );
   }
 
   close() {
