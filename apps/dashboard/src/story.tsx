@@ -196,6 +196,7 @@ function useForceGraph(nodeIds: { id: string; type: 'agent' | 'topic'; parent?: 
 // ---- View -------------------------------------------------------------------------------------
 
 const RECORDINGS = [
+  { url: '/replays/exp-board-full-demo.json', label: 'Task board · full demo (3 waves)' },
   { url: '/replays/t1-lobby5.json', label: 'T1 · without dibs' },
   { url: '/replays/t3-lobby7.json', label: 'T3 · with dibs' },
   { url: '/sim/team.json', label: 'Simulated team' },
