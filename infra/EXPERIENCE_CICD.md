@@ -35,10 +35,9 @@ repository and the Azure subscription. It takes about 20 minutes. Commands are
 bash: macOS/Linux terminal, or **Git Bash** on Windows. Every value you need
 later is kept in shell variables, so run all the steps in one terminal window.
 
-Two people are involved. **The owner** signs into GitHub and Azure. **The
-experiment's developer** signs into SpacetimeDB in step 4 (their account then
-owns the experiment database) and provides the Anthropic API key, which
-decides who pays for the worker's model usage.
+**The owner** signs into GitHub, Azure and SpacetimeDB; their SpacetimeDB
+account owns the new experiment database. Whoever provides the Anthropic API key
+in step 5 pays for the worker's model usage.
 
 ### 0. Prerequisites
 
@@ -151,15 +150,17 @@ az role assignment create --assignee-object-id $PRINCIPAL_ID \
 
 ### 4. SpacetimeDB experiment database
 
-The experiment's developer signs in here. A separate CLI config keeps this
-login out of the laptop's normal `spacetime` setup, and `DIBS_HOME` keeps the
-participant tokens out of `~/.dibs`.
+The owner signs in with their own SpacetimeDB account. This creates a brand-new
+database; it doesn't touch `dibs-ch13-dev`, and collaborator access on that
+database doesn't carry over to this one. A separate CLI config keeps the token
+in one known file without disturbing the laptop's normal `spacetime` login, and
+`DIBS_HOME` keeps the participant tokens out of `~/.dibs`.
 
 ```sh
 STCFG=$SETUP/spacetime.toml
 export DIBS_HOME=$SETUP/dibs-home
 
-spacetime --config-path $STCFG login          # browser sign-in, developer's account
+spacetime --config-path $STCFG login          # browser sign-in, owner's account
 spacetime --config-path $STCFG publish --server $STDB --module-path spacetime \
   --delete-data=never --yes=remote $DB
 
@@ -195,7 +196,7 @@ grep '^spacetimedb_token' $STCFG | sed -E 's/^[^"]*"([^"]*)".*/\1/' \
   | gh secret set SPACETIME_PUBLISH_TOKEN --env real-exp --repo $REPO
 gh secret set SPACETIME_ADMIN_TOKEN  --env real-exp --repo $REPO < "$DIBS_HOME/admin/token"
 gh secret set SPACETIME_WORKER_TOKEN --env real-exp --repo $REPO < "$DIBS_HOME/worker/token"
-gh secret set ANTHROPIC_API_KEY      --env real-exp --repo $REPO   # prompts; paste the developer's key
+gh secret set ANTHROPIC_API_KEY      --env real-exp --repo $REPO   # prompts; paste the API key
 
 gh variable set SPACETIME_URI        --env real-exp --repo $REPO --body "$STDB"
 gh variable set SPACETIME_DB         --env real-exp --repo $REPO --body "$DB"
@@ -207,7 +208,7 @@ gh secret list   --env real-exp --repo $REPO   # 7 names
 gh variable list --env real-exp --repo $REPO   # 5 names
 ```
 
-The publishing identity's token is the CLI login from step 4. It must stay the
+The publishing token is the owner's CLI login from step 4. It must stay the
 identity that owns `dibs-ch13-exp`; future schema publishes use it.
 
 ### 6. Turn on deployment and run it
