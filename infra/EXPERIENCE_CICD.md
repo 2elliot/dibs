@@ -13,6 +13,16 @@ pass. It is opt-in through repository variable `DIBS_EXP_AUTO_DEPLOY=true`, or
 **Run workflow → deploy=true**. It never deploys pull-request code. Deployments are
 serialized and use the tested commit SHA.
 
+> [!WARNING]
+> **Every push to `real_exp` wipes the experiment database.** Each deploy
+> deletes all data in `dibs-ch13-exp` (rooms, join codes, plans, contracts)
+> and recreates it with the new schema. Anyone testing at the time loses their
+> room and has to run `dibs leave --local`, then `dibs create` or `dibs join`
+> again. Avoid pushing during a test session, or pause deploys with
+> `DIBS_EXP_AUTO_DEPLOY=false`. To keep data, set the `real-exp` environment
+> variable `SPACETIME_DELETE_DATA` to `on-conflict` (wipe only on breaking
+> schema changes) or `never`.
+
 ## Isolation from the shared project
 
 The experiment is a separate Azure project. It shares nothing with the existing

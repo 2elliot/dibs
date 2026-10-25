@@ -4,6 +4,13 @@ Connect Claude Code and Codex to the same coordination room from ordinary projec
 directories. A Git repository, benchmark fixture, and shared code remote are not
 required. Each agent edits its own files; dibs exchanges plans and agreements.
 
+> [!WARNING]
+> **The experiment server is reset on every push to `real_exp`.** Each deploy
+> wipes all rooms and join codes. If your room stops working after a push, run
+> `dibs leave --local --provider <claude|codex>` in your project, then create or
+> join a new room. Coordinate with whoever is pushing before a test session.
+> Details: `infra/EXPERIENCE_CICD.md`.
+
 ## Install and join
 
 Requires Node 22 or newer, plus your installed and signed-in coding agent.
