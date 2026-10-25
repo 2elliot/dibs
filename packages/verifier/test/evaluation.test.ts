@@ -234,3 +234,34 @@ describe("detector breakdown by relation", () => {
     ).toEqual({ compatible: 1, dependency: 1, conflict: 1 });
   });
 });
+
+describe("review input", () => {
+  const clauses = [{ key: "auth.session", verdict: "violates" }];
+  it("reads dibs review's wrapped findings, a bare file, or the newest database row", async () => {
+    const { reviewInput } = await import("../src/metrics-cli.ts");
+    expect(
+      reviewInput(
+        {
+          lobbyId: 5,
+          kind: "diagnosis",
+          findings: { summary: "s", clauses, rootCause: null },
+        },
+        undefined,
+        5,
+      )?.clauses,
+    ).toEqual(clauses);
+    expect(
+      reviewInput({ summary: "s", clauses, rootCause: null }, undefined, 5)
+        ?.clauses,
+    ).toEqual(clauses);
+    const dump = {
+      review: [
+        { id: 1, lobbyId: 5, findings: JSON.stringify({ clauses: [] }) },
+        { id: 2, lobbyId: 5, findings: JSON.stringify({ clauses }) },
+        { id: 3, lobbyId: 6, findings: JSON.stringify({ clauses: [] }) },
+      ],
+    };
+    expect(reviewInput(undefined, dump, 5)?.clauses).toEqual(clauses);
+    expect(reviewInput(undefined, undefined, 5)).toBeUndefined();
+  });
+});

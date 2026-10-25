@@ -18,6 +18,7 @@ import {
   computeMetrics,
   type LobbyDump,
   type LobbyMetrics,
+  type ReviewInput,
 } from "./metrics.ts";
 import { benchDir, fixtureDir, resultsDir } from "./paths.ts";
 import { createRecorder } from "./record.ts";
@@ -80,6 +81,33 @@ export function printMetrics(m: LobbyMetrics) {
       `    ${a.name.padEnd(8)} plan@${show(a.firstPlanSec, "s")} rev ${a.planRevisions} · resp ${a.responses} (${a.rejects} rej) · +${show(a.linesAdded)}/−${show(a.linesRemoved)} · edits ${show(a.sharedEditsBeforeContract)}/${show(a.sharedEditsAfterContract)} ${a.timingVerdict ?? ""} · ${show(a.totalTokens)} tok · ${show(a.toolCalls)} calls`,
     );
   console.log(lines.join("\n"));
+}
+
+/**
+ * The review's verdicts. `dibs review` writes {lobbyId, kind, ..., findings: {summary, clauses,
+ * rootCause}}; older or hand-made files may hold the findings at the top level. Without a file,
+ * the newest review row in the database is used (its findings column is JSON).
+ */
+export function reviewInput(
+  file: Record<string, any> | undefined,
+  dump: LobbyDump | undefined,
+  lobbyId: number,
+): ReviewInput | undefined {
+  if (file) return (file.findings ?? file) as ReviewInput;
+  const rows = (dump?.review ?? []).filter(
+    (r) => Number(r.lobbyId) === lobbyId,
+  );
+  const newest = rows.sort((a, b) => Number(b.id) - Number(a.id))[0];
+  if (!newest?.findings) return undefined;
+  try {
+    return (
+      typeof newest.findings === "string"
+        ? JSON.parse(newest.findings)
+        : newest.findings
+    ) as ReviewInput;
+  } catch {
+    return undefined;
+  }
 }
 
 export async function metricsMain(args: string[]): Promise<void> {
@@ -175,7 +203,7 @@ export async function metricsMain(args: string[]): Promise<void> {
     dump,
     report: readJson(join(dir, "report.json")),
     timing: readJson(join(dir, "timing.json")),
-    review: readJson(join(dir, "review.json")),
+    review: reviewInput(readJson(join(dir, "review.json")), dump, lobbyId),
     diff: existsSync(diffPath) ? readFileSync(diffPath, "utf8") : undefined,
     manifest: loadManifest(fixtureDir),
     transcripts,
