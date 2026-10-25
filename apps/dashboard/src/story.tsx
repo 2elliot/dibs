@@ -237,6 +237,20 @@ export function StoryView({ rows, mode, live, replayLabel, countdown, timeline }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, []);
+  // Space plays or pauses a replay.
+  useEffect(() => {
+    if (!timeline) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.code !== 'Space' && e.key !== ' ') return;
+      const t = e.target;
+      if (t instanceof HTMLTextAreaElement || (t instanceof HTMLInputElement && t.type !== 'range')) return;
+      e.preventDefault(); // stops a focused button from also toggling, and the page from scrolling
+      if (e.repeat) return;
+      timeline.setPlaying(!timeline.playing);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [timeline]);
   // Drag the background to pan.
   const pan = (event: React.PointerEvent) => {
     if (event.button !== 0) return;
