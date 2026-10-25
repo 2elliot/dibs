@@ -353,7 +353,11 @@ export function compare(
           bootstrapMeanDiff(ga.map(d.pick), gb.map(d.pick)),
         ]),
       ),
+      // Planning from fewer than 3 lobbies an arm just restates the anecdote (1/1 vs 0/1 reads as
+      // 95% vs 5%), so it's only offered once each arm has 3.
       trialsNeededPerArm:
+        primary.a.n >= 3 &&
+        primary.b.n >= 3 &&
         primary.a.rate !== null &&
         primary.b.rate !== null &&
         primary.a.rate !== primary.b.rate

@@ -764,6 +764,8 @@ describe("oracle tiers", () => {
     ]);
     expect(r.diff!.tiers.fullstack!.delta).toBe(1);
     expect(r.diff!.tiers.component!.delta).toBe(0);
+    // One lobby an arm is too few to plan from.
+    expect(r.diff!.trialsNeededPerArm).toBeNull();
     expect(toMarkdown(r)).toContain("Full-stack integration, 3 agents");
   });
 });
