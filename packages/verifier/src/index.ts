@@ -9,3 +9,6 @@ export {
   type VerifyReport,
   type VerifyOptions,
 } from "./verify.ts";
+export * from "./metrics.ts";
+export * from "./compare.ts";
+export * from "./stats.ts";
