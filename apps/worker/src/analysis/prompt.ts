@@ -32,6 +32,11 @@ For each shared key, choose exactly one relation:
 - "compatible": the plans already agree. contractText states the agreed interface; no one has to change.
 - "unowned": something is required but no participant produces it. contractText is "".
 
+Pick the relation by the main problem, in this order, even when details also differ:
+1. "duplicate" whenever two or more participants PRODUCE the same key: they each plan to build it. The contract names one owner, gives the exact interface, and says the others import it instead of writing their own.
+2. "dependency" when a participant builds on another participant's module or library (exported functions, signatures, file paths, module format, events). The contract pins that interface down so both can build in parallel, even if their current assumptions differ.
+3. "conflict" when the plans contradict each other on externally observable behavior: values, routes, methods, transports, or data shapes over the wire.
+
 Rules you must follow:
 - contractText must be precise enough to write code against: exact routes and methods, request and response JSON shapes, header or cookie names, status codes, exported function names with signatures, and file paths. No vague language.
 - Cite only plan_item ids that appear in the input. The citedItemIds are your evidence; every finding except "unowned" must cite at least one real id.
