@@ -28,6 +28,26 @@ assert.ok(
   /(?:^|-)exp(?:-|$)/.test(process.env.AZURE_CONTAINER_APP),
   "Deployment only targets a separately named -exp Azure app.",
 );
+assert.ok(
+  /(?:^|-)exp(?:-|$)/.test(process.env.AZURE_RESOURCE_GROUP),
+  "Deployment only targets a separately named -exp Azure resource group.",
+);
+// Registry names are alphanumeric only, so the marker can't be hyphen-delimited.
+assert.ok(
+  /exp/i.test(process.env.AZURE_ACR_NAME),
+  "Deployment only targets a separately named experiment registry.",
+);
+// The shared project's resources (infra/AGENT_HANDOFF.md) are never targets.
+for (const [name, shared] of [
+  ["AZURE_RESOURCE_GROUP", ["dibs-rg"]],
+  ["AZURE_CONTAINER_APP", ["dibs"]],
+  ["AZURE_ACR_NAME", ["dibs2836579d9887"]],
+  ["SPACETIME_DB", ["dibs-ch13-dev", "dibs-ch13-demo"]],
+])
+  assert.ok(
+    !shared.includes(process.env[name].toLowerCase()),
+    `${name} names the shared project's resource.`,
+  );
 assert.equal(
   new URL(process.env.SPACETIME_URI).protocol,
   "https:",

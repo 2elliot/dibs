@@ -13,64 +13,250 @@ pass. It is opt-in through repository variable `DIBS_EXP_AUTO_DEPLOY=true`, or
 **Run workflow → deploy=true**. It never deploys pull-request code. Deployments are
 serialized and use the tested commit SHA.
 
-## One-time account-owner setup
+## Isolation from the shared project
 
-The current GitHub identity has repository push access, not admin access. At
-implementation time no Actions secrets, variables, or environments were present.
-Azure CLI/login is not available in this checkout. These are setup requirements,
-not claims that a remote deployment has already happened.
+The experiment is a separate Azure project. It shares nothing with the existing
+deployment in `infra/AGENT_HANDOFF.md` (`dibs-rg`, `dibs-env`, registry
+`dibs2836579d9887`, app `dibs`, databases `dibs-ch13-dev`/`dibs-ch13-demo`):
 
-1. Create the GitHub environment **`real-exp`**. Enable Actions for the repository
-   if needed. Create a Microsoft Entra application/managed identity with a
-   federated credential for issuer `https://token.actions.githubusercontent.com`,
-   audience `api://AzureADTokenExchange`, and subject
-   `repo:2elliot/dibs:environment:real-exp`.
-2. Grant that identity permission to update the experiment Container App and
-   push/pull its ACR images. Configure the Container App's pull identity with
-   `AcrPull`. Use narrowly scoped resource permissions.
-3. Provision a separate experiment app (for example **`dibs-exp`**) with external
-   HTTPS ingress to port 8080 and min/max replicas 1/1. Reuse the existing Azure
-   Container Apps environment/registry if desired. The workflow updates an
-   existing app; it does not create or overwrite the shared `dibs` app.
-4. Publish a separate **`dibs-ch13-exp`** database once using the authorized
-   publishing identity. Keep that identity for subsequent schema publishing.
-   Bootstrap an admin participant and a worker participant on that database using
-   the existing `spacetime/README.md` bootstrap steps. Save their separate tokens
-   as the environment secrets below. Never reuse a worker identity from another
-   database without first claiming its experiment invite.
-5. Add these environment secrets (names only; do not put values in source/docs):
+| Layer             | Experiment                                  | Guard                                                                |
+| ----------------- | ------------------------------------------- | -------------------------------------------------------------------- |
+| Git               | only `real_exp` deploys                     | job `if:` on the ref, plus the environment's branch policy           |
+| GitHub            | environment `real-exp` holds every secret   | other branches' jobs can't read environment secrets                  |
+| Azure login       | its own managed identity                    | federated subject `repo:2elliot/dibs:environment:real-exp`           |
+| Azure permissions | `Contributor` on `dibs-exp-rg` only         | the identity can't see or change `dibs-rg`                           |
+| Azure resources   | own resource group, registry, env and app   | `deploy-preflight.mjs` refuses shared names and requires `exp` names |
+| SpacetimeDB       | own `dibs-ch13-exp` database and identities | preflight requires `-exp`; publish never deletes data                |
 
-   | Secret                    | Purpose                                                        |
-   | ------------------------- | -------------------------------------------------------------- |
-   | `AZURE_CLIENT_ID`         | Federated Azure deployment identity                            |
-   | `AZURE_TENANT_ID`         | Azure directory                                                |
-   | `AZURE_SUBSCRIPTION_ID`   | Azure subscription                                             |
-   | `SPACETIME_PUBLISH_TOKEN` | CLI publishing identity authorized for the experiment database |
-   | `SPACETIME_ADMIN_TOKEN`   | SDK token belonging to its admin participant                   |
-   | `SPACETIME_WORKER_TOKEN`  | SDK token belonging to its worker participant                  |
-   | `ANTHROPIC_API_KEY`       | Worker model access                                            |
+## One-time setup (account owner's laptop)
 
-6. Set environment variables:
+Run this once, top to bottom, on the laptop of the person who owns the GitHub
+repository and the Azure subscription. It takes about 20 minutes. Commands are
+bash: macOS/Linux terminal, or **Git Bash** on Windows. Every value you need
+later is kept in shell variables, so run all the steps in one terminal window.
 
-   | Variable               | Example                                       |
-   | ---------------------- | --------------------------------------------- |
-   | `SPACETIME_URI`        | `https://maincloud.spacetimedb.com`           |
-   | `SPACETIME_DB`         | `dibs-ch13-exp`                               |
-   | `AZURE_RESOURCE_GROUP` | `dibs-rg`                                     |
-   | `AZURE_CONTAINER_APP`  | `dibs-exp`                                    |
-   | `AZURE_ACR_NAME`       | Existing registry name, without `.azurecr.io` |
+Two people are involved. **The owner** signs into GitHub and Azure. **The
+experiment's developer** signs into SpacetimeDB in step 4 (their account then
+owns the experiment database) and provides the Anthropic API key, which
+decides who pays for the worker's model usage.
 
-7. For this unmerged branch, set the **repository** variable
-   `DIBS_EXP_AUTO_DEPLOY=true` and push a new `real_exp` commit to trigger its
-   validated deployment. Once the workflow also exists on the default branch,
-   **Run workflow → real_exp → deploy=true** is available for manual rollout.
-   GitHub requires a default-branch workflow for `workflow_dispatch`.
-   Environment reviewers, if configured by the owner, still apply.
+### 0. Prerequisites
+
+Install `git`, Node 24, the [GitHub CLI](https://cli.github.com), the
+[Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) and the
+[SpacetimeDB CLI](https://spacetimedb.com/install). Then:
+
+```sh
+# Windows Git Bash only: stop MSYS rewriting /subscriptions/... scopes into file paths.
+export MSYS_NO_PATHCONV=1
+
+spacetime version install 2.13.0 && spacetime version use 2.13.0
+spacetime --version            # must report 2.13.x
+
+gh auth login                  # as the repository owner
+gh api repos/2elliot/dibs --jq .permissions.admin   # must print true
+
+az login
+az account list -o table       # pick the subscription for the experiment
+az account set --subscription <subscription-id>
+
+git clone https://github.com/2elliot/dibs.git dibs-exp-setup   # or reuse a checkout
+cd dibs-exp-setup
+git switch real_exp && git pull --ff-only
+npm ci
+```
+
+A separate subscription is the strongest isolation. The same subscription is
+also fine: everything below lives in its own resource group, and the deploy
+identity has no access outside it.
+
+### 1. Names
+
+```sh
+REPO=2elliot/dibs
+LOCATION=westus2
+RG=dibs-exp-rg
+ENV_NAME=dibs-exp-env
+APP=dibs-exp
+ACR=dibsexp$(openssl rand -hex 4)       # globally unique, alphanumeric only
+IDENTITY=dibs-exp-github
+DB=dibs-ch13-exp
+STDB=https://maincloud.spacetimedb.com
+SETUP=$HOME/.dibs-exp-setup             # private scratch folder; deleted in step 7
+mkdir -p "$SETUP" && chmod 700 "$SETUP"
+echo "registry: $ACR"
+```
+
+Keep the `-exp`/`exp` parts of these names; the deploy preflight refuses anything
+else.
+
+### 2. Azure resources
+
+```sh
+az extension add --name containerapp --upgrade
+az provider register --namespace Microsoft.App --wait
+az provider register --namespace Microsoft.OperationalInsights --wait
+az provider register --namespace Microsoft.ContainerRegistry --wait
+
+az group create --name $RG --location $LOCATION
+az acr create --name $ACR --resource-group $RG --sku Basic --admin-enabled false
+az containerapp env create --name $ENV_NAME --resource-group $RG --location $LOCATION
+
+# The workflow only updates an existing app, so create it with a placeholder image.
+az containerapp create --name $APP --resource-group $RG --environment $ENV_NAME \
+  --image mcr.microsoft.com/k8se/quickstart:latest \
+  --ingress external --target-port 80 --min-replicas 1 --max-replicas 1 \
+  --system-assigned
+
+# Let the app pull from the experiment registry with its own identity.
+ACR_ID=$(az acr show --name $ACR --query id -o tsv)
+APP_PRINCIPAL=$(az containerapp show --name $APP --resource-group $RG --query identity.principalId -o tsv)
+az role assignment create --assignee-object-id $APP_PRINCIPAL \
+  --assignee-principal-type ServicePrincipal --role AcrPull --scope $ACR_ID
+az containerapp registry set --name $APP --resource-group $RG \
+  --server $ACR.azurecr.io --identity system
+
+# The dibs image listens on 8080. The placeholder is unhealthy from here until
+# the first deployment replaces it; that's expected.
+az containerapp ingress update --name $APP --resource-group $RG --target-port 8080
+```
+
+If the subscription refuses the role assignment, the account lacks `Owner` or
+`User Access Administrator` on it; sign in with an account that has it.
+
+### 3. Azure login for GitHub Actions
+
+A user-assigned managed identity with a federated credential. No password or
+client secret exists anywhere, and only the `real-exp` environment can use it.
+
+```sh
+az identity create --name $IDENTITY --resource-group $RG --location $LOCATION
+az identity federated-credential create --name github-real-exp \
+  --identity-name $IDENTITY --resource-group $RG \
+  --issuer https://token.actions.githubusercontent.com \
+  --subject repo:$REPO:environment:real-exp \
+  --audiences api://AzureADTokenExchange
+
+CLIENT_ID=$(az identity show --name $IDENTITY --resource-group $RG --query clientId -o tsv)
+PRINCIPAL_ID=$(az identity show --name $IDENTITY --resource-group $RG --query principalId -o tsv)
+TENANT_ID=$(az account show --query tenantId -o tsv)
+SUBSCRIPTION_ID=$(az account show --query id -o tsv)
+RG_ID=$(az group show --name $RG --query id -o tsv)
+
+# Contributor on the experiment resource group only: update the app, set its
+# secrets, push to its registry. Nothing outside dibs-exp-rg.
+az role assignment create --assignee-object-id $PRINCIPAL_ID \
+  --assignee-principal-type ServicePrincipal --role Contributor --scope $RG_ID
+```
+
+### 4. SpacetimeDB experiment database
+
+The experiment's developer signs in here. A separate CLI config keeps this
+login out of the laptop's normal `spacetime` setup, and `DIBS_HOME` keeps the
+participant tokens out of `~/.dibs`.
+
+```sh
+STCFG=$SETUP/spacetime.toml
+export DIBS_HOME=$SETUP/dibs-home
+
+spacetime --config-path $STCFG login          # browser sign-in, developer's account
+spacetime --config-path $STCFG publish --server $STDB --module-path spacetime \
+  --delete-data=never --yes=remote $DB
+
+# Publishing creates one unused admin invite. Claim it, then issue and claim the worker's.
+ADMIN_CODE=$(spacetime --config-path $STCFG sql --server $STDB --format json $DB \
+  "SELECT code FROM invite WHERE name = 'admin' AND used = false" \
+  | node -e 'process.stdin.on("data",d=>console.log(JSON.parse(d)[0].rows[0][0]))')
+npm run --silent dibs -- join --uri $STDB --db $DB --participant admin --code "$ADMIN_CODE"
+
+WORKER_CODE=$(npm run --silent dibs -- admin invite worker claude worker | tail -n 1)
+npm run --silent dibs -- join --uri $STDB --db $DB --participant worker --code "$WORKER_CODE"
+
+ls "$DIBS_HOME/admin/token" "$DIBS_HOME/worker/token"   # both must exist
+```
+
+`admin invite` prints only the new code. Don't print the tokens.
+
+### 5. GitHub environment, secrets and variables
+
+```sh
+# Environment that only the real_exp branch can deploy from.
+gh api -X PUT repos/$REPO/environments/real-exp \
+  -F 'deployment_branch_policy[protected_branches]=false' \
+  -F 'deployment_branch_policy[custom_branch_policies]=true'
+gh api -X POST repos/$REPO/environments/real-exp/deployment-branch-policies \
+  -f name=real_exp -f type=branch
+
+# Secrets go in from variables or files, so nothing is echoed.
+gh secret set AZURE_CLIENT_ID       --env real-exp --repo $REPO --body "$CLIENT_ID"
+gh secret set AZURE_TENANT_ID       --env real-exp --repo $REPO --body "$TENANT_ID"
+gh secret set AZURE_SUBSCRIPTION_ID --env real-exp --repo $REPO --body "$SUBSCRIPTION_ID"
+grep '^spacetimedb_token' $STCFG | sed -E 's/^[^"]*"([^"]*)".*/\1/' \
+  | gh secret set SPACETIME_PUBLISH_TOKEN --env real-exp --repo $REPO
+gh secret set SPACETIME_ADMIN_TOKEN  --env real-exp --repo $REPO < "$DIBS_HOME/admin/token"
+gh secret set SPACETIME_WORKER_TOKEN --env real-exp --repo $REPO < "$DIBS_HOME/worker/token"
+gh secret set ANTHROPIC_API_KEY      --env real-exp --repo $REPO   # prompts; paste the developer's key
+
+gh variable set SPACETIME_URI        --env real-exp --repo $REPO --body "$STDB"
+gh variable set SPACETIME_DB         --env real-exp --repo $REPO --body "$DB"
+gh variable set AZURE_RESOURCE_GROUP --env real-exp --repo $REPO --body "$RG"
+gh variable set AZURE_CONTAINER_APP  --env real-exp --repo $REPO --body "$APP"
+gh variable set AZURE_ACR_NAME       --env real-exp --repo $REPO --body "$ACR"
+
+gh secret list   --env real-exp --repo $REPO   # 7 names
+gh variable list --env real-exp --repo $REPO   # 5 names
+```
+
+The publishing identity's token is the CLI login from step 4. It must stay the
+identity that owns `dibs-ch13-exp`; future schema publishes use it.
+
+### 6. Turn on deployment and run it
+
+`DIBS_EXP_AUTO_DEPLOY` is a **repository** variable because the deploy job reads
+it before entering the environment. It only has an effect on `real_exp` pushes.
+
+```sh
+gh variable set DIBS_EXP_AUTO_DEPLOY --repo $REPO --body true
+git commit --allow-empty -m "Trigger the first experiment deployment"
+git push origin real_exp
+gh run watch --repo $REPO $(gh run list --repo $REPO --branch real_exp --event push --limit 1 --json databaseId --jq '.[0].databaseId')
+```
+
+Pushing needs write access, which the owner has. `workflow_dispatch` (Run
+workflow → deploy=true) only appears once this workflow is also on the default
+branch.
+
+The run succeeds only after `Deploy experiment` finishes its hosted smoke test:
+a real model proposal, accepted by two scripted clients. Then:
+
+```sh
+az containerapp show --name $APP --resource-group $RG --query properties.configuration.ingress.fqdn -o tsv
+# Installable CLI whose default server is that verified URL:
+gh run download --repo $REPO --name dibs-experience-$(git rev-parse HEAD) --dir dibs-release
+```
+
+Hand `dibs-release/dibs-experience-*.tgz` to the testers; see
+`packages/experience/README.md`.
+
+### 7. Clean up the laptop
+
+Every credential now lives in GitHub secrets and Azure. Remove the local copies.
+
+```sh
+rm -rf "$SETUP"
+unset DIBS_HOME ADMIN_CODE WORKER_CODE
+```
+
+Later deployments need no laptop: every push to `real_exp` deploys. To pause
+them, set `DIBS_EXP_AUTO_DEPLOY` to `false`. To remove the whole experiment,
+run `az group delete --name dibs-exp-rg` and delete the `real-exp` environment;
+the shared project is untouched.
 
 ## What a deployment does
 
-1. Checks required credential names/configuration and rejects targets without a
-   separate `-exp` component. It never silently falls back to the shared database.
+1. Checks required credential names/configuration and rejects targets without
+   `exp` names, as well as any of the shared project's resource names. It never
+   silently falls back to the shared database.
 2. Logs into Azure with OIDC. Installs the pinned SpacetimeDB CLI, logs in using
    the publishing secret, then publishes with **`--delete-data=never`** and
    noninteractive remote/login confirmations only. Breaking migrations fail;
