@@ -58,9 +58,11 @@ not claims that a remote deployment has already happened.
    | `AZURE_CONTAINER_APP`  | `dibs-exp`                                    |
    | `AZURE_ACR_NAME`       | Existing registry name, without `.azurecr.io` |
 
-7. Dispatch the workflow on `real_exp` with deploy enabled. After the first
-   successful deployment, optionally set the **repository** variable
-   `DIBS_EXP_AUTO_DEPLOY=true` for automatic synchronization on later pushes.
+7. For this unmerged branch, set the **repository** variable
+   `DIBS_EXP_AUTO_DEPLOY=true` and push a new `real_exp` commit to trigger its
+   validated deployment. Once the workflow also exists on the default branch,
+   **Run workflow → real_exp → deploy=true** is available for manual rollout.
+   GitHub requires a default-branch workflow for `workflow_dispatch`.
    Environment reviewers, if configured by the owner, still apply.
 
 ## What a deployment does
