@@ -22,11 +22,14 @@ const COMMANDS: Record<string, string> = {
   doctor: "../../experience/src/main.ts",
   leave: "../../experience/src/main.ts",
   close: "../../experience/src/main.ts",
+  decide: "../../experience/src/main.ts",
 };
 
 const [name, ...args] = process.argv.slice(2);
 const projectCommand =
-  ["create", "status", "doctor", "leave", "close"].includes(name ?? "") ||
+  ["create", "status", "doctor", "leave", "close", "decide"].includes(
+    name ?? "",
+  ) ||
   (name === "join" && args[0]?.startsWith("dibs1_"));
 const target = projectCommand
   ? "../../experience/src/main.ts"

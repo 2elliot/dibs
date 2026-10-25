@@ -41,6 +41,7 @@ import CreateInviteReducer from "./create_invite_reducer";
 import CreateLobbyReducer from "./create_lobby_reducer";
 import CreateProjectReducer from "./create_project_reducer";
 import DebugDeliverReducer from "./debug_deliver_reducer";
+import DecideProjectReducer from "./decide_project_reducer";
 import FailJobReducer from "./fail_job_reducer";
 import HeartbeatReducer from "./heartbeat_reducer";
 import JoinLobbyReducer from "./join_lobby_reducer";
@@ -338,6 +339,7 @@ const reducersSchema = __reducers(
   __reducerSchema("create_lobby", CreateLobbyReducer),
   __reducerSchema("create_project", CreateProjectReducer),
   __reducerSchema("debug_deliver", DebugDeliverReducer),
+  __reducerSchema("decide_project", DecideProjectReducer),
   __reducerSchema("fail_job", FailJobReducer),
   __reducerSchema("heartbeat", HeartbeatReducer),
   __reducerSchema("join_lobby", JoinLobbyReducer),

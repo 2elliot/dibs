@@ -443,6 +443,7 @@ export function StoryView({ rows, mode, live, replayLabel, countdown, timeline }
     </div>
 
     <Narration model={model} mode={mode} nameOf={nameOf} failedRoot={failedRoot} />
+    <DecisionPanel model={model} rows={rows} nameOf={nameOf} />
     {showTime && timeline && <TimeBar tl={timeline} describe={model.describe} />}
 
     <div className="overlay legend">
@@ -634,6 +635,29 @@ function IndexCard({ id, model, rows, nameOf, failedRoot, verification, close }:
   </div>;
 }
 
+/** While an interface is frozen (rejected twice), show the options the developers choose between and
+ *  why each was rejected, beside the graph so the agents stay in view. */
+function DecisionPanel({ model, rows, nameOf }: { model: Model; rows: DashboardRows; nameOf: (id: number) => string }) {
+  const frozen = model.issues.find(i => i.state === 'escalated' && !i.settled);
+  if (!frozen) return null;
+  // This round's options: the proposals rejected since the key's last contract.
+  const since = rows.contract.filter(c => str(c, 'key') === frozen.key).reduce((m, c) => Math.max(m, num(c, 'createdAtUs')), 0);
+  const options = frozen.revisions.filter(p => num(p, 'createdAtUs') >= since && ['rejected', 'escalated'].includes(str(p, 'state')));
+  return <aside className="overlay decision" aria-label={`Decision needed: ${frozen.label}`}>
+    <header><em><i />FROZEN</em><b>{frozen.label}</b><span>The agents rejected this twice. The developers choose:</span></header>
+    {options.map((p, i) => {
+      const letter = String.fromCharCode(65 + i);
+      const rejections = rows.response.filter(r => num(r, 'proposalId') === num(p, 'id') && str(r, 'decision') === 'reject');
+      return <section key={num(p, 'id')}>
+        <h3><kbd>{letter}</kbd> Proposal revision {num(p, 'revision')}</h3>
+        <pre>{str(p, 'contractText')}</pre>
+        {rejections.map((r, j) => <p key={j} className="why"><b>{nameOf(num(r, 'participantId'))} rejected:</b> {str(r, 'reason') || 'no reason given'}</p>)}
+      </section>;
+    })}
+    <footer>Decide with <code>dibs decide {frozen.key} {options.map((_, i) => String.fromCharCode(65 + i)).join('|')}</code></footer>
+  </aside>;
+}
+
 function Narration({ model, mode, nameOf, failedRoot }: { model: Model; mode: string; nameOf: (id: number) => string; failedRoot?: Row }) {
   const open = model.issues.find(i => !i.settled && ['proposed', 'escalated'].includes(i.state));
   let tone = 'idle'; let title = 'Waiting for agents to share their plans'; let detail = '';
@@ -641,6 +665,9 @@ function Narration({ model, mode, nameOf, failedRoot }: { model: Model; mode: st
     const passed = num(model.verification, 'passed'); const total = num(model.verification, 'total');
     if (passed === total) { tone = 'good'; title = `Works together ✓  all ${total} real-user checks passed`; }
     else { tone = 'bad'; title = `Broken ✗  ${passed} of ${total} checks passed`; detail = str(failedRoot, 'explanation') || str(model.review, 'summary') || 'The AI reviewer is looking into why…'; }
+  } else if (open?.state === 'escalated') {
+    tone = 'bad'; title = `Frozen: ${open.label.toLowerCase()}`;
+    detail = 'Rejected twice. The agents are waiting for the developers to choose.';
   } else if (open) {
     tone = open.kind;
     const agreed = open.votes.filter(v => v.decision === 'accept').length;

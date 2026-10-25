@@ -5,7 +5,12 @@ import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { parseArgs } from "node:util";
 import { fileURLToPath } from "node:url";
 import { createInterface } from "node:readline/promises";
-import { connect, tables, type DbConnection } from "@dibs/client";
+import {
+  connect,
+  subscribeLobby,
+  tables,
+  type DbConnection,
+} from "@dibs/client";
 import { setGlobalLogLevel } from "spacetimedb";
 import type { VocabularyEntry, SessionFile } from "@dibs/protocol";
 import {
@@ -303,7 +308,7 @@ async function attach(
       vocabulary: state.vocabulary,
     };
     save(path.join(dir, "session.json"), local);
-    const context = `dibs project ${lobby.id}. You are ${state.provider}. Before implementing shared work, call dibs_status, then publish your plan and assumptions with dibs_plan. Read proposals with dibs_status; accept or reject the exact revision with dibs_respond. Wait on unresolved shared interfaces and continue independent work. Delivery is not agreement. If offline or analysis unavailable, tell the developer. Shared keys: ${state.vocabulary.map((v) => v.key).join(", ")}. Brief: ${state.brief.slice(0, 450)}`;
+    const context = `dibs project ${lobby.id}. You are ${state.provider}. Before implementing shared work, call dibs_status, then publish your plan and assumptions with dibs_plan. Read proposals with dibs_status; accept or reject the exact revision with dibs_respond. Wait on unresolved shared interfaces and continue independent work. An escalated interface (rejected twice) is frozen for the developers: stop work on it until their decision arrives as its agreed contract, then follow it. Delivery is not agreement. If offline or analysis unavailable, tell the developer. Shared keys: ${state.vocabulary.map((v) => v.key).join(", ")}. Brief: ${state.brief.slice(0, 450)}`;
     fs.writeFileSync(path.join(dir, "project-context.txt"), context, {
       mode: 0o600,
     });
@@ -393,12 +398,20 @@ export async function main(argv: string[]) {
   const command = positionals[0];
   if (!command || values.help || command === "help") {
     console.log(
-      "dibs create --provider claude|codex|droid [--brief <text>] [--interface key=description]\ndibs join <code> --provider claude|codex|droid\ndibs status|doctor|leave|close --provider claude|codex|droid\nOptions: --project <directory>, --server <HTTPS URL> (create), --local (leave), --json (status)",
+      "dibs create --provider claude|codex|droid [--brief <text>] [--interface key=description]\ndibs join <code> --provider claude|codex|droid\ndibs status|doctor|leave|close --provider claude|codex|droid\ndibs decide [interface] [A|B] --provider <creator>  (settle an interface the agents rejected twice)\nOptions: --project <directory>, --server <HTTPS URL> (create), --local (leave), --json (status)",
     );
     return;
   }
   if (
-    !["create", "join", "status", "doctor", "leave", "close"].includes(command)
+    ![
+      "create",
+      "join",
+      "status",
+      "doctor",
+      "leave",
+      "close",
+      "decide",
+    ].includes(command)
   )
     throw new Error("Unknown command. Run dibs --help.");
   const provider = values.provider as Provider;
@@ -550,6 +563,7 @@ async function runCommand(
     throw new Error(
       "Attachment is incomplete. Retry its original create/join command.",
     );
+  if (command === "decide") return decide(state, positionals.slice(1));
   const remote = await connectSession({
     builder: await loadDbBuilder(),
     uri: state.dbUri,
@@ -600,6 +614,107 @@ async function runCommand(
     }
   } finally {
     remote.close();
+  }
+}
+
+/** Escalated interfaces (rejected twice this round) and the rejected proposals to choose from. */
+function frozenOptions(conn: DbConnection, lobbyId: number) {
+  const proposals = [...conn.db.proposal.iter()].filter(
+    (p) => p.lobbyId === lobbyId,
+  );
+  const contracts = [...conn.db.contract.iter()].filter(
+    (c) => c.lobbyId === lobbyId,
+  );
+  const frozen = new Map<string, typeof proposals>();
+  for (const key of new Set(proposals.map((p) => p.key))) {
+    const since = contracts
+      .filter((c) => c.key === key)
+      .reduce((max, c) => (c.createdAtUs > max ? c.createdAtUs : max), 0n);
+    const round = proposals
+      .filter((p) => p.key === key && p.createdAtUs >= since)
+      .sort((a, b) => a.revision - b.revision);
+    if (round.some((p) => p.state === "escalated"))
+      frozen.set(
+        key,
+        round.filter((p) => p.state === "rejected" || p.state === "escalated"),
+      );
+  }
+  return frozen;
+}
+
+async function decide(state: State, [key, choice]: string[]) {
+  if (state.operation !== "create")
+    throw new Error(
+      "Only the project creator can decide; run this where you ran dibs create.",
+    );
+  const session = await connect({
+    uri: state.dbUri,
+    dbName: state.dbName,
+    token: state.token,
+  });
+  try {
+    await subscribeLobby(session.conn, state.lobbyId!);
+    const { conn } = session;
+    const frozen = frozenOptions(conn, state.lobbyId!);
+    const who = (id: number) => {
+      const p = conn.db.participant.id.find(id);
+      return p
+        ? AGENT[p.provider as Provider].replace(/ \(.*\)$/, "")
+        : `#${id}`;
+    };
+    if (!key) {
+      if (!frozen.size) console.log("No interface is waiting for a decision.");
+      for (const k of frozen.keys())
+        console.log(
+          `${k} is frozen: the agents rejected it twice. Run: dibs decide ${k}`,
+        );
+      return;
+    }
+    const options = frozen.get(key);
+    if (!options)
+      throw new Error(
+        `${key} is not waiting for a decision. Run dibs decide to list frozen interfaces.`,
+      );
+    const letter = (i: number) => String.fromCharCode(65 + i);
+    if (!choice) {
+      console.log(
+        `${key} is frozen: the agents rejected it twice. Choose one option.\n`,
+      );
+      options.forEach((p, i) => {
+        const rejections = [...conn.db.response.iter()].filter(
+          (r) => r.proposalId === p.id && r.decision === "reject",
+        );
+        console.log(
+          `Option ${letter(i)} (proposal P${p.id}, revision ${p.revision})`,
+        );
+        console.log(p.contractText.replace(/^/gm, "    "));
+        for (const r of rejections)
+          console.log(
+            `  Rejected by ${who(r.participantId)}: ${r.reason || "(no reason given)"}`,
+          );
+        console.log("");
+      });
+      console.log(
+        `Decide with: dibs decide ${key} ${options.map((_, i) => letter(i)).join("|")} --provider ${state.provider}`,
+      );
+      return;
+    }
+    const index = choice.toUpperCase().charCodeAt(0) - 65;
+    const chosen = options[index];
+    if (!chosen || choice.length !== 1)
+      throw new Error(
+        `Choose ${options.map((_, i) => letter(i)).join(" or ")}.`,
+      );
+    await conn.reducers.decideProject({
+      lobbyId: state.lobbyId!,
+      key,
+      proposalId: chosen.id,
+    });
+    console.log(
+      `Decided ${key}: option ${letter(index)} (revision ${chosen.revision}) is now the agreed contract. Every agent on ${key} receives it and resumes.`,
+    );
+  } finally {
+    session.conn.disconnect();
   }
 }
 

@@ -13,7 +13,9 @@ import {
   emit,
   json,
   now,
+  roundStartUs,
   text,
+  writeContract,
   type Ctx,
 } from "./helpers.ts";
 
@@ -282,6 +284,54 @@ export const closeProject = db.reducer({ lobbyId: t.u32() }, (ctx, args) => {
   ctx.db.lobby.id.update({ ...l, state: "stopped", endsAtUs: now(ctx) });
   emit(ctx, l.id, "lobby_stopped", l.id);
 });
+
+// An escalated key (rejected twice) is frozen until the developers settle it. The creator picks
+// one of the proposals the agents rejected; it becomes the agreed contract and is delivered to
+// everyone on the key, so their agents resume against it.
+export const decideProject = db.reducer(
+  { lobbyId: t.u32(), key: t.string(), proposalId: t.u32() },
+  (ctx, args) => {
+    const room = ctx.db.projectRoom.lobbyId.find(args.lobbyId);
+    check(
+      room?.owner.isEqual(ctx.sender),
+      "Only the project creator can decide an escalated interface.",
+    );
+    const l = ctx.db.lobby.id.find(args.lobbyId);
+    check(
+      l?.state === "running" && l.endsAtUs > now(ctx),
+      "Project is closed or expired.",
+    );
+    const since = roundStartUs(ctx, l.id, args.key);
+    const round = [...ctx.db.proposal.lobbyId.filter(l.id)].filter(
+      (p) => p.key === args.key && p.createdAtUs >= since,
+    );
+    check(
+      round.some((p) => p.state === "escalated"),
+      "That interface is not waiting for a decision.",
+    );
+    const chosen = round.find((p) => p.id === args.proposalId);
+    check(
+      chosen && (chosen.state === "rejected" || chosen.state === "escalated"),
+      "Choose one of the proposals the agents rejected for this interface.",
+    );
+    writeContract(
+      ctx,
+      l.id,
+      args.key,
+      chosen.contractText,
+      "agreed",
+      [...chosen.citedItemIds],
+      chosen.id,
+    );
+    emit(ctx, l.id, "notice_sent", chosen.id, {
+      decision: {
+        key: args.key,
+        proposalId: chosen.id,
+        revision: chosen.revision,
+      },
+    });
+  },
+);
 
 // Call before granting a lease. Exhaustion is terminal for this analysis job,
 // so the worker does not repeatedly retry a queued job it cannot run.

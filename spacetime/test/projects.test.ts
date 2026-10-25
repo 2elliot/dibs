@@ -210,6 +210,140 @@ describe("ordinary project rooms on a real database", () => {
     });
     expect(seats).toEqual(["claude", "codex", "droid"]);
   });
+  test("an interface rejected twice freezes until the creator decides; the choice becomes the agreed contract", async () => {
+    const { owner, input, lobbyId } = await project();
+    const codex = await h.stranger(),
+      droid = await h.stranger();
+    for (const [member, provider] of [
+      [codex, "codex"],
+      [droid, "droid"],
+    ] as const)
+      await member.reducers.joinProject({
+        code: input.code,
+        provider,
+        protocol: "project-v1",
+      });
+    const key = "project.interface";
+    const publish = (
+      member: typeof owner,
+      text: string,
+      kind: "produces" | "requires",
+    ) =>
+      member.reducers.publishPlan({
+        requestId: randomUUID(),
+        goal: text,
+        produces: kind === "produces" ? [{ key, text }] : [],
+        requires: kind === "requires" ? [{ key, text }] : [],
+        notes: "",
+      });
+    await publish(
+      owner,
+      "Cards are exactly {id,title,column,position}",
+      "produces",
+    );
+    await publish(codex, "Cards carry description and assignee", "requires");
+    await publish(
+      droid,
+      "The store persists description and assignee",
+      "requires",
+    );
+    const analyze = async (contractText: string) => {
+      const job = await waitFor(() =>
+        [...h.admin.db.job.iter()].find(
+          (j) => j.lobbyId === lobbyId && j.state === "queued",
+        ),
+      );
+      const leaseToken = randomUUID();
+      await h.peer.worker.reducers.leaseJob({ jobId: job.id, leaseToken });
+      const leased = await waitFor(() =>
+        [...h.admin.db.job.iter()].find(
+          (j) => j.id === job.id && j.state === "leased",
+        ),
+      );
+      const cited = [...h.admin.db.planItem.iter()]
+        .filter((i) => i.lobbyId === lobbyId && i.current && i.key === key)
+        .map((i) => i.id);
+      await h.peer.worker.reducers.submitAnalysis({
+        jobId: job.id,
+        leaseToken,
+        inputKey: leased.inputKey,
+        findingsJson: JSON.stringify({
+          findings: [
+            {
+              key,
+              relation: "conflict",
+              citedItemIds: cited,
+              explanation: "test",
+              contractText,
+            },
+          ],
+        }),
+      });
+      return waitFor(() =>
+        [...h.admin.db.proposal.iter()].find(
+          (p) =>
+            p.lobbyId === lobbyId && p.key === key && p.state === "proposed",
+        ),
+      );
+    };
+    const reject = (
+      member: typeof owner,
+      p: { id: number; revision: number },
+      reason: string,
+    ) =>
+      member.reducers.respond({
+        requestId: randomUUID(),
+        proposalId: p.id,
+        revision: p.revision,
+        decision: "reject",
+        reason,
+      });
+    const first = await analyze("Option A: minimal cards");
+    await reject(owner, first, "must stay minimal");
+    const second = await analyze(
+      "Option B: cards keep description and assignee",
+    );
+    await reject(droid, second, "store must persist them");
+    await waitFor(
+      () => h.admin.db.proposal.id.find(second.id)?.state === "escalated",
+    );
+    expect(
+      [...h.admin.db.delivery.iter()].some(
+        (d) =>
+          d.kind === "escalated" && /frozen for the developers/.test(d.summary),
+      ),
+    ).toBe(true);
+    await expect(
+      codex.reducers.decideProject({ lobbyId, key, proposalId: first.id }),
+    ).rejects.toThrow("Only the project creator");
+    await expect(
+      owner.reducers.decideProject({
+        lobbyId,
+        key: "nope",
+        proposalId: first.id,
+      }),
+    ).rejects.toThrow("not waiting for a decision");
+    await owner.reducers.decideProject({ lobbyId, key, proposalId: first.id });
+    const decided = await waitFor(() =>
+      [...h.admin.db.contract.iter()].find(
+        (c) => c.lobbyId === lobbyId && c.key === key && c.current,
+      ),
+    );
+    expect(decided.source).toBe("agreed");
+    expect(decided.text).toBe("Option A: minimal cards");
+    expect(
+      [...h.admin.db.delivery.iter()].filter(
+        (d) => d.kind === "contract" && d.refId === decided.id,
+      ),
+    ).toHaveLength(3);
+    await expect(
+      owner.reducers.decideProject({ lobbyId, key, proposalId: second.id }),
+    ).rejects.toThrow("not waiting for a decision");
+    // A decided key reopens: a later plan change can be analyzed into a fresh proposal.
+    await publish(codex, "Cards now also need labels", "requires");
+    const reopened = await analyze("Option C: labels");
+    expect(reopened.revision).toBe(3);
+  });
   test("global creation/analysis budgets terminate unavailable jobs without allocating another lease", async () => {
     await h.admin.reducers.configureProjects({
       enabled: true,
