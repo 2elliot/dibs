@@ -1,6 +1,7 @@
 # Dibs deployment handoff
 
-Stable stopping point: October 24, 2026, 2:04 PM Pacific. User requested stopping to conserve agent usage. No further work is running in this agent turn. Azure remains deployed.
+Last updated: October 24, 2026, 5:40 PM Pacific, after redeploying the worker from `real`. Azure is
+deployed and healthy.
 
 ## Current result
 
@@ -11,68 +12,108 @@ Tenant: 0d5d4a8a-e234-4943-a608-5577907502a8
 Resource group: dibs-rg
 Region: westus2
 Container Apps environment: dibs-env
-Container App: dibs
-Ready revision: dibs--wqnc6fp
+Container App: dibs (single-revision mode)
+Ready revision: dibs--0000001
 Registry: dibs2836579d9887.azurecr.io
-Image: dibs:dev-cc5b29745f76151b
-Image digest: sha256:811aa562e78444d2d62bd9fb2719ac5e13c6ebdd8544bf76de8c9056682d94fd
+Image: dibs:real-e7806ad8f05c
+Image digest: sha256:0ea9d63ca41a4f517b59926a1debf0bd61ee4ad6d2b4e963d910920999f916c1
+Source: `real` at e7806ad8f05cdb337bbb4d5dc10c7c5bafe011f8 (all five issues merged, through PR #20)
 Replica limits: min 1 / max 1; 0.25 CPU, 0.5 GiB.
 Database: Maincloud dibs-ch13-dev
 Worker participant name and role: worker / worker
 Model: claude-sonnet-4-6
 
-Verified HTTPS dashboard and JavaScript asset return 200; /health/live returns live; /health/status reports database connected and zero Anthropic errors; /config.json points to the correct Maincloud database. Follow-up uptime advanced from 36 to 103 seconds. Database participant is online and service heartbeat advanced. Container logs confirm the analysis loop started successfully. See azure-verification.json beside this file. The heartbeat evidence and other output artifacts remain in the original workspace outputs folder.
+Rollback target: image dibs:dev-cc5b29745f76151b (sha256:811aa562e78444d2d62bd9fb2719ac5e13c6ebdd8544bf76de8c9056682d94fd),
+the previous revision dibs--wqnc6fp, still in ACR. Roll back with the same `containerapp update --image` as below.
 
-A real Anthropic preflight also passed before deployment. No actual queued Maincloud analysis has run: the shared database had no lobbies. Do not claim the full two-machine demonstration is complete.
+Verified after the update (00:39 UTC): the new revision is Healthy with 100% of traffic; /health/live
+returns live; /health/status reports the database connected and zero Anthropic errors; /config.json
+points to dibs-ch13-dev; the dashboard and its JavaScript asset return 200 from the new build; the
+worker participant is online and its service heartbeat is current. See azure-verification.json.
+
+This image adds lease-on-sight (a queued job is leased from the row update instead of the 15 s
+rescan) and citation repair (invalid citations are removed and valid findings submitted; unusable
+output no longer counts as an Anthropic error). No real analysis job has run on it yet. The previous
+image ran real analyses for lobbies 1 and 3 (see LOBBY3_REPORT.md).
 
 ## Next work
 
-1. Coordinate the planned real Claude Code on Windows / Codex on Mac Maincloud lobby test. Both should accept a contract and the consumer's next edit must visibly follow it.
-2. During that test, verify the cloud worker leases and completes a real job and the live dashboard reflects it.
-3. Record evidence and assess remaining plan checkpoints. Avoid republishing/resetting the teammate-owned database.
+1. Lobby 4, the next two-machine attempt (E2E_RUNBOOK.md). It waits on Ren Jie's Stop hook change
+   (keep agents running until every peer has a plan) and a tested Codex launch path. During it,
+   confirm the new worker leases within a second of `job_queued`.
+2. Demo cutover, when issue 1 publishes `dibs-ch13-demo`: claim a worker invite on it with the
+   worker's existing token, then `containerapp update --set-env-vars SPACETIME_DB=dibs-ch13-demo`
+   (deploy.md §4).
+3. The dashboard's "Analysis online" badge reads a `service` row named `analysis`; the worker can
+   only write `worker`. That needs a dashboard change (issue 5).
 
-The user owns the Azure subscription and is a collaborator on the Maincloud database. The teammate provided a worker invite, which was successfully redeemed. No new worker invite is needed.
+The user owns the Azure subscription and is a collaborator on the Maincloud database. The worker's
+invite was redeemed; no new worker invite is needed for dibs-ch13-dev.
 
 ## Workspace and tools
 
 Workspace: C:\Users\lib_laptop\Documents\Codex\2026-10-24\github-plugin-github-openai-curated-remote
-Deployment source: work/azure-deploy/src
-Use work/azure-deploy/az.ps1 for all Azure CLI commands; it retains the isolated signed-in profile. No system Azure installation is needed.
+Use work/azure-deploy/az.ps1 for Azure CLI commands; it keeps the isolated signed-in profile in
+work/azure-deploy/azure-config. No system Azure installation is needed. It sets `Stop`, so an `az`
+warning on stderr makes it exit 1 even when the command succeeded: read the JSON result.
+crane: work/azure-tools/crane/crane.exe (Google crane 0.22.1, checked against release checksums).
 Node: C:\Users\lib_laptop\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe
-Spacetime CLI: C:\Users\lib_laptop\AppData\Local\SpacetimeDB\spacetime.exe
-The current Spacetime CLI login is NOT a Dibs admin; create_invite returned not admin. The worker uses its separately claimed identity.
+(no npm next to it; npm 12 lives under work/issue3-review/tooling).
+Python: C:\Users\lib_laptop\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe
+Spacetime CLI: C:\Users\lib_laptop\AppData\Local\SpacetimeDB\spacetime.exe. Its login is not a Dibs
+admin. This laptop holds the `admin` and `claude` participants in ~/.dibs (dibs CLI tokens).
 
-Source combines these heads:
-- State a7da85a6119265be8ca69f1e88cd2325053c4e10
-- Worker 387dd71c81fae213d3a91db5f40d7bd78dd21769
-- Dashboard 5028df021aa90f68b34a3183bfa82fec4b89d209
+## Updating the deployed image
 
-The integrated build, workspace typecheck, and 47 worker checks passed previously, including six against a real local database. The bundled runtime separately passed local HTTP/static checks and now cloud startup/connectivity checks. Deployment work is in scratch/output files; it did not push additional repository changes.
+The subscription blocks ACR Tasks (TasksOperationsNotAllowed) and Docker/WSL aren't installed, so
+images are assembled with crane: the base `dibs-base:node24-slim` (imported once into ACR with
+`az acr import`) plus one app layer. The scripts are in `infra/azure/`:
 
-## Build and deployment details
+1. In a checkout of the `real` commit: `npm ci`, then `npm run build -w @dibs/dashboard`.
+2. `node infra/azure/bundle.mjs <checkout> <imageRoot> <full sha>` bundles the worker into
+   `app/apps/worker/src/index.mjs` and copies the dashboard build. It prints the tag
+   (`real-<sha12>`).
+3. `python -I infra/azure/make_layer.py <imageRoot> <app-layer.tar.gz>` packs the layer.
+4. Optional local smoke: run `node apps/worker/src/index.mjs` in `<imageRoot>/app` with `PORT` set and
+   `SPACETIME_URI` pointing at an unused local port, then check /health/live, / and /config.json.
+5. `.\infra\azure\push-image.ps1 -Layer <app-layer.tar.gz> -Tag real-<sha12> -Work <workspace>\work`
+   pushes the image and prints its digest, OS, arch, command and user.
+6. `az.ps1 containerapp update -n dibs -g dibs-rg --image dibs2836579d9887.azurecr.io/dibs:real-<sha12>`.
+   Only the image changes; secrets, env vars, scale and registry settings stay. Wait for the new
+   revision to be Healthy at 100% traffic, then run the checks above.
 
-The subscription blocks ACR Tasks (TasksOperationsNotAllowed). Do not retry that build route. Docker/WSL are not installed.
+Windows PowerShell 5.1 corrupts a password written to a native program's stdin: a pipe appends CRLF,
+and `Process` stdin adds a UTF-8 BOM from the console input encoding. Either makes crane store a wrong
+password, and ACR then answers "UNAUTHORIZED: authentication required". push-image.ps1 writes it
+without either.
 
-Fallback: work/azure-deploy/bundle-worker.mjs bundles the worker and copies the production dashboard into image-root/app. make-layer.py makes app-layer.tar.gz. Official Google crane 0.22.1, checked against release SHA-256 checksums, mutates an official Node 24 slim Linux/amd64 base with this layer. Azure ACR import transfers the Node base directly; transferring large base layers through this machine was slow.
-
-outputs/deploy-dibs-azure.ps1 documents the successful deployment flow. IMPORTANT: it creates a new app and explicitly refuses to overwrite an existing one. The app now exists; inspect before making any future update. Do not blindly rerun it as an update mechanism. Its base import uses a floating node24 tag; the deployed final image digest above records the exact result.
+outputs/deploy-dibs-azure.ps1 records the original first deployment. It creates a new app and refuses
+to overwrite an existing one, so don't use it for updates.
 
 ## Credentials and browser limitations
 
-Credentials are outside source/build archives in work/azure-deploy/private. AnthropicKey.protected and WorkerInvite.protected use Windows DPAPI for this Windows account. worker.token is the claimed worker identity token in the access-restricted folder. Never print these or put them into chat, source control, reports, or images. Azure runtime uses secrets and secret references. Temporary crane registry login was logged out after publishing. Azure CLI authentication is isolated in work/azure-deploy/azure-config.
+Credentials are outside source/build archives in work/azure-deploy/private. AnthropicKey.protected and
+WorkerInvite.protected use Windows DPAPI for this Windows account. worker.token is the claimed worker
+identity token in the access-restricted folder. Never print these or put them into chat, source
+control, reports, or images. Azure runtime uses secrets and secret references. Registry credentials
+reach crane only over stdin, and crane logs out after each push. Invite codes for teammates are kept
+in ~/.dibs/handoff and sent privately, never through GitHub.
 
-The invite helper prompt is no longer needed; unused WorkerInvite prompt processes were closed after successful redemption. Local HTTP preview processes may still be running on ports 4130 and 4131; cloud hosting does not depend on them.
+Local HTTP preview processes may still be running on ports 4130 and 4131; cloud hosting does not
+depend on them. The shared local SpacetimeDB on port 3000 went down under memory pressure on this
+laptop; it isn't needed for the Azure deployment.
 
-Firefox Computer Use was blocked because browser URL policy enforcement is unsupported on this Windows browser. Do not retry that route. CLI/API checks work.
+The in-app browser loses its GitHub sign-in between sessions; Firefox Computer Use was blocked by
+browser URL policy. CLI/API checks work.
 
 ## Related artifacts
 
-- azure-setup-status.md: current setup report
-- azure-deployment.json: resource identifiers and image digest, no credentials
-- azure-verification.json: cloud HTTP and stability evidence
-- azure-heartbeat-verification.txt: database heartbeat evidence
-- dibs-azure-source.zip: integrated source archive, no credentials
-- issue-3-verification-report.md: earlier worker review/fix report
-- DIBS_TEAM_PLAN.md original: C:\Users\lib_laptop\Downloads\Telegram Desktop\DIBS_TEAM_PLAN.md
+In the workspace's outputs folder:
 
-Earlier worker fixes were pushed to draft PR #9 in 2elliot/dibs. State is PR #11, dashboard #10, bridges #12, bench #13. The next agent should re-check current remote heads before future repository changes. All deployment/source provenance above describes this deployed build, not necessarily the latest teammate pushes.
+- azure-deployment.json: current image, digest, revision and rollback target, no credentials
+- azure-deployment.previous.json: the previous deployment record
+- azure-setup-status.md, azure-heartbeat-verification.txt: the first deployment's reports
+- issue-3-verification-report.md: earlier worker review/fix report
+
+In this folder: azure-verification.json (latest cloud checks), E2E_RUNBOOK.md (two-machine lobby),
+LOBBY3_REPORT.md (first shared-DB lobby), deploy.md (first-time deployment and cutover).

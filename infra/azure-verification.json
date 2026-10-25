@@ -1,15 +1,28 @@
 {
   "url": "https://dibs.grayriver-bbcb643c.westus2.azurecontainerapps.io",
+  "revision": "dibs--0000001",
+  "revisionHealth": "Healthy",
+  "trafficWeight": 100,
+  "image": "dibs2836579d9887.azurecr.io/dibs:real-e7806ad8f05c",
+  "imageDigest": "sha256:0ea9d63ca41a4f517b59926a1debf0bd61ee4ad6d2b4e963d910920999f916c1",
+  "source": "real e7806ad8f05cdb337bbb4d5dc10c7c5bafe011f8",
+  "imageConfig": {
+    "os": "linux",
+    "architecture": "amd64",
+    "command": "node /app/apps/worker/src/index.mjs",
+    "user": "node",
+    "workingDirectory": "/app"
+  },
   "live": {
     "status": "live",
-    "uptimeSec": 36
+    "uptimeSec": 19
   },
   "status": {
     "db": "connected",
     "queueAgeSec": null,
     "lastAnalysisLatencyMs": null,
     "anthropicErrors": 0,
-    "uptimeSec": 36
+    "uptimeSec": 19
   },
   "config": {
     "dbUri": "https://maincloud.spacetimedb.com",
@@ -19,12 +32,22 @@
   },
   "dashboardHttp": 200,
   "assetHttp": 200,
-  "verifiedAtUtc": "2026-10-24T21:03:10.8478718Z",
+  "dashboardAsset": "assets/index-C0zcSrX3.js",
+  "workerParticipantOnline": true,
+  "heartbeatAgeSecAtCheck": 2,
+  "verifiedAtUtc": "2026-10-25T00:39:23Z",
   "followupStatus": {
     "db": "connected",
     "queueAgeSec": null,
     "lastAnalysisLatencyMs": null,
     "anthropicErrors": 0,
-    "uptimeSec": 103
+    "uptimeSec": 225
+  },
+  "followupAtUtc": "2026-10-25T00:42:49Z",
+  "previous": {
+    "revision": "dibs--wqnc6fp",
+    "image": "dibs2836579d9887.azurecr.io/dibs:dev-cc5b29745f76151b",
+    "imageDigest": "sha256:811aa562e78444d2d62bd9fb2719ac5e13c6ebdd8544bf76de8c9056682d94fd",
+    "verifiedAtUtc": "2026-10-24T21:03:10.8478718Z"
   }
 }
