@@ -8,17 +8,18 @@ smoke. A Linux runner builds and smoke-tests the worker/dashboard container.
 The isolated database and all its test/package consumers share one step lifetime
 and use ephemeral signing keys plus a separate CLI identity configuration.
 
-Deployment only runs for `real_exp`, after both OS checks and container validation
-pass. It is opt-in through repository variable `DIBS_EXP_AUTO_DEPLOY=true`, or
+Deployment only runs for `real_exp`, after container validation (and the OS checks,
+when they run) pass. It is opt-in through repository variable `DIBS_EXP_AUTO_DEPLOY=true`, or
 **Run workflow → deploy=true**. It never deploys pull-request code. Deployments are
 serialized and use the tested commit SHA.
 
-To deploy faster, put **`[skip checks]`** in the pushed commit message. The
-Windows/Linux validate jobs (typechecks, binding check, full test suite against a
-local database, installed-package smoke; about 9 minutes) are skipped, and the push
-goes straight to the image build and deploy, whose hosted smoke test still has
-to pass. Use it for docs or config pushes, not schema or code changes. Pull
-requests always run the checks.
+**Pushes skip the Windows/Linux validate jobs by default** (typechecks, binding
+check, full test suite against a local database, installed-package smoke; about 9
+minutes) and go straight to the image build and deploy, whose hosted smoke test
+still has to pass. Put **`[run checks]`** in the pushed commit message to make the
+deploy wait for them, e.g. for schema or risky code changes. Pull requests always
+run the checks, and the open `real_exp` → `real` pull request re-runs them on every
+push, so results still show up there; they just don't block the deploy.
 
 > [!WARNING]
 > **Every push to `real_exp` wipes the experiment database.** Each deploy

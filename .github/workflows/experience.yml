@@ -18,11 +18,12 @@ permissions:
 jobs:
   validate:
     name: Validate (${{ matrix.os }})
-    # `[skip checks]` in a pushed commit message skips this job; the image build,
-    # deploy and its hosted smoke test still run. Pull requests always validate.
+    # Pushes skip this job unless the commit message says `[run checks]`; the image
+    # build, deploy and its hosted smoke test always run. Pull requests (including
+    # the open real_exp PR, which re-runs on every push) always validate.
     if: >-
-      ${{ !(github.event_name == 'push' &&
-        contains(github.event.head_commit.message, '[skip checks]')) }}
+      ${{ github.event_name != 'push' ||
+        contains(github.event.head_commit.message, '[run checks]') }}
     strategy:
       fail-fast: false
       matrix:
