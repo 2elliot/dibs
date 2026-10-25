@@ -48,7 +48,7 @@ Checks:
 - Worker disconnect after leasing -> a fresh worker connection re-leases and completes the job.
 - A started loop with the rescan pushed out to an hour leases a newly queued job from the row
   update alone (`job_leased` under 2 s after `job_queued`) and writes its `worker` heartbeat.
-- Invalid citations -> failed job and deterministic notices, with no proposal.
+- Invalid citations (no usable finding left) -> failed job and deterministic notices, with no proposal.
 - Disconnected adapter -> health reports disconnected rather than trusting cached rows.
 
 The fast suite independently verifies the production 60 s lease: all model work, including a retry,

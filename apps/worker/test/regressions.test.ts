@@ -129,14 +129,79 @@ describe("worker regression coverage", () => {
     bad.findings[0].citedItemIds = [99999];
     const db = new FakeDb();
     stage(db);
+    const health = new HealthState();
     await new WorkerLoop({
       db,
       model: new FakeModelClient({ resolver: () => bad }),
-      health: new HealthState(),
+      health,
       log: () => {},
     }).tick();
     expect(db.submitCalls).toHaveLength(0);
     expect(db.failCalls).toHaveLength(1);
+    // Unusable output is a model-quality problem, not an Anthropic API error.
+    expect(health.report().anthropicErrors).toBe(0);
+  });
+
+  it("still counts a failed model call as an Anthropic error", async () => {
+    const db = new FakeDb();
+    stage(db);
+    const health = new HealthState();
+    await new WorkerLoop({
+      db,
+      model: {
+        name: "test",
+        analyze: async () => {
+          throw new Error("529 overloaded");
+        },
+      },
+      health,
+      log: () => {},
+    }).tick();
+    expect(db.failCalls).toHaveLength(1);
+    expect(health.report().anthropicErrors).toBe(1);
+  });
+
+  it("trims a citation on another key and keeps the finding (lobby 3)", () => {
+    const repaired = structuredClone(input.recordedFindings);
+    // Items 1 and 3 are auth.session; 2 is the auth.server helper; 99999 doesn't exist.
+    repaired.findings[0].citedItemIds = [1, 2, 3, 99999];
+    const validation = validateFindings(repaired, input);
+    expect(validation.dropped).toHaveLength(0);
+    expect(validation.kept).toHaveLength(1);
+    expect(validation.kept[0].citedItemIds).toEqual([1, 3]);
+    expect(validation.repaired).toEqual([
+      { key: "auth.session", removedIds: [2, 99999] },
+    ]);
+  });
+
+  it("submits the valid findings when another finding is unusable", async () => {
+    const mixed: Findings = {
+      findings: [
+        input.recordedFindings.findings[0],
+        {
+          key: "auth.server",
+          relation: "dependency",
+          citedItemIds: [99999],
+          explanation: "cites nothing real",
+          contractText: "c",
+        },
+      ],
+    };
+    const db = new FakeDb();
+    stage(db);
+    const health = new HealthState();
+    await new WorkerLoop({
+      db,
+      model: new FakeModelClient({ resolver: () => mixed }),
+      health,
+      log: () => {},
+    }).tick();
+    expect(db.failCalls).toHaveLength(0);
+    expect(db.submitCalls).toHaveLength(1);
+    expect(db.submitCalls[0].findings.findings.map((f) => f.key)).toEqual([
+      "auth.session",
+    ]);
+    expect(health.report().anthropicErrors).toBe(0);
   });
 
   it("rejects citations belonging to another key", () => {

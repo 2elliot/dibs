@@ -37,7 +37,8 @@ clause by clause, and the bar an agent needs to actually code against the contra
 
 Every finding, including `unowned`, must cite real `plan_item` ids for that same key. The reducer drops a finding whose cited
 ids don't exist (rule 3) and ignores a finding on an already-`agreed` key unless it cites a genuinely
-new/changed item (rule 8). Local validation rejects invalid model output. It skips unchanged basis
+new/changed item (rule 8). Local validation removes stray citations, drops findings left with none, and
+fails only output with no usable finding. It skips unchanged basis
 ids; the reducer remains authoritative for historical text comparisons because AnalysisInput
 contains only current items.
 
