@@ -1,5 +1,7 @@
 # Issue 4 (bench) + issue 5 (dashboard): status
 
+**Scored trials (Sat 20:25 PT):** T1 without dibs **5/6** (merged cleanly, but the UI broke on a cookie/bearer mismatch); T3 with dibs **6/6**; T2 invalid (infrastructure). See [`TRIALS.md`](TRIALS.md).
+
 **As of Sat 17:10 PT** (lobby 3, the first two-machine dibs lobby, folded in) · owner: Chris (C, M3 Mac) · issue 4 and 5 work is merged in `real`; this update is on `issue/4-lobby3`
 
 The bench side is done and checked end to end, and it's now proven live. It holds the test app, the prompts, the hidden oracle, `dibs verify` and the Droid review. The S2 pilot fails exactly as designed (5/6), and the Droid review names the cause. Lobby 3 (M1 Claude Code + M3 Codex) was verified and reviewed against the shared database. What's left: a lobby with all three providers, which needs the bridge fixes below and Droid on M2.
