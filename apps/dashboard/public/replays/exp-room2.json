@@ -1,0 +1,590 @@
+{
+  "protocolVersion": 1,
+  "label": "Playground · Claude + Codex (project room 2)",
+  "lobbyId": 2,
+  "exportedAtUs": 1792916868624000,
+  "tables": {
+    "lobby": [
+      {
+        "id": 2,
+        "scenario": "project",
+        "mode": "dibs",
+        "baseSha": "unversioned",
+        "vocabulary": [
+          "api.todos"
+        ],
+        "vocabularyJson": "[{\"description\":\"Routes, request and response JSON for todos\",\"key\":\"api.todos\"}]",
+        "charter": "A small todo app: a JSON API and a web frontend that uses it",
+        "buildHash": "project-v1",
+        "state": "running",
+        "analyzeAnywayFired": false,
+        "createdAtUs": 1792914391044722,
+        "startedAtUs": 1792914391044722,
+        "fallbackAtUs": 1793000791044722,
+        "endsAtUs": 1793000791044722
+      }
+    ],
+    "participant": [
+      {
+        "id": 1,
+        "identity": "c200e55d2a8c749c00f28e4d5b5d373637c90f4f179b1f39834e2c067e125c9f",
+        "name": "admin",
+        "provider": "claude",
+        "role": "admin",
+        "online": false,
+        "buildHash": "",
+        "currentLobbyId": null
+      },
+      {
+        "id": 2,
+        "identity": "c200d5e0c8529b10dc5fe26b07049424501f0df6fba48bfabf76692ed78f1b4c",
+        "name": "worker",
+        "provider": "claude",
+        "role": "worker",
+        "online": true,
+        "buildHash": "",
+        "currentLobbyId": null
+      },
+      {
+        "id": 3,
+        "identity": "c200d1afbc41290fea32edf2d2df96bdd585209744636b5a617de6714e5ea9b2",
+        "name": "project-1-claude",
+        "provider": "claude",
+        "role": "agent",
+        "online": false,
+        "buildHash": "project-v1",
+        "currentLobbyId": 1
+      },
+      {
+        "id": 4,
+        "identity": "c2006f3de6b4469a625cf2ab4295df19fb41d866eafa1a911ae1135eca113795",
+        "name": "project-1-codex",
+        "provider": "codex",
+        "role": "agent",
+        "online": false,
+        "buildHash": "project-v1",
+        "currentLobbyId": 1
+      },
+      {
+        "id": 5,
+        "identity": "c2002317b091d86055d54c68ea70f5f81997e64c0eb28d55e91f3537be7a918b",
+        "name": "project-2-claude",
+        "provider": "claude",
+        "role": "agent",
+        "online": true,
+        "buildHash": "project-v1",
+        "currentLobbyId": 2
+      },
+      {
+        "id": 6,
+        "identity": "c2001270dd20f8a93600a7abd61adebaa42f5f41f3219258dadc4f5716b0ab85",
+        "name": "project-2-codex",
+        "provider": "codex",
+        "role": "agent",
+        "online": true,
+        "buildHash": "project-v1",
+        "currentLobbyId": 2
+      }
+    ],
+    "plan": [
+      {
+        "id": 3,
+        "lobbyId": 2,
+        "participantId": 6,
+        "revision": 1,
+        "goal": "Build the todo JSON API in server/ with Node built-ins, validation, CORS, and API tests.",
+        "notes": "",
+        "requestId": "8a726f3e-f84e-4a6c-b6d4-e9865de1e3d8",
+        "current": true,
+        "createdAtUs": 1792915199459497
+      },
+      {
+        "id": 4,
+        "lobbyId": 2,
+        "participantId": 5,
+        "revision": 1,
+        "goal": "Build the web frontend in web/: static page (index.html, app.js, style.css) that lists, adds and completes todos via api.todos. web/server.js (Node, no deps) serves it on port 5173 and proxies /api/* to API_URL (default http://localhost:3000), so the API needs no CORS.",
+        "notes": "Frontend treats id as opaque and shows the `error` string from any non-2xx response. Flexible on details (id type, port) — tell me if your plan differs and I'll adapt.",
+        "requestId": "b3886131-56f0-46bd-8698-c73977f56e3d",
+        "current": true,
+        "createdAtUs": 1792915221798002
+      }
+    ],
+    "plan_item": [
+      {
+        "id": 3,
+        "planId": 3,
+        "lobbyId": 2,
+        "participantId": 6,
+        "kind": "produces",
+        "key": "api.todos",
+        "text": "HTTP localhost:3001; CORS *. GET /api/todos -> 200 {todos:Todo[]}; POST /api/todos {title:string} -> 201 {todo:Todo}; PATCH /api/todos/:id {completed?:boolean,title?:string} -> 200 {todo:Todo}; DELETE /api/todos/:id -> 204. Todo={id:string,title:string,completed:boolean}. Errors {error:string}, 400 invalid input, 404 missing todo/route. OPTIONS ->204. In-memory storage; titles trimmed, 1-200 chars; no auth. JSON request Content-Type application/json.",
+        "current": true
+      },
+      {
+        "id": 4,
+        "planId": 4,
+        "lobbyId": 2,
+        "participantId": 5,
+        "kind": "requires",
+        "key": "api.todos",
+        "text": "API on http://localhost:3000, JSON bodies. Todo {\"id\":number,\"title\":string,\"completed\":boolean}. GET /api/todos -> 200 bare array. POST /api/todos {\"title\":string} -> 201 created todo (completed:false); blank title -> 400 {\"error\":string}. PATCH /api/todos/:id {\"completed\":boolean} -> 200 full updated todo; unknown id -> 404 {\"error\":string}; bad body -> 400 {\"error\":string}. Frontend needs no DELETE/PUT.",
+        "current": true
+      }
+    ],
+    "message": [
+      {
+        "id": 1,
+        "lobbyId": 2,
+        "fromId": 6,
+        "to": "claude",
+        "text": "API implemented in server/ against agreed api.todos P2 rev1: localhost:3000, numeric IDs, bare array/objects, CRUD, CORS, JSON errors. Start: cd server && npm start (Node 22+, no dependencies). All 4 HTTP integration tests pass via npm test. Contract and curl examples documented in server/README.md. In-memory storage resets on restart.",
+        "requestId": "d66d84b1-0b19-405f-a181-65be0a09475a",
+        "createdAtUs": 1792915343523839
+      },
+      {
+        "id": 2,
+        "lobbyId": 2,
+        "fromId": 5,
+        "to": "codex",
+        "text": "Frontend done in web/ against api.todos P2 rev1. It uses only GET /api/todos, POST /api/todos {title}, PATCH /api/todos/:id {completed}, and shows the `error` string from non-2xx responses. `cd web && npm start` serves http://localhost:5173 and proxies /api/* to http://localhost:3000 (API_URL to override), so it doesn't depend on CORS. I tested it against a mock of the contract; I'll retest against your server/ once it's pushed.",
+        "requestId": "e4a8e114-b8aa-4c16-9857-b1bec278031f",
+        "createdAtUs": 1792915360745752
+      }
+    ],
+    "job": [
+      {
+        "id": 2,
+        "slot": "2",
+        "lobbyId": 2,
+        "kind": "analyze",
+        "state": "done",
+        "inputKey": "p:3,4;r:",
+        "leaseToken": "",
+        "leaseExpiresUs": 0,
+        "attempts": 1,
+        "calls": 1,
+        "error": "",
+        "updatedAtUs": 1792915249912049
+      }
+    ],
+    "proposal": [
+      {
+        "id": 2,
+        "slot": "closed/2",
+        "lobbyId": 2,
+        "key": "api.todos",
+        "revision": 1,
+        "relation": "conflict",
+        "contractText": "Base URL: http://localhost:3000\nCORS: Access-Control-Allow-Origin: *\nAll request bodies: Content-Type: application/json\n\nTodo object shape:\n  { \"id\": number (integer, auto-increment), \"title\": string, \"completed\": boolean }\n\nEndpoints:\n\nGET /api/todos\n  Response 200: Todo[]  (bare JSON array, e.g. [{\"id\":1,\"title\":\"Buy milk\",\"completed\":false}])\n\nPOST /api/todos\n  Request body: { \"title\": string }\n  - title is trimmed; must be 1–200 chars after trimming; blank/missing title -> 400\n  Response 201: { \"id\": number, \"title\": string, \"completed\": false }\n  Error 400: { \"error\": string }\n\nPATCH /api/todos/:id\n  Request body: { \"completed\": boolean }  (title?: string also accepted but optional)\n  Response 200: { \"id\": number, \"title\": string, \"completed\": boolean }  (full updated todo)\n  Error 404: { \"error\": string }  (unknown id)\n  Error 400: { \"error\": string }  (malformed body)\n\nDELETE /api/todos/:id\n  Response 204: no body\n  Error 404: { \"error\": string }\n\nOPTIONS (any route)\n  Response 204: no body\n\nGeneral errors:\n  400: { \"error\": string }  — invalid input\n  404: { \"error\": string }  — resource or route not found\n\nStorage: in-memory (no persistence, no auth required).",
+        "rationale": "Several concrete incompatibilities exist between the producer (item 3, project-2-codex) and the consumer (item 4, project-2-claude):\n1. **Port**: producer runs on localhost:3001; consumer expects localhost:3000.\n2. **Todo.id type**: producer uses string; consumer expects number.\n3. **GET /api/todos response shape**: producer wraps the array as {todos:Todo[]}; consumer expects a bare array.\n4. **PATCH body**: producer accepts {completed?,title?}; consumer only sends {completed:boolean} (no title).\n5. **DELETE**: producer implements DELETE /api/todos/:id; consumer says it does not need it, which is compatible (it just won't call it), so no conflict there.\n\nResolution (producer must change to meet the consumer's stated requirements, since the consumer's requirements are non-negotiable; the producer owns the implementation and can adapt):\n- Port: use 3000.\n- id: use number (auto-incrementing integer).\n- GET response: bare array.\n- PATCH: accept at least {completed:boolean}; may also accept title for completeness.\n- All other producer behaviours (CORS *, error shape, validation, OPTIONS) are retained where not contradicted.",
+        "citedItemIds": [
+          3,
+          4
+        ],
+        "requiredPartyIds": [
+          5,
+          6
+        ],
+        "state": "accepted",
+        "inputKey": "p:3,4;r:",
+        "createdAtUs": 1792915249912049,
+        "closedAtUs": 1792915256415280
+      }
+    ],
+    "response": [
+      {
+        "id": 3,
+        "lobbyId": 2,
+        "proposalId": 2,
+        "revision": 1,
+        "participantId": 6,
+        "decision": "accept",
+        "reason": "The backend can support port 3000, integer IDs and bare response objects/arrays as proposed; all required CRUD and validation behavior is preserved.",
+        "requestId": "82613152-435a-41f0-bb8f-a4e68f486113",
+        "createdAtUs": 1792915254491162
+      },
+      {
+        "id": 4,
+        "lobbyId": 2,
+        "proposalId": 2,
+        "revision": 1,
+        "participantId": 5,
+        "decision": "accept",
+        "reason": "Matches the frontend's needs exactly: localhost:3000, bare Todo[] from GET, 201 bare todo from POST, PATCH {completed} -> 200 full todo, {error} bodies on 400/404. Frontend won't use DELETE but it's harmless. Frontend proxies /api via its own server so CORS isn't needed but is fine.",
+        "requestId": "c217640b-47b8-4cfb-99d7-0e71cafb8cea",
+        "createdAtUs": 1792915256415280
+      }
+    ],
+    "contract": [
+      {
+        "id": 2,
+        "lobbyId": 2,
+        "key": "api.todos",
+        "revision": 1,
+        "text": "Base URL: http://localhost:3000\nCORS: Access-Control-Allow-Origin: *\nAll request bodies: Content-Type: application/json\n\nTodo object shape:\n  { \"id\": number (integer, auto-increment), \"title\": string, \"completed\": boolean }\n\nEndpoints:\n\nGET /api/todos\n  Response 200: Todo[]  (bare JSON array, e.g. [{\"id\":1,\"title\":\"Buy milk\",\"completed\":false}])\n\nPOST /api/todos\n  Request body: { \"title\": string }\n  - title is trimmed; must be 1–200 chars after trimming; blank/missing title -> 400\n  Response 201: { \"id\": number, \"title\": string, \"completed\": false }\n  Error 400: { \"error\": string }\n\nPATCH /api/todos/:id\n  Request body: { \"completed\": boolean }  (title?: string also accepted but optional)\n  Response 200: { \"id\": number, \"title\": string, \"completed\": boolean }  (full updated todo)\n  Error 404: { \"error\": string }  (unknown id)\n  Error 400: { \"error\": string }  (malformed body)\n\nDELETE /api/todos/:id\n  Response 204: no body\n  Error 404: { \"error\": string }\n\nOPTIONS (any route)\n  Response 204: no body\n\nGeneral errors:\n  400: { \"error\": string }  — invalid input\n  404: { \"error\": string }  — resource or route not found\n\nStorage: in-memory (no persistence, no auth required).",
+        "source": "agreed",
+        "proposalId": 2,
+        "basisItemIds": [
+          3,
+          4
+        ],
+        "current": true,
+        "createdAtUs": 1792915256415280
+      }
+    ],
+    "delivery": [
+      {
+        "id": 6,
+        "lobbyId": 2,
+        "targetId": 6,
+        "kind": "proposal",
+        "refId": 2,
+        "summary": "dibs update from your team's coordination service: proposal P2 (rev 1) for api.todos awaits your response. Proposed contract: Base URL: http://localhost:3000\nCORS: Access-Control-Allow-Origin: *\nAll request bodies: Content-Type: application/json\n\nTodo object shape:\n  { \"id\": number (integer, auto-increment), \"title\": string, \"completed\": boolean }\n\nEndpoints:\n\nGET /api/todos\n  Response 200: Todo[]  (bare JSON array, e.g. [{\"id\":1,\"title\":\"Buy milk\",\"completed\":false}])\n\nPOST /api/todos\n  Request body: { \"title\": string }\n  - title is trimmed; must be 1–200 chars after trimming; blank/missing title -> 400\n  Response 201: { \"id\": number, \"title\": string, \"completed\": false }\n  Error 400: { \"error\": string }\n\nPATCH /api/todos/:id\n  Request body: { \"completed\": boolean }  (title?: string also accepted but optional)\n  Response 200: { \"id\": number, \"title\": string, \"completed\": boolean }  (full updated todo)\n  Error 404: { \"error\": string }  (unknown id)\n  Error 400: { \"error\": string }  (malformed body)\n\nDELETE /api/todos/:id\n  Response 204: no body\n  Error 404: { \"error\": string }\n\nOPTIONS (any route)\n  Response 204: no body\n\nGeneral errors:\n  400: { \"error\": string }  — invalid input\n  404: { \"error\": string }  — resource or route not found\n\nStorage: in-memory (no persistence, no auth required). Basis: project-2-codex's plan says \"HTTP localhost:3001; CORS *. GET /api/todos -> 200 {todos:Todo[]}; POST /api/todos {title:string} -> 201 {todo:Todo}; PATCH /api/todos/:id {completed?",
+        "stage": "responded",
+        "queuedAtUs": 1792915249912049,
+        "receivedAtUs": 1792915250088126,
+        "shownAtUs": 1792915250183429,
+        "respondedAtUs": 1792915254491162
+      },
+      {
+        "id": 5,
+        "lobbyId": 2,
+        "targetId": 5,
+        "kind": "proposal",
+        "refId": 2,
+        "summary": "dibs update from your team's coordination service: proposal P2 (rev 1) for api.todos awaits your response. Proposed contract: Base URL: http://localhost:3000\nCORS: Access-Control-Allow-Origin: *\nAll request bodies: Content-Type: application/json\n\nTodo object shape:\n  { \"id\": number (integer, auto-increment), \"title\": string, \"completed\": boolean }\n\nEndpoints:\n\nGET /api/todos\n  Response 200: Todo[]  (bare JSON array, e.g. [{\"id\":1,\"title\":\"Buy milk\",\"completed\":false}])\n\nPOST /api/todos\n  Request body: { \"title\": string }\n  - title is trimmed; must be 1–200 chars after trimming; blank/missing title -> 400\n  Response 201: { \"id\": number, \"title\": string, \"completed\": false }\n  Error 400: { \"error\": string }\n\nPATCH /api/todos/:id\n  Request body: { \"completed\": boolean }  (title?: string also accepted but optional)\n  Response 200: { \"id\": number, \"title\": string, \"completed\": boolean }  (full updated todo)\n  Error 404: { \"error\": string }  (unknown id)\n  Error 400: { \"error\": string }  (malformed body)\n\nDELETE /api/todos/:id\n  Response 204: no body\n  Error 404: { \"error\": string }\n\nOPTIONS (any route)\n  Response 204: no body\n\nGeneral errors:\n  400: { \"error\": string }  — invalid input\n  404: { \"error\": string }  — resource or route not found\n\nStorage: in-memory (no persistence, no auth required). Basis: project-2-codex's plan says \"HTTP localhost:3001; CORS *. GET /api/todos -> 200 {todos:Todo[]}; POST /api/todos {title:string} -> 201 {todo:Todo}; PATCH /api/todos/:id {completed?",
+        "stage": "responded",
+        "queuedAtUs": 1792915249912049,
+        "receivedAtUs": 1792915250018162,
+        "shownAtUs": 1792915250860372,
+        "respondedAtUs": 1792915256415280
+      },
+      {
+        "id": 7,
+        "lobbyId": 2,
+        "targetId": 6,
+        "kind": "contract",
+        "refId": 2,
+        "summary": "dibs: the contract for api.todos is agreed (rev 1, HANDSHAKE 2/2): Base URL: http://localhost:3000\nCORS: Access-Control-Allow-Origin: *\nAll request bodies: Content-Type: application/json\n\nTodo object shape:\n  { \"id\": number (integer, auto-increment), \"title\": string, \"completed\": boolean }\n\nEndpoints:\n\nGET /api/todos\n  Response 200: Todo[]  (bare JSON array, e.g. [{\"id\":1,\"title\":\"Buy milk\",\"completed\":false}])\n\nPOST /api/todos\n  Request body: { \"title\": string }\n  - title is trimmed; must be 1–200 chars after trimming; blank/missing title -> 400\n  Response 201: { \"id\": number, \"title\": string, \"completed\": false }\n  Error 400: { \"error\": string }\n\nPATCH /api/todos/:id\n  Request body: { \"completed\": boolean }  (title?: string also accepted but optional)\n  Response 200: { \"id\": number, \"title\": string, \"completed\": boolean }  (full updated todo)\n  Error 404: { \"error\": string }  (unknown id)\n  Error 400: { \"error\": string }  (malformed body)\n\nDELETE /api/todos/:id\n  Response 204: no body\n  Error 404: { \"error\": string }\n\nOPTIONS (any route)\n  Response 204: no body\n\nGeneral errors:\n  400: { \"error\": string }  — invalid input\n  404: { \"error\": string }  — resource or route not found\n\nStorage: in-memory (no persistence, no auth required).",
+        "stage": "shown",
+        "queuedAtUs": 1792915256415280,
+        "receivedAtUs": 1792915256533915,
+        "shownAtUs": 1792915256629250,
+        "respondedAtUs": 0
+      },
+      {
+        "id": 8,
+        "lobbyId": 2,
+        "targetId": 5,
+        "kind": "contract",
+        "refId": 2,
+        "summary": "dibs: the contract for api.todos is agreed (rev 1, HANDSHAKE 2/2): Base URL: http://localhost:3000\nCORS: Access-Control-Allow-Origin: *\nAll request bodies: Content-Type: application/json\n\nTodo object shape:\n  { \"id\": number (integer, auto-increment), \"title\": string, \"completed\": boolean }\n\nEndpoints:\n\nGET /api/todos\n  Response 200: Todo[]  (bare JSON array, e.g. [{\"id\":1,\"title\":\"Buy milk\",\"completed\":false}])\n\nPOST /api/todos\n  Request body: { \"title\": string }\n  - title is trimmed; must be 1–200 chars after trimming; blank/missing title -> 400\n  Response 201: { \"id\": number, \"title\": string, \"completed\": false }\n  Error 400: { \"error\": string }\n\nPATCH /api/todos/:id\n  Request body: { \"completed\": boolean }  (title?: string also accepted but optional)\n  Response 200: { \"id\": number, \"title\": string, \"completed\": boolean }  (full updated todo)\n  Error 404: { \"error\": string }  (unknown id)\n  Error 400: { \"error\": string }  (malformed body)\n\nDELETE /api/todos/:id\n  Response 204: no body\n  Error 404: { \"error\": string }\n\nOPTIONS (any route)\n  Response 204: no body\n\nGeneral errors:\n  400: { \"error\": string }  — invalid input\n  404: { \"error\": string }  — resource or route not found\n\nStorage: in-memory (no persistence, no auth required).",
+        "stage": "shown",
+        "queuedAtUs": 1792915256415280,
+        "receivedAtUs": 1792915256509807,
+        "shownAtUs": 1792915256911950,
+        "respondedAtUs": 0
+      },
+      {
+        "id": 9,
+        "lobbyId": 2,
+        "targetId": 5,
+        "kind": "message",
+        "refId": 1,
+        "summary": "dibs: project-2-codex says API implemented in server/ against agreed api.todos P2 rev1: localhost:3000, numeric IDs, bare array/objects, CRUD, CORS, JSON errors. Start: cd server && npm start (Node 22+, no dependencies). All 4 HTTP integration tests pass via npm test. Contract and curl examples documented in server/README.md. In-memory storage resets on restart.",
+        "stage": "shown",
+        "queuedAtUs": 1792915343523839,
+        "receivedAtUs": 1792915343609753,
+        "shownAtUs": 1792915346828600,
+        "respondedAtUs": 0
+      },
+      {
+        "id": 10,
+        "lobbyId": 2,
+        "targetId": 6,
+        "kind": "message",
+        "refId": 2,
+        "summary": "dibs: project-2-claude says Frontend done in web/ against api.todos P2 rev1. It uses only GET /api/todos, POST /api/todos {title}, PATCH /api/todos/:id {completed}, and shows the `error` string from non-2xx responses. `cd web && npm start` serves http://localhost:5173 and proxies /api/* to http://localhost:3000 (API_URL to override), so it doesn't depend on CORS. I tested it against a mock of the contract; I'll retest against your server/ once it's pushed.",
+        "stage": "received",
+        "queuedAtUs": 1792915360745752,
+        "receivedAtUs": 1792915360832658,
+        "shownAtUs": 0,
+        "respondedAtUs": 0
+      }
+    ],
+    "event": [
+      {
+        "id": 24,
+        "lobbyId": 2,
+        "atUs": 1792914391044722,
+        "actor": "project-2-claude",
+        "type": "joined_lobby",
+        "subjectId": 5,
+        "detail": "{}"
+      },
+      {
+        "id": 25,
+        "lobbyId": 2,
+        "atUs": 1792914391044722,
+        "actor": "project-2-claude",
+        "type": "lobby_created",
+        "subjectId": 2,
+        "detail": "{\"mode\":\"dibs\",\"scenario\":\"project\"}"
+      },
+      {
+        "id": 26,
+        "lobbyId": 2,
+        "atUs": 1792914391044722,
+        "actor": "project-2-claude",
+        "type": "lobby_started",
+        "subjectId": 2,
+        "detail": "{}"
+      },
+      {
+        "id": 27,
+        "lobbyId": 2,
+        "atUs": 1792914922046244,
+        "actor": "project-2-codex",
+        "type": "joined_lobby",
+        "subjectId": 6,
+        "detail": "{}"
+      },
+      {
+        "id": 28,
+        "lobbyId": 2,
+        "atUs": 1792915199459497,
+        "actor": "project-2-codex",
+        "type": "plan_published",
+        "subjectId": 3,
+        "detail": "{\"participantId\":6,\"revision\":1}"
+      },
+      {
+        "id": 29,
+        "lobbyId": 2,
+        "atUs": 1792915199459497,
+        "actor": "project-2-codex",
+        "type": "job_debouncing",
+        "subjectId": 2,
+        "detail": "{}"
+      },
+      {
+        "id": 30,
+        "lobbyId": 2,
+        "atUs": 1792915221798002,
+        "actor": "project-2-claude",
+        "type": "plan_published",
+        "subjectId": 4,
+        "detail": "{\"participantId\":5,\"revision\":1}"
+      },
+      {
+        "id": 31,
+        "lobbyId": 2,
+        "atUs": 1792915221798002,
+        "actor": "project-2-claude",
+        "type": "job_debouncing",
+        "subjectId": 2,
+        "detail": "{}"
+      },
+      {
+        "id": 32,
+        "lobbyId": 2,
+        "atUs": 1792915226800420,
+        "actor": "system",
+        "type": "job_queued",
+        "subjectId": 2,
+        "detail": "{}"
+      },
+      {
+        "id": 33,
+        "lobbyId": 2,
+        "atUs": 1792915226861803,
+        "actor": "worker",
+        "type": "job_leased",
+        "subjectId": 2,
+        "detail": "{}"
+      },
+      {
+        "id": 34,
+        "lobbyId": 2,
+        "atUs": 1792915249912049,
+        "actor": "worker",
+        "type": "proposal_created",
+        "subjectId": 2,
+        "detail": "{\"key\":\"api.todos\",\"revision\":1}"
+      },
+      {
+        "id": 35,
+        "lobbyId": 2,
+        "atUs": 1792915249912049,
+        "actor": "worker",
+        "type": "analysis_submitted",
+        "subjectId": 2,
+        "detail": "{}"
+      },
+      {
+        "id": 36,
+        "lobbyId": 2,
+        "atUs": 1792915250018162,
+        "actor": "project-2-claude",
+        "type": "delivery_stage",
+        "subjectId": 5,
+        "detail": "{\"stage\":\"received\"}"
+      },
+      {
+        "id": 37,
+        "lobbyId": 2,
+        "atUs": 1792915250088126,
+        "actor": "project-2-codex",
+        "type": "delivery_stage",
+        "subjectId": 6,
+        "detail": "{\"stage\":\"received\"}"
+      },
+      {
+        "id": 38,
+        "lobbyId": 2,
+        "atUs": 1792915250183429,
+        "actor": "project-2-codex",
+        "type": "delivery_stage",
+        "subjectId": 6,
+        "detail": "{\"stage\":\"shown\"}"
+      },
+      {
+        "id": 39,
+        "lobbyId": 2,
+        "atUs": 1792915250860372,
+        "actor": "project-2-claude",
+        "type": "delivery_stage",
+        "subjectId": 5,
+        "detail": "{\"stage\":\"shown\"}"
+      },
+      {
+        "id": 40,
+        "lobbyId": 2,
+        "atUs": 1792915254491162,
+        "actor": "project-2-codex",
+        "type": "response_recorded",
+        "subjectId": 2,
+        "detail": "{\"decision\":\"accept\",\"participantId\":6,\"revision\":1}"
+      },
+      {
+        "id": 41,
+        "lobbyId": 2,
+        "atUs": 1792915256415280,
+        "actor": "project-2-claude",
+        "type": "response_recorded",
+        "subjectId": 2,
+        "detail": "{\"decision\":\"accept\",\"participantId\":5,\"revision\":1}"
+      },
+      {
+        "id": 42,
+        "lobbyId": 2,
+        "atUs": 1792915256415280,
+        "actor": "project-2-claude",
+        "type": "proposal_accepted",
+        "subjectId": 2,
+        "detail": "{}"
+      },
+      {
+        "id": 43,
+        "lobbyId": 2,
+        "atUs": 1792915256415280,
+        "actor": "project-2-claude",
+        "type": "contract_agreed",
+        "subjectId": 2,
+        "detail": "{\"key\":\"api.todos\"}"
+      },
+      {
+        "id": 44,
+        "lobbyId": 2,
+        "atUs": 1792915256509807,
+        "actor": "project-2-claude",
+        "type": "delivery_stage",
+        "subjectId": 8,
+        "detail": "{\"stage\":\"received\"}"
+      },
+      {
+        "id": 45,
+        "lobbyId": 2,
+        "atUs": 1792915256533915,
+        "actor": "project-2-codex",
+        "type": "delivery_stage",
+        "subjectId": 7,
+        "detail": "{\"stage\":\"received\"}"
+      },
+      {
+        "id": 46,
+        "lobbyId": 2,
+        "atUs": 1792915256629250,
+        "actor": "project-2-codex",
+        "type": "delivery_stage",
+        "subjectId": 7,
+        "detail": "{\"stage\":\"shown\"}"
+      },
+      {
+        "id": 47,
+        "lobbyId": 2,
+        "atUs": 1792915256911950,
+        "actor": "project-2-claude",
+        "type": "delivery_stage",
+        "subjectId": 8,
+        "detail": "{\"stage\":\"shown\"}"
+      },
+      {
+        "id": 48,
+        "lobbyId": 2,
+        "atUs": 1792915343523839,
+        "actor": "project-2-codex",
+        "type": "message_sent",
+        "subjectId": 1,
+        "detail": "{}"
+      },
+      {
+        "id": 49,
+        "lobbyId": 2,
+        "atUs": 1792915343609753,
+        "actor": "project-2-claude",
+        "type": "delivery_stage",
+        "subjectId": 9,
+        "detail": "{\"stage\":\"received\"}"
+      },
+      {
+        "id": 50,
+        "lobbyId": 2,
+        "atUs": 1792915346828600,
+        "actor": "project-2-claude",
+        "type": "delivery_stage",
+        "subjectId": 9,
+        "detail": "{\"stage\":\"shown\"}"
+      },
+      {
+        "id": 51,
+        "lobbyId": 2,
+        "atUs": 1792915360745752,
+        "actor": "project-2-claude",
+        "type": "message_sent",
+        "subjectId": 2,
+        "detail": "{}"
+      },
+      {
+        "id": 52,
+        "lobbyId": 2,
+        "atUs": 1792915360832658,
+        "actor": "project-2-codex",
+        "type": "delivery_stage",
+        "subjectId": 10,
+        "detail": "{\"stage\":\"received\"}"
+      }
+    ],
+    "head": [],
+    "verification": [],
+    "review": [],
+    "service": [
+      {
+        "name": "worker",
+        "lastBeatUs": 1792916862826055,
+        "detail": "{\"anthropicErrors\":0,\"db\":\"connected\",\"lastAnalysisLatencyMs\":22987,\"queueAgeSec\":null,\"uptimeSec\":3466}"
+      }
+    ]
+  }
+}

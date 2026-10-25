@@ -189,6 +189,7 @@ const RECORDINGS = [
   { url: '/replays/t3-lobby7.json', label: 'T3 · with dibs' },
   { url: '/sim/team.json', label: 'Simulated team' },
   { url: '/sim/chaos.json', label: 'Chaos (simulated)' },
+  { url: '/replays/exp-room2.json', label: 'Playground · Claude + Codex' },
 ];
 
 export interface StoryTimeline {
@@ -432,7 +433,8 @@ export function StoryView({ rows, mode, live, replayLabel, countdown, timeline }
       </div>
       <div className="recordings"><span>Recordings</span>
         {RECORDINGS.map(r => <a key={r.url} href={`?view=story&replay=${r.url}`} className={location.search.includes(r.url) ? 'selected' : ''}>{r.label}</a>)}
-        <a href="?view=story&uri=https://maincloud.spacetimedb.com&db=dibs-ch13-dev">Live</a>
+        {/* No uri/db: the serving deployment's /config.json picks its own database. */}
+        <a href="?view=story">Live</a>
       </div>
       <Timeline rows={rows} model={model} filter={filter} setFilter={setFilter} nameOf={nameOf} providerOf={providerOf} onJump={timeline ? jump : undefined} />
     </aside>}
