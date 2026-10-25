@@ -19,7 +19,18 @@ const ids = (value: unknown): number[] => {
   return [];
 };
 const parse = (value: unknown): Row => { if (typeof value !== 'string') return (value as Row) ?? {}; try { return JSON.parse(value) as Row; } catch { return {}; } };
-const display = (name: string) => /^[a-z]/.test(name) ? name.charAt(0).toUpperCase() + name.slice(1) : name;
+// Project-room seats are named `project-<room>-<provider>`; show just the agent.
+const display = (name: string) => {
+  const seat = /^project-\d+-(claude|codex|droid)$/.exec(name);
+  if (seat) return PROVIDER_LABEL[seat[1]!]!;
+  return /^[a-z]/.test(name) ? name.charAt(0).toUpperCase() + name.slice(1) : name;
+};
+/** Graph labels stay short; the full description is in the hover title and the detail card. */
+const short = (text: string, max = 34) => {
+  if (text.length <= max) return text;
+  const cut = text.slice(0, max);
+  return `${cut.slice(0, Math.max(cut.lastIndexOf(' '), max - 8)).replace(/[\s:,;·-]+$/, '')}…`;
+};
 const clock = (us: number) => us ? new Date(us / 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }) : '';
 
 const PROVIDER_LABEL: Record<string, string> = { claude: 'Claude Code', codex: 'Codex', droid: 'Droid' };
@@ -382,7 +393,7 @@ export function StoryView({ rows, mode, live, replayLabel, countdown, timeline }
             {(tone === 'agreed' || tone === 'aligned') && <path className="tick" d="M-7 0 L-2 5.5 L7.5 -5.5" />}
             {(tone === 'contradiction' || tone === 'broken') && <text className="mark" dy="6">!</text>}
             {tone === 'redundancy' && <text className="mark" dy="6">=</text>}
-            <text className="label" x={lx} dy="5" textAnchor={anchor}>{label}</text>
+            <text className="label" x={lx} dy="5" textAnchor={anchor}><title>{label}</title>{short(label)}</text>
             {tone !== 'neutral' && <text className="sublabel" x={lx} dy="25" textAnchor={anchor}>{poll ? `poll · ${poll.votes.filter(v => v.decision === 'accept').length} of ${poll.parties.length} agreed` : tone === 'contradiction' ? 'contradiction' : tone === 'redundancy' ? 'redundancy' : tone === 'dependency' ? 'depends on' : tone === 'broken' ? "didn't fit · found only by testing" : tone === 'agreed' ? 'agreed by everyone' : 'already compatible'}</text>}
           </g></g>
         </g>;
@@ -418,7 +429,7 @@ export function StoryView({ rows, mode, live, replayLabel, countdown, timeline }
 
     <div className="overlay top-right">
       {model.issues.length > 0 && <button className="chip issues" onClick={() => setFocus(`k:${model.issues.find(i => i.state !== 'accepted')?.key ?? model.issues[0]!.key}`)}>{model.issues.length} issue{model.issues.length > 1 ? 's' : ''} · {resolved} resolved</button>}
-      {history ? <button className={`chip replay ${showTime ? 'active' : ''}`} onClick={() => setShowTime(v => !v)} title="Show or hide the time controls (T)"><i />REPLAY{replayLabel ? ` · ${replayLabel}` : ''} <kbd>T</kbd></button>
+      {history ? <button className={`chip replay ${showTime ? 'active' : ''}`} onClick={() => setShowTime(v => !v)} title="Show or hide the time controls (T)"><i /><span className="chip-text">REPLAY{replayLabel ? ` · ${replayLabel}` : ''}</span> <kbd>T</kbd></button>
         : <LiveChip live={live} lobby={model.lobby} />}
       {countdown > 0 && <span className="chip time">{String(Math.floor(countdown / 60)).padStart(2, '0')}:{String(countdown % 60).padStart(2, '0')}</span>}
       <button className="chip menu" aria-label="History" onClick={() => setPanel(panel === 'closed' ? 'timeline' : 'closed')}>☰</button>

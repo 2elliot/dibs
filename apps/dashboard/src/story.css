@@ -253,3 +253,10 @@ button.chip{cursor:pointer}button.chip:hover{border-color:var(--faint)}
 /* Live chip states: blinking red only while a lobby runs. */
 .chip.setup{color:var(--redund-text)}.chip.setup i{background:var(--redund);animation:blink 1.4s ease-in-out infinite}
 .chip.idle{color:var(--muted)}.chip.idle i{background:var(--muted)}
+
+/* NOW on its own line under the header: long titles can't run into the chips on either side. */
+.narration{top:96px;bottom:auto;max-width:min(760px,calc(100vw - 40px));overflow:hidden}
+.narration b{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis}
+.narration span{flex:1 1 0}
+@media (max-width:1300px){.narration{top:96px;bottom:auto;max-width:calc(100vw - 40px)}}
+.chip.replay{max-width:340px}.chip .chip-text{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
