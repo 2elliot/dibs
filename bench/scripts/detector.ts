@@ -301,5 +301,12 @@ for (const [split, s] of Object.entries(report.splits)) {
   console.log(`    mismatch called a clash      ${pct(s.clashRecognized)}`);
   console.log(`    clean key called a clash     ${pct(s.wrongClash)}`);
   console.log(`    clean key asked to confirm   ${pct(s.confirmRequests)}`);
+  console.log(`  false alarms by plan set (secondary)`);
+  console.log(
+    `    sets with no mismatch        ${pct(s.falseAlarmsBySet.cleanSets)}`,
+  );
+  console.log(
+    `    sets with a mismatch nearby  ${pct(s.falseAlarmsBySet.besideMismatch)}`,
+  );
 }
 console.log(`written: ${out}`);

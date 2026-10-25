@@ -265,3 +265,52 @@ describe("review input", () => {
     expect(reviewInput(undefined, undefined, 5)).toBeUndefined();
   });
 });
+
+describe("false alarms by plan set", () => {
+  it("separates fully consistent sets from sets with a mismatch elsewhere", () => {
+    const clean: DetectorCase = {
+      ...c,
+      id: "clean",
+      labels: { "auth.session": "consistent", "auth.server": "consistent" },
+    };
+    const cleanInput = buildInput(clean, "charter", []);
+    const mk = (
+      cs: DetectorCase,
+      inp: typeof input,
+      n: number,
+      f: Parameters<typeof scoreRun>[2],
+    ): RunResult => ({
+      caseId: cs.id,
+      split: "heldout",
+      run: n,
+      ok: true,
+      ...scoreRun(cs, inp, f),
+      latencyMs: 1,
+      inputTokens: 1,
+      outputTokens: 1,
+      droppedFindings: 0,
+      model: "m",
+    });
+    const report = detectorReport(
+      [c, clean],
+      [
+        mk(c, input, 0, [
+          finding("auth.session", "conflict", [1, 3]),
+          finding("auth.server", "dependency", [2, 4]),
+        ]),
+        mk(clean, cleanInput, 0, [
+          finding("auth.session", "compatible", [1, 3]),
+          finding("auth.server", "compatible", [2, 4]),
+        ]),
+      ],
+      { runsPerCase: 1, casesHash: "h", promptHash: null },
+    );
+    expect(report.splits.heldout!.falseAlarmsBySet.cleanSets).toMatchObject({
+      k: 0,
+      n: 2,
+    });
+    expect(
+      report.splits.heldout!.falseAlarmsBySet.besideMismatch,
+    ).toMatchObject({ k: 1, n: 1 });
+  });
+});

@@ -206,6 +206,12 @@ export interface SplitReport {
   wrongClash: Rate;
   /** Consistent keys given a dependency or duplicate proposal: an unneeded confirmation request. */
   confirmRequests: Rate;
+  /**
+   * Where false alarms happen. cleanSets: consistent keys in plan sets where every key is
+   * consistent. besideMismatch: consistent keys in plan sets that also contain a real mismatch on
+   * another key, where an alarm can be spillover from the real conflict.
+   */
+  falseAlarmsBySet: { cleanSets: Rate; besideMismatch: Rate };
 }
 
 export interface CaseReport {
@@ -281,6 +287,20 @@ export function splitReport(runs: RunResult[]): SplitReport {
       all.filter((k) => k.outcome === "FP" && k.relation === "conflict").length,
       counts.FP + counts.TN,
     ),
+    falseAlarmsBySet: (() => {
+      const pick = (clean: boolean) => {
+        const keys = ok
+          .filter(
+            (r) => r.keys.every((k) => k.label === "consistent") === clean,
+          )
+          .flatMap((r) => r.keys.filter((k) => k.label === "consistent"));
+        return wilson(
+          keys.filter((k) => k.outcome === "FP").length,
+          keys.length,
+        );
+      };
+      return { cleanSets: pick(true), besideMismatch: pick(false) };
+    })(),
     confirmRequests: wilson(
       all.filter((k) => k.outcome === "FP" && k.relation !== "conflict").length,
       counts.FP + counts.TN,

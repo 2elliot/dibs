@@ -101,3 +101,5 @@ These rules carry over the T2 decision.
 - **False alarms** split into consistent keys called a `conflict` (the damaging kind: "these won't work together" when they would) and those given a `dependency` or `duplicate` (an unneeded request to confirm).
 
 The strict definition above stays the headline: any proposal on a consistent key is a false alarm. The breakdown is computed from the same saved run (`detector.ts --from runs.jsonl`), with no new model calls, and the report labels it as added after the run.
+
+**2026-10-25 02:05 PT, same run.** Added a second secondary split of H5's false alarms: consistent keys in plan sets where every key is consistent, vs consistent keys in plan sets that also contain a real mismatch, where an alarm can spill over from the real conflict. Same saved run, no new model calls; the strict rate stays the headline.
