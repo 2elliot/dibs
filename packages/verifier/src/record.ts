@@ -32,6 +32,15 @@ export interface ReviewRow {
   sessionId: string;
 }
 
+/** One delivery's target provider, kind and stage times (µs since the epoch; 0 = not reached). */
+export interface DeliveryTimes {
+  provider: string;
+  kind: string;
+  queuedAtUs: number;
+  receivedAtUs: number;
+  shownAtUs: number;
+}
+
 export interface Recorder {
   /** Returns the new verification id, or null when only written locally. */
   recordVerification(row: VerificationRow): Promise<number | null>;
@@ -47,6 +56,8 @@ export interface Recorder {
   ): Promise<
     { key: string; text: string; source: "agreed" | "aligned" }[] | undefined
   >;
+  /** The lobby's deliveries with their target's provider, when connected. */
+  deliveries(lobbyId: number): Promise<DeliveryTimes[] | undefined>;
   close(): void;
   readonly description: string;
 }
@@ -84,6 +95,9 @@ export class LocalRecorder implements Recorder {
     return undefined;
   }
   async currentContracts() {
+    return undefined;
+  }
+  async deliveries() {
     return undefined;
   }
   close() {}
@@ -127,6 +141,8 @@ export class DbRecorder implements Recorder {
       "contract",
       "verification",
       "review",
+      "participant",
+      "delivery",
     ]);
     this.subscribed.add(lobbyId);
   }
@@ -192,6 +208,22 @@ export class DbRecorder implements Recorder {
         text: c.text,
         source: (c.source === "agreed" ? "agreed" : "aligned") as
           "agreed" | "aligned",
+      }));
+  }
+
+  async deliveries(lobbyId: number) {
+    await this.watch(lobbyId);
+    const provider = new Map(
+      [...this.conn.db.participant.iter()].map((p) => [p.id, p.provider]),
+    );
+    return [...this.conn.db.delivery.iter()]
+      .filter((d) => d.lobbyId === lobbyId)
+      .map((d) => ({
+        provider: provider.get(d.targetId) ?? "",
+        kind: d.kind,
+        queuedAtUs: Number(d.queuedAtUs),
+        receivedAtUs: Number(d.receivedAtUs),
+        shownAtUs: Number(d.shownAtUs),
       }));
   }
 
