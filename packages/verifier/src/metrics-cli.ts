@@ -142,7 +142,7 @@ export async function metricsMain(args: string[]): Promise<void> {
   const inputsPath = join(dir, "metrics-inputs.json");
   const saved =
     readJson<{
-      interventions?: number;
+      interventions?: number | null;
       transcripts?: Record<string, string[]>;
       mode?: string;
     }>(inputsPath) ?? {};
@@ -153,7 +153,7 @@ export async function metricsMain(args: string[]): Promise<void> {
   const interventions =
     values.interventions !== undefined
       ? Number(values.interventions)
-      : saved.interventions;
+      : (saved.interventions ?? undefined);
   if (
     interventions !== undefined &&
     (!Number.isInteger(interventions) || interventions < 0)

@@ -1,0 +1,470 @@
+<title>dibs Evaluation Report</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,500..800&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a lab notebook. One reading column, evidence tables and charts break out wider; every
+   number carries a source mark (measured / recorded / pending). */
+:root {
+  --paper: #f5f7f9;
+  --sheet: #ffffff;
+  --ink: #141a22;
+  --ink-2: #4a5462;
+  --ink-3: #6d7685;
+  --rule: #dde2e8;
+  --rule-2: #c3cad3;
+  --accent: #1f5fb0;
+  --accent-wash: #e6eef9;
+  --arm-dibs: #2a78d6;
+  --arm-none: #eb6834;
+  --arm-chat: #1baf7a;
+  --pass: #0f7a3a;
+  --pass-wash: #e3f3e8;
+  --fail: #c23a3a;
+  --fail-wash: #fbe7e6;
+  --pending: #8a5a00;
+  --pending-wash: #fbf0d9;
+  --sig: #2a78d6;
+  --sig-2: #a9c6ee;
+  --font-display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --font-body: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --step--1: 0.8125rem;
+  --step-0: 1rem;
+  --step-1: 1.1875rem;
+  --step-2: 1.5rem;
+  --step-3: 2.125rem;
+  --radius: 6px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #10141a; --sheet: #171c24; --ink: #e9edf2; --ink-2: #b4bdc9; --ink-3: #8e98a6;
+    --rule: #262d38; --rule-2: #364050; --accent: #7fb0f0; --accent-wash: #1b2a40;
+    --arm-dibs: #3987e5; --arm-none: #d95926; --arm-chat: #199e70;
+    --pass: #5cc98a; --pass-wash: #14301f; --fail: #f08080; --fail-wash: #3a1b1b;
+    --pending: #e8b75a; --pending-wash: #33280f; --sig: #3987e5; --sig-2: #24426b;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #10141a; --sheet: #171c24; --ink: #e9edf2; --ink-2: #b4bdc9; --ink-3: #8e98a6;
+  --rule: #262d38; --rule-2: #364050; --accent: #7fb0f0; --accent-wash: #1b2a40;
+  --arm-dibs: #3987e5; --arm-none: #d95926; --arm-chat: #199e70;
+  --pass: #5cc98a; --pass-wash: #14301f; --fail: #f08080; --fail-wash: #3a1b1b;
+  --pending: #e8b75a; --pending-wash: #33280f; --sig: #3987e5; --sig-2: #24426b;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--paper); color: var(--ink); font-family: var(--font-body); font-size: var(--step-0);
+  line-height: 1.55; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 0 64px;
+}
+.page { max-width: 1060px; margin: 0 auto; }
+.prose { max-width: 68ch; }
+h1, h2, h3 { font-family: var(--font-display); font-stretch: 82%; text-wrap: balance; margin: 0; line-height: 1.12; }
+h1 { font-size: var(--step-3); font-weight: 800; letter-spacing: -0.01em; }
+h2 { font-size: var(--step-2); font-weight: 750; }
+h3 { font-size: var(--step-1); font-weight: 700; }
+p { margin: 0; }
+a { color: var(--accent); }
+code, .mono { font-family: var(--font-mono); font-size: 0.875em; }
+.eyebrow { font-family: var(--font-mono); font-size: var(--step--1); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-3); }
+.muted { color: var(--ink-2); }
+.small { font-size: var(--step--1); }
+.num { font-variant-numeric: tabular-nums; }
+
+header.masthead { padding-block: 40px 28px; border-bottom: 2px solid var(--ink); display: grid; gap: 14px; }
+.meta { display: flex; flex-wrap: wrap; gap: 6px 18px; font-family: var(--font-mono); font-size: var(--step--1); color: var(--ink-2); }
+.legend { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+
+.src { display: inline-flex; align-items: center; gap: 5px; font-family: var(--font-mono); font-size: 0.72rem; letter-spacing: 0.04em;
+  text-transform: uppercase; padding: 2px 7px; border-radius: 999px; border: 1px solid currentColor; white-space: nowrap; line-height: 1.5; }
+.src.measured { color: var(--accent); }
+.src.recorded { color: var(--ink-2); }
+.src.pending { color: var(--pending); background: var(--pending-wash); border-color: transparent; }
+.src::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.src.recorded::before { background: transparent; border: 1.5px solid currentColor; width: 4px; height: 4px; }
+
+section { padding-block: 40px 8px; display: grid; gap: 18px; }
+section > .head { display: grid; gap: 8px; }
+.sec-no { font-family: var(--font-mono); font-size: var(--step--1); color: var(--ink-3); }
+
+.pillars { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; }
+.pillar { background: var(--sheet); border: 1px solid var(--rule); border-radius: var(--radius); padding: 14px 14px 16px; display: grid; gap: 8px; align-content: start; min-width: 0; }
+.pillar .big { font-family: var(--font-display); font-stretch: 80%; font-weight: 750; font-size: 1.45rem; line-height: 1.1; }
+.pillar p { font-size: var(--step--1); color: var(--ink-2); }
+.pillar .tags { display: flex; gap: 6px; flex-wrap: wrap; }
+
+.scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+table { border-collapse: collapse; width: 100%; font-size: 0.9rem; }
+th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+th { font-family: var(--font-mono); font-weight: 500; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--ink-3); white-space: nowrap; }
+.sheet { background: var(--sheet); border: 1px solid var(--rule); border-radius: var(--radius); }
+.sheet table th:first-child, .sheet table td:first-child { padding-left: 14px; }
+tr.dim td { color: var(--ink-3); }
+.tiergroup { border-left: 1px solid var(--rule-2); }
+td.c { text-align: center; padding-inline: 4px; }
+th.c { text-align: center; padding-inline: 4px; }
+
+.mark { display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 5px; font-weight: 700; font-size: 0.9rem; }
+.mark.pass { background: var(--pass-wash); color: var(--pass); }
+.mark.fail { background: var(--fail-wash); color: var(--fail); }
+.mark.none { color: var(--ink-3); }
+.mark.must-fail { border: 1.5px solid var(--fail); color: var(--fail); }
+.mark.must-pass { border: 1.5px solid var(--pass); color: var(--pass); }
+.chip { display: inline-block; font-family: var(--font-mono); font-size: 0.72rem; padding: 1px 7px; border-radius: 4px; background: var(--paper); border: 1px solid var(--rule); white-space: nowrap; }
+.chip.mismatch { border-color: var(--fail); color: var(--fail); }
+.chip.consistent { border-color: var(--rule-2); color: var(--ink-2); }
+.arm { display: inline-flex; align-items: center; gap: 6px; font-family: var(--font-mono); font-size: 0.8rem; }
+.arm i { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+
+.evidence { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+.ev { background: var(--sheet); border: 1px solid var(--rule); border-radius: var(--radius); padding: 14px; display: grid; gap: 10px; align-content: start; min-width: 0; }
+.ev ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.ev li { display: grid; grid-template-columns: 22px 1fr; gap: 6px; font-size: 0.9rem; align-items: start; }
+.ev li .ic { font-weight: 700; }
+.ev li .ic.ok { color: var(--pass); }
+.ev li .ic.no { color: var(--fail); }
+.callout { border-left: 3px solid var(--accent); background: var(--accent-wash); padding: 12px 14px; border-radius: 0 var(--radius) var(--radius) 0; max-width: 72ch; }
+
+.controls { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.controls button { font: inherit; font-family: var(--font-mono); font-size: 0.85rem; padding: 5px 11px; border-radius: 5px; border: 1px solid var(--rule-2); background: var(--sheet); color: var(--ink); cursor: pointer; }
+.controls button[aria-pressed="true"] { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.controls button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.grid-wrap { display: grid; grid-template-columns: minmax(0, auto) minmax(0, 1fr); gap: 20px; align-items: start; }
+@media (max-width: 760px) { .grid-wrap { grid-template-columns: 1fr; } }
+.pgrid { display: grid; gap: 2px; font-family: var(--font-mono); font-size: 0.66rem; }
+.pgrid .cell { aspect-ratio: 1; min-width: 22px; display: grid; place-items: center; border-radius: 3px; background: var(--paper); color: var(--ink-3); border: 1px solid var(--rule); position: relative; }
+.pgrid .cell.s1 { background: var(--sig); color: #fff; border-color: var(--sig); }
+.pgrid .cell.s2 { background: var(--sig-2); color: var(--ink); border-color: var(--sig-2); }
+.pgrid .cell.now { outline: 2px solid var(--ink); outline-offset: 1px; }
+.pgrid .ax { color: var(--ink-3); display: grid; place-items: center; }
+.keyrow { display: flex; flex-wrap: wrap; gap: 14px; font-size: var(--step--1); color: var(--ink-2); }
+.keyrow span { display: inline-flex; align-items: center; gap: 6px; }
+.keyrow i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; border: 1px solid var(--rule); }
+
+.bars { display: grid; gap: 14px; }
+.bargroup { display: grid; gap: 6px; }
+.barrow { display: grid; grid-template-columns: 64px minmax(0, 1fr) 92px; gap: 10px; align-items: center; font-size: 0.85rem; }
+.track { height: 16px; display: flex; gap: 2px; }
+.seg { height: 100%; border-radius: 0 4px 4px 0; }
+.seg.src { background: var(--arm-dibs); border-radius: 0; }
+.seg.test { background: var(--sig-2); }
+.seg.src:only-child { border-radius: 0 4px 4px 0; }
+
+.strip { display: flex; flex-wrap: wrap; gap: 10px; }
+.block { display: grid; gap: 4px; }
+.block .cells { display: flex; gap: 3px; }
+.slot { width: 44px; height: 44px; border-radius: 5px; border: 1.5px dashed var(--rule-2); display: grid; place-items: center; font-family: var(--font-mono); font-size: 0.64rem; line-height: 1.1; text-align: center; color: var(--ink-2); }
+.slot b { display: block; font-size: 0.7rem; }
+.slot.ran { border-style: solid; color: #fff; }
+.hyp { display: grid; gap: 8px; }
+.hyp div { display: grid; grid-template-columns: 44px 1fr; gap: 10px; font-size: 0.92rem; }
+.hyp .id { font-family: var(--font-mono); font-weight: 500; }
+.hyp .primary { background: var(--accent-wash); border-radius: var(--radius); padding: 8px 10px; margin-inline: -10px; }
+
+.claims { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; }
+.claims ul { margin: 0; padding-left: 18px; display: grid; gap: 8px; }
+.claims .ev li { display: list-item; font-size: 0.92rem; }
+pre { margin: 0; background: var(--sheet); border: 1px solid var(--rule); border-radius: var(--radius); padding: 14px; overflow-x: auto; font-family: var(--font-mono); font-size: 0.8rem; line-height: 1.6; }
+.dot-chart { display: grid; gap: 12px; }
+.dc-row { display: grid; grid-template-columns: 170px minmax(0, 1fr) 150px; gap: 10px; align-items: center; font-size: 0.85rem; }
+@media (max-width: 560px) { .dc-row { grid-template-columns: 1fr; } .barrow { grid-template-columns: 54px minmax(0,1fr) 78px; } }
+.dc-track { position: relative; height: 22px; border-left: 1px solid var(--rule-2); border-right: 1px solid var(--rule-2); background: linear-gradient(90deg, transparent calc(50% - 0.5px), var(--rule) calc(50% - 0.5px), var(--rule) calc(50% + 0.5px), transparent calc(50% + 0.5px)); }
+.dc-ci { position: absolute; top: 10px; height: 2px; background: var(--ink-2); }
+.dc-pt { position: absolute; top: 5px; width: 12px; height: 12px; margin-left: -6px; border-radius: 50%; background: var(--arm-dibs); border: 2px solid var(--sheet); }
+.pending-card { border: 1.5px dashed var(--pending); background: var(--pending-wash); border-radius: var(--radius); padding: 14px; display: grid; gap: 8px; max-width: 78ch; }
+footer { margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--rule); color: var(--ink-3); font-size: var(--step--1); display: grid; gap: 6px; }
+@media (prefers-reduced-motion: no-preference) { .controls button { transition: background 120ms ease, color 120ms ease; } }
+</style>
+
+<div class="page" id="app"></div>
+
+<script>
+const DATA = /*__REPORT_DATA__*/null;
+const $ = (s) => document.querySelector(s);
+const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+const src = (kind, text) => `<span class="src ${kind}">${esc(text ?? kind)}</span>`;
+const pct = (x) => (x === null || x === undefined ? "–" : `${Math.round(x * 100)}%`);
+const fmtP = (p) => (p === null || p === undefined ? "–" : p < 0.001 ? "<0.001" : p.toFixed(3).replace(/0+$/, "").replace(/\.$/, ".0"));
+const ARM = { dibs: "var(--arm-dibs)", none: "var(--arm-none)", chat: "var(--arm-chat)" };
+const arm = (a) => `<span class="arm"><i style="background:${ARM[a] ?? "var(--ink-3)"}"></i>${esc(a)}</span>`;
+
+function wilson(k, n, z = 1.96) {
+  if (!n) return { rate: null, low: null, high: null };
+  const p = k / n, z2 = z * z, d = 1 + z2 / n, c = (p + z2 / (2 * n)) / d;
+  const h = (z * Math.sqrt((p * (1 - p)) / n + z2 / (4 * n * n))) / d;
+  return { rate: p, low: k === 0 ? 0 : Math.max(0, c - h), high: k === n ? 1 : Math.min(1, c + h) };
+}
+
+const D = DATA;
+const trials = D.trials;
+const byTrial = Object.fromEntries(trials.map((t) => [t.trial, t]));
+const scored = trials.filter((t) => t.status === "scored");
+const checkOk = (t, c) => t.metrics?.outcome?.checks?.[String(c)];
+const ev = (t) => t.evidence?.probe;
+const mut = D.mutants;
+const det = D.detector;
+const heldout = det.cases.filter((c) => c.split === "heldout");
+const keyCount = (cs, label) => cs.reduce((s, c) => s + c.keys.filter((k) => k.label === label).length, 0);
+const probeRows = mut.probe?.rows ?? [];
+const mutBroken = probeRows.filter((r) => r.id !== "control" && (r.changed ?? []).length > 0).length;
+const oracleRows = mut.oracle?.results ?? null;
+
+// ------------------------------------------------------------------------------- header
+let html = `
+<header class="masthead">
+  <div class="eyebrow">dibs · benchmark evaluation · S2 login + registration app</div>
+  <h1>What the benchmark shows, and how sure we can be</h1>
+  <p class="prose muted">dibs claims that coding agents working in parallel break each other's assumptions in ways git can't see, and that agreeing a contract from their plans prevents it. This report puts every piece of evidence in one place, says where each number comes from, and separates what is shown from what still needs runs.</p>
+  <div class="meta"><span>generated ${esc(D.generatedAt.slice(0, 16).replace("T", " "))} UTC</span><span>commit ${esc(D.commit ?? "–")}</span><span>oracle ${esc(D.oracleHash)}</span><span>pre-registration ${D.preregCommit ? esc(D.preregCommit.split(" ")[0]) : "not yet committed"}</span></div>
+  <div class="legend small">${src("measured")}<span class="muted">computed from the agents' code on GitHub when this report was built</span>${src("recorded")}<span class="muted">from the trial reports (hidden oracle and review, run on M3)</span>${src("pending")}<span class="muted">needs a run on M3 (oracle key or model API key)</span></div>
+</header>`;
+
+// ------------------------------------------------------------------------------- summary
+const t1 = byTrial.T1, t3 = byTrial.T3;
+const reproduced = ev(t1) && ev(t3) && !ev(t1).ui.sendsAuthorizationHeader && ev(t1).server.loginReturnsToken && ev(t3).ui.sendsAuthorizationHeader;
+const detSplit = det.report?.splits?.heldout;
+const ranCount = D.prereg.schedule.filter((s) => s.lobby).length;
+html += `
+<section aria-labelledby="s0">
+  <div class="head"><h2 id="s0">Where the evaluation stands</h2></div>
+  <div class="pillars">
+    <div class="pillar"><div class="eyebrow">Scored trials</div><div class="big num">T1 ${t1?.metrics?.outcome.passed ?? "–"}/6 · T3 ${t3?.metrics?.outcome.passed ?? "–"}/6</div><p>Same task, agents, machines and base; only the mode differs. One trial per arm gives Fisher p = ${fmtP(D.comparison?.diff?.tiers?.fullstack?.fisherP)}: a case study, not yet a statistic.</p><div class="tags">${src("recorded")}</div></div>
+    <div class="pillar"><div class="eyebrow">Why T1 failed</div><div class="big">${reproduced ? "Reproduced" : "–"}</div><p>Rebuilt from the agents' commits: T1's server issues a bearer token, its UI relies on a cookie. T3's UI sends the token. Git merged both cleanly.</p><div class="tags">${src("measured")}</div></div>
+    <div class="pillar"><div class="eyebrow">Hidden test validity</div><div class="big num">${mutBroken}/${mut.spec.length} mutants</div><p>Each deliberately broken copy of T3 changes exactly the behaviour it targets. ${oracleRows ? `Oracle verdicts: ${oracleRows.filter((r) => r.ok).length}/${oracleRows.length} as specified.` : "The oracle's verdicts on them still need the key on M3."}</p><div class="tags">${src("measured")}${oracleRows ? src("recorded") : src("pending")}</div></div>
+    <div class="pillar"><div class="eyebrow">Conflict detector</div><div class="big num">${detSplit ? `${pct(detSplit.recall.rate)} caught` : `${det.cases.length} labelled cases`}</div><p>${detSplit ? `Held-out: ${detSplit.recall.k}/${detSplit.recall.n} mismatches caught, ${detSplit.falseAlarmRate.k}/${detSplit.falseAlarmRate.n} false alarms.` : `${heldout.length} held-out sets never used for tuning, ${keyCount(heldout, "mismatch")} planted mismatches and ${keyCount(heldout, "consistent")} consistent keys. Ready to run.`}</p><div class="tags">${detSplit ? src("measured") : src("pending")}</div></div>
+    <div class="pillar"><div class="eyebrow">Round 2 plan</div><div class="big num">${ranCount}/${D.prereg.schedule.length} lobbies</div><p>Hypotheses, sample size, order and exclusion rules are fixed in PREREG.md before any run, so the goalposts can't move.</p><div class="tags">${src(D.preregCommit ? "recorded" : "pending", D.preregCommit ? "committed" : "commit first")}</div></div>
+  </div>
+</section>`;
+
+// ------------------------------------------------------------------------------- 1. trials matrix
+const tierHead = D.tiers.map((t) => `<th class="c tiergroup" colspan="${t.checks.length}">${esc(t.id === "component" ? "1 agent" : t.id === "server" ? "2 agents" : "3 agents")}</th>`).join("");
+const checkHead = D.tiers.map((t) => t.checks.map((c, i) => `<th class="c ${i === 0 ? "tiergroup" : ""}">${c}</th>`).join("")).join("");
+const order = ["T1", "T3", "T2", "L4", "L3"];
+const rows = order.map((id) => byTrial[id]).filter(Boolean).map((t) => {
+  const m = t.metrics;
+  const dim = t.status !== "scored";
+  const cells = D.tiers.map((tier) => tier.checks.map((c, i) => {
+    const ok = m ? checkOk(t, c) : undefined;
+    const mark = ok === true ? `<span class="mark pass" aria-label="check ${c} passed">✓</span>` : ok === false ? `<span class="mark fail" aria-label="check ${c} failed">✗</span>` : `<span class="mark none">·</span>`;
+    return `<td class="c ${i === 0 ? "tiergroup" : ""}">${mark}</td>`;
+  }).join("")).join("");
+  const codex = m?.perAgent?.find((a) => a.name === "codex");
+  const status = t.status === "scored" ? "scored" : t.status === "invalid" ? "invalid" : "dev";
+  return `<tr class="${dim ? "dim" : ""}">
+    <td><b>${esc(t.trial)}</b> <span class="small muted">lobby ${t.lobby}</span><div class="small">${esc(status)}</div></td>
+    <td>${arm(t.mode)}</td>${cells}
+    <td class="small">${m?.outcome?.mergeTreeClean === true ? "clean" : m?.outcome?.mergeTreeClean === false ? "conflicts" : "–"}</td>
+    <td class="small num">${m?.outcome?.reviewViolations === null || m?.outcome?.reviewViolations === undefined ? "–" : `${m.outcome.reviewViolations} violated`}</td>
+    <td class="small">${esc(codex?.timingVerdict ?? (t.mode === "none" && m ? "no contract" : "–"))}</td>
+  </tr>`;
+}).join("");
+const notes = trials.filter((t) => t.status !== "scored").map((t) => `<li><b>${esc(t.trial)}</b> (lobby ${t.lobby}, ${esc(t.status)}): ${esc(t.reason ?? "")}</li>`).join("");
+html += `
+<section aria-labelledby="s1">
+  <div class="head"><span class="sec-no">1 · Trials</span><h2 id="s1">The scored pair: only the integration check differs</h2>
+  <p class="prose muted">The six oracle checks are grouped by whose code they need. Adding them up to "5/6" hides that the one failure is the only check that needs all three agents' code to agree.</p></div>
+  <div class="sheet scroll"><table>
+    <thead><tr><th rowspan="2">Trial</th><th rowspan="2">Mode</th>${tierHead}<th rowspan="2">git merge</th><th rowspan="2">Review</th><th rowspan="2">Codex vs contract</th></tr><tr>${checkHead}</tr></thead>
+    <tbody>${rows}</tbody></table></div>
+  <div class="small muted prose">${src("recorded")} Oracle checks and review from bench/TRIALS.md and infra/LOBBY4_REPORT.md. ${src("measured")} git merge, rebuilt here from the heads on GitHub. Checks: 1 login gives a session; 2 bad password is 401; 3 register 201 then 409; 4 Bob's registration is distinct; 5 unauthenticated register is 401; 6 in a real browser, Log in → Register shows "Registered".</div>
+  <details class="small"><summary>Lobbies that don't count, and why</summary><ul>${notes}</ul></details>
+</section>`;
+
+// ------------------------------------------------------------------------------- 2. root cause
+const fact = (ok, text) => `<li><span class="ic ${ok ? "ok" : "no"}">${ok ? "✓" : "✗"}</span><span>${text}</span></li>`;
+const serverCard = (t) => {
+  const s = ev(t)?.server;
+  if (!s) return "";
+  return `<ul>
+    ${fact(s.loginStatus === 200, `<code>POST /api/login</code> → ${s.loginStatus}${s.loginReturnsToken ? " with <code>{token}</code>" : ""}`)}
+    ${fact(!s.loginSetsCookie, s.loginSetsCookie ? "sets a session cookie" : "sets no cookie")}
+    ${fact(s.meStatus === 200, `<code>/api/me</code> with the bearer token → ${s.meStatus}`)}
+    ${fact(s.registerStatus === 201 && s.repeatStatus === 409, `register → ${s.registerStatus}, again → ${s.repeatStatus}`)}
+    ${fact(s.unauthStatus === 401, `register without a session → ${s.unauthStatus}`)}
+  </ul>`;
+};
+const uiCard = (t) => {
+  const u = ev(t)?.ui;
+  if (!u) return "";
+  return `<ul>
+    ${fact(u.readsTokenFromLogin, u.readsTokenFromLogin ? "reads <code>token</code> from the login response" : "never reads the token from the login response")}
+    ${fact(u.sendsAuthorizationHeader, u.sendsAuthorizationHeader ? "sends <code>Authorization: Bearer</code>" : "never sends an <code>Authorization</code> header")}
+    ${fact(!u.credentials.includes("same-origin") && !u.credentials.includes("include"), `fetch <code>credentials: ${esc(u.credentials.join(", ") || "default")}</code>${u.credentials.includes("same-origin") ? ", relying on a cookie the server never sets" : ""}`)}
+  </ul>`;
+};
+html += `
+<section aria-labelledby="s2">
+  <div class="head"><span class="sec-no">2 · Root cause</span><h2 id="s2">Why T1 broke, rebuilt from the agents' commits</h2>
+  <p class="prose muted">Each lobby is reassembled from its three heads exactly as <code>dibs verify</code> does, the app is started, and the same requests the oracle's server checks make are sent to it. The UI is read for how it carries the session. This reproduces the oracle's verdict without the hidden test.</p></div>
+  <div class="evidence">
+    <div class="ev"><div class="eyebrow">Server · T1 and T3 behave identically</div>${serverCard(t1)}</div>
+    <div class="ev"><div class="eyebrow">UI · T1 (no coordination)</div>${uiCard(t1)}</div>
+    <div class="ev"><div class="eyebrow">UI · T3 (dibs)</div>${uiCard(t3)}</div>
+  </div>
+  <div class="callout">${t1?.metrics?.outcome?.mergeTreeClean && t3?.metrics?.outcome?.mergeTreeClean ? "In both lobbies git reported a clean merge: the three agents edited separate folders. The conflict was in an assumption (cookie vs bearer token), which only shows up when the parts run together." : "Git merge status unavailable."} ${src("measured")}</div>
+</section>`;
+
+// ------------------------------------------------------------------------------- 3. power grid
+const cmp = D.comparison?.diff;
+html += `
+<section aria-labelledby="s3">
+  <div class="head"><span class="sec-no">3 · Sample size</span><h2 id="s3">How many lobbies a real claim takes</h2>
+  <p class="prose muted">Each square is the two-sided Fisher exact p-value for one possible round-2 result: how many of <i>n</i> lobbies passed check 6 without dibs (rows) and with dibs (columns). Today's evidence is the outlined square at n = 1. Round 2 is pre-registered at n = 6 per arm.</p></div>
+  <div class="controls" role="group" aria-label="Lobbies per arm">${D.power.map((p) => `<button type="button" data-n="${p.n}" aria-pressed="${p.n === 6}">n = ${p.n}</button>`).join("")}</div>
+  <div class="grid-wrap">
+    <div class="scroll"><div id="pgrid" class="pgrid"></div></div>
+    <div style="display:grid;gap:12px;min-width:0">
+      <div class="keyrow"><span><i style="background:var(--sig);border-color:var(--sig)"></i>p &lt; 0.05</span><span><i style="background:var(--sig-2);border-color:var(--sig-2)"></i>p &lt; 0.10</span><span><i></i>not significant</span></div>
+      <p id="pgrid-read" class="small"></p>
+      <div class="sheet scroll"><table><thead><tr><th>Arm</th><th>Lobbies</th><th>Check 6 passed</th><th>95% interval</th></tr></thead><tbody>
+      ${(D.comparison?.arms ?? []).map((a) => `<tr><td>${arm(a.arm)}</td><td class="num">${a.lobbies.join(", ")}</td><td class="num">${a.tiers.fullstack.k}/${a.tiers.fullstack.n}</td><td class="num">${pct(a.tiers.fullstack.low)}–${pct(a.tiers.fullstack.high)}</td></tr>`).join("")}
+      </tbody></table></div>
+      <p class="small muted">With one lobby per arm, either rate is compatible with anything from about 20% to 80%. That is why T1 vs T3 is shown as a case study.</p>
+    </div>
+  </div>
+</section>`;
+
+// ------------------------------------------------------------------------------- 4. code volume
+const codeTrials = ["L4", "T1", "T3"].map((id) => byTrial[id]).filter((t) => t?.code);
+const maxLines = Math.max(1, ...codeTrials.flatMap((t) => Object.values(t.code).map((c) => c.src + c.test)));
+const agents = ["claude", "codex", "droid"];
+const totalOf = (t) => t?.code ? Object.values(t.code).reduce((s, c) => s + c.src + c.test, 0) : null;
+const codeSummary = byTrial.T1?.code && byTrial.T3?.code ? `T1 added ${totalOf(byTrial.T1)} lines and T3 ${totalOf(byTrial.T3)} (${Math.round((100 * Math.abs(totalOf(byTrial.T3) - totalOf(byTrial.T1))) / totalOf(byTrial.T1))}% apart), so dibs didn't make the agents build noticeably more or less.` : "";
+html += `
+<section aria-labelledby="s4">
+  <div class="head"><span class="sec-no">4 · Work</span><h2 id="s4">How much code each agent wrote</h2>
+  <p class="prose muted">Lines added inside each agent's own area, from the assembled diff. Source and tests are split, and neither is scored: more lines is not better or worse. The point is whether coordination changed how much the agents built. ${codeSummary}</p></div>
+  <div class="keyrow"><span><i style="background:var(--arm-dibs);border-color:var(--arm-dibs)"></i>source lines</span><span><i style="background:var(--sig-2);border-color:var(--sig-2)"></i>test lines</span></div>
+  <div class="bars">${codeTrials.map((t) => `
+    <div class="bargroup"><div class="small"><b>${esc(t.trial)}</b> ${arm(t.mode)} <span class="muted num">· ${Object.values(t.code).reduce((s, c) => s + c.src + c.test, 0)} lines added</span></div>
+    ${agents.map((a) => { const c = t.code[a] ?? { src: 0, test: 0 }; return `<div class="barrow"><span class="mono small">${a}</span><div class="track" title="${a}: ${c.src} source, ${c.test} test">${c.src ? `<div class="seg src" style="width:${(100 * c.src) / maxLines}%"></div>` : ""}${c.test ? `<div class="seg test" style="width:${(100 * c.test) / maxLines}%"></div>` : ""}</div><span class="num small">${c.src} + ${c.test}</span></div>`; }).join("")}
+    </div>`).join("")}
+  </div>
+  <div class="small muted">${src("measured")} From each lobby's heads against base f4001dc. Format: source + test lines.</div>
+</section>`;
+
+// ------------------------------------------------------------------------------- 5. mutants
+const probeById = Object.fromEntries(probeRows.map((r) => [r.id, r]));
+const oracleById = Object.fromEntries((oracleRows ?? []).map((r) => [r.id, r]));
+const FIELD = { badPasswordStatus: "bad password", repeatStatus: "repeat → 409", unauthStatus: "unauthenticated → 401", bobDistinctId: "distinct ids", meStatus: "/api/me", loginReturnsToken: "login token", registerStatus: "register", bobStatus: "Bob registers", repeatStatusX: "", "ui.sendsAuthorizationHeader": "UI sends token", "ui.successStatus": "UI success code" };
+const changedText = (r) => (r?.changed ?? []).map((k) => FIELD[k] ?? k).filter((v, i, a) => v && a.indexOf(v) === i).slice(0, 3).join(", ") + ((r?.changed ?? []).length > 3 ? "…" : "");
+html += `
+<section aria-labelledby="s5">
+  <div class="head"><span class="sec-no">5 · Hidden test</span><h2 id="s5">Is the hidden test fair? Break the code on purpose</h2>
+  <p class="prose muted">A known-good solution (T3, 6/6) is broken one behaviour at a time. A fair oracle must fail exactly the checks each break should fail and still pass the rest. Every check from 1 to 6 has at least one mutant aimed at it, and the first one reintroduces T1's bug.</p></div>
+  <div class="sheet scroll"><table>
+    <thead><tr><th>Mutant</th>${[1, 2, 3, 4, 5, 6].map((c) => `<th class="c">${c}</th>`).join("")}<th>Behaviour that changed</th><th>Oracle</th></tr></thead>
+    <tbody>${mut.spec.map((m) => {
+      const r = probeById[m.id]; const o = oracleById[m.id];
+      return `<tr><td><span class="mono small">${esc(m.id)}</span><div class="small muted">${esc(m.description)}</div></td>
+      ${[1, 2, 3, 4, 5, 6].map((c) => `<td class="c">${m.mustFail.includes(c) ? `<span class="mark must-fail" aria-label="must fail">✗</span>` : m.mustPass.includes(c) ? `<span class="mark must-pass" aria-label="must pass">✓</span>` : `<span class="mark none">·</span>`}</td>`).join("")}
+      <td class="small">${r ? `${(r.changed ?? []).length ? "✓ " : "✗ none · "}${esc(changedText(r))}` : "–"}</td>
+      <td class="small">${o ? (o.ok ? `✓ failed ${esc(o.failed.join(","))}` : `✗ failed ${esc(o.failed.join(",") || "none")}`) : src("pending")}</td></tr>`;
+    }).join("")}</tbody></table></div>
+  <div class="keyrow"><span><span class="mark must-fail">✗</span> must fail</span><span><span class="mark must-pass">✓</span> must still pass</span><span><span class="mark none">·</span> either (depends on a failed login)</span></div>
+  <div class="small muted prose">${src("measured")} "Behaviour that changed" comes from starting each mutant and comparing its answers with the unmutated app. ${oracleRows ? src("recorded") : src("pending")} The oracle column fills in after <code>npx tsx bench/scripts/oracle-mutants.ts</code> runs on M3.</div>
+</section>`;
+
+// ------------------------------------------------------------------------------- 6. detector
+const R = det.report;
+const dot = (label, r, lowerBetter) => r && r.n ? `<div class="dc-row"><span>${label}</span><div class="dc-track" role="img" aria-label="${label}: ${pct(r.rate)}, 95% interval ${pct(r.low)} to ${pct(r.high)}"><div class="dc-ci" style="left:${r.low * 100}%;width:${(r.high - r.low) * 100}%"></div><div class="dc-pt" style="left:${r.rate * 100}%"></div></div><span class="num small">${r.k}/${r.n} = ${pct(r.rate)} <span class="muted">(${pct(r.low)}–${pct(r.high)})</span></span></div>` : "";
+const perfect = wilson(keyCount(heldout, "mismatch") * 10, keyCount(heldout, "mismatch") * 10);
+const perfectFa = wilson(0, keyCount(heldout, "consistent") * 10);
+html += `
+<section aria-labelledby="s6">
+  <div class="head"><span class="sec-no">6 · Detector</span><h2 id="s6">Does dibs find the conflict from the plans alone?</h2>
+  <p class="prose muted">The detector can be tested without running any coding agents: hand it sets of plans whose answer is known and count. Each shared interface in each run is one data point. A "mismatch" key should get a proposal; a "consistent" key getting one is a false alarm. The held-out sets were written after the analysis prompt was tuned and were never used to tune it.</p></div>
+  ${R ? `<div class="sheet" style="padding:16px;display:grid;gap:14px">${Object.entries(R.splits).map(([split, s]) => `<div class="dot-chart"><h3>${split === "heldout" ? "Held-out cases" : "Dev cases (used for tuning)"} <span class="small muted num">· ${s.runs} runs, ${s.errors} errors, model ${esc(R.model)}</span></h3>${dot("Mismatches caught (recall)", s.recall)}${dot("False alarms", s.falseAlarmRate)}${dot("Proposals that were right (precision)", s.precision)}${dot("Whole case right", s.caseAccuracy)}</div>`).join("")}<div class="small muted">Dots are rates; lines are 95% Wilson intervals. ${src("measured")}</div></div>`
+  : `<div class="pending-card"><b>Not run yet: needs the model API key (M3 or any machine with <code>ANTHROPIC_API_KEY</code>).</b><span class="small">The pipeline is built and checked: a perfect fake built from the labels scores 100% through the real worker validation, so the scoring is wired correctly. With 10 runs per case, a detector that is right every time would show recall ${pct(perfect.low)}–100% and false alarms 0–${pct(perfectFa.high)} (95% intervals). Every miss or false alarm widens or moves those.</span><code class="small">ANTHROPIC_API_KEY=… npx tsx bench/scripts/detector.ts --runs 10</code></div>`}
+  <div class="sheet scroll"><table><thead><tr><th>Case</th><th>Split</th><th>Shared keys (label)</th><th>What it tests</th>${R ? "<th>Right</th>" : ""}</tr></thead><tbody>
+  ${det.cases.map((c) => { const rc = R?.cases?.find((x) => x.id === c.id); return `<tr><td class="mono small">${esc(c.id)}</td><td class="small">${esc(c.split)}</td><td>${c.keys.map((k) => `<span class="chip ${k.label}">${esc(k.key)}</span>`).join(" ")}</td><td class="small muted">${esc(c.note ?? "")}</td>${R ? `<td class="num small">${rc ? `${rc.correct.k}/${rc.correct.n}` : "–"}</td>` : ""}</tr>`; }).join("")}
+  </tbody></table></div>
+  <div class="keyrow"><span><span class="chip mismatch">key</span> mismatch: a proposal is expected</span><span><span class="chip consistent">key</span> consistent: a proposal is a false alarm</span></div>
+</section>`;
+
+// ------------------------------------------------------------------------------- 7. prereg
+const blocks = [];
+for (const s of D.prereg.schedule) { let b = blocks.find((x) => x.block === s.block); if (!b) blocks.push((b = { block: s.block, rows: [] })); b.rows.push(s); }
+html += `
+<section aria-labelledby="s7">
+  <div class="head"><span class="sec-no">7 · Round 2</span><h2 id="s7">The pre-registered plan</h2>
+  <p class="prose muted">Written down and committed before any round-2 lobby runs. One primary test, a fixed sample size, a random but fixed order that interleaves the arms, and the exclusion rules carried over from T2.</p></div>
+  <div class="hyp">${D.prereg.hypotheses.map((h) => `<div class="${h.id === "H1" ? "primary" : ""}"><span class="id">${esc(h.id)}</span><span>${esc(h.text)} <span class="small muted">· ${esc(h.measure)}</span></span></div>`).join("")}</div>
+  <div class="strip" aria-label="Schedule">${blocks.map((b) => `<div class="block"><span class="mono small muted">${esc(b.block)}</span><div class="cells">${b.rows.map((s) => `<div class="slot ${s.lobby ? "ran" : ""}" style="${s.lobby ? `background:${ARM[s.arm]};border-color:${ARM[s.arm]}` : `border-color:${ARM[s.arm]}`}" title="#${s.n} ${s.scenario} ${s.arm}${s.lobby ? `, lobby ${s.lobby}` : ", not run yet"}"><span><b>#${s.n}</b>${esc(s.arm)}</span></div>`).join("")}</div></div>`).join("")}</div>
+  <div class="keyrow">${["dibs", "none", "chat"].map((a) => `<span>${arm(a)}</span>`).join("")}<span>dashed: not run yet · filled: run</span></div>
+  <p class="small muted prose">Stopping rule: if time runs out, stop at the end of a block, never in the middle and never because of a result. Invalid lobbies (an agent without working tools from launch) are decided from launch logs before scoring and re-run at the end in the same arm.</p>
+</section>`;
+
+// ------------------------------------------------------------------------------- 8. claims
+html += `
+<section aria-labelledby="s8">
+  <div class="head"><span class="sec-no">8 · Claims</span><h2 id="s8">What you can say, and what you can't yet</h2></div>
+  <div class="claims">
+    <div class="ev"><div class="eyebrow">Supported now</div><ul style="list-style:disc;padding-left:18px;display:grid;gap:8px">
+      <li>In a controlled pair (same task, agents, machines and base), the run without dibs merged cleanly in git and still broke end to end; the run with dibs passed every check.</li>
+      <li>The break was a cookie-versus-token assumption between two agents. It is reproduced here from the agents' own commits, independent of the hidden test.</li>
+      <li>Only the three-agent integration check differed. Checks 1–5 (one agent, and the two-agent server path) passed in both runs.</li>
+      <li>An infrastructure failure (T2) was excluded by a rule set before its score was known.</li>
+    </ul></div>
+    <div class="ev"><div class="eyebrow">Needs round 2 first</div><ul style="list-style:disc;padding-left:18px;display:grid;gap:8px">
+      <li>Any success rate or percentage improvement for dibs.</li>
+      <li>That dibs beats agents who can simply message each other (the chat arm).</li>
+      <li>Detector accuracy figures, until <code>detector.ts</code> has run.</li>
+      <li>That the oracle is sensitive to every failure, until <code>oracle-mutants.ts</code> has run on M3.</li>
+      <li>Anything about codebases other than this one task family.</li>
+    </ul></div>
+  </div>
+</section>`;
+
+// ------------------------------------------------------------------------------- 9. reproduce
+html += `
+<section aria-labelledby="s9">
+  <div class="head"><span class="sec-no">9 · Reproduce</span><h2 id="s9">Rebuild every number</h2></div>
+<pre># Anywhere (no keys): rebuild the lobbies from GitHub, probe them and the mutants
+npx tsx bench/scripts/lobby-evidence.ts 4 5 7 --mutants 7
+npx tsx bench/scripts/metrics.ts 5 && npx tsx bench/scripts/metrics.ts 7
+npx tsx bench/scripts/compare.ts 5 7
+
+# Needs the model API key
+ANTHROPIC_API_KEY=… npx tsx bench/scripts/detector.ts --runs 10
+
+# Needs the oracle key (M3)
+npx tsx bench/scripts/check-oracle.ts
+npx tsx bench/scripts/oracle-mutants.ts
+
+# Then rebuild this page and its data bundle
+npx tsx bench/scripts/report.ts</pre>
+</section>
+<footer><span>Every input to this page is in the data bundle: ${esc(D.sources.length)} files.</span><span>${src("measured")} measured here · ${src("recorded")} from trial reports · ${src("pending")} needs a run on M3</span></footer>`;
+
+$("#app").innerHTML = html;
+
+// ------------------------------------------------------------------------------- power grid
+function drawGrid(n) {
+  const P = D.power.find((p) => p.n === n);
+  const g = $("#pgrid");
+  g.style.gridTemplateColumns = `28px repeat(${n + 1}, minmax(22px, 34px))`;
+  let cells = `<div class="ax" title="none passes (rows) / dibs passes (columns)">↓/→</div>`;
+  for (let b = 0; b <= n; b++) cells += `<div class="ax">${b}</div>`;
+  for (let a = 0; a <= n; a++) {
+    cells += `<div class="ax">${a}</div>`;
+    for (let b = 0; b <= n; b++) {
+      const p = P.p[a][b];
+      const now = n === 1 && a === 0 && b === 1;
+      cells += `<div class="cell ${p < 0.05 ? "s1" : p < 0.1 ? "s2" : ""} ${now ? "now" : ""}" title="none ${a}/${n}, dibs ${b}/${n}: p = ${fmtP(p)}">${n <= 6 ? fmtP(p).replace(/^0/, "") : ""}</div>`;
+    }
+  }
+  g.innerHTML = cells;
+  const sig = [];
+  for (let a = 0; a <= n; a++) for (let b = 0; b <= n; b++) if (b > a && P.p[a][b] < 0.05) sig.push([a, b]);
+  const best = sig.length ? sig.reduce((m, x) => (x[1] - x[0] < m[1] - m[0] ? x : m)) : null;
+  $("#pgrid-read").innerHTML = `<b>n = ${n} per arm.</b> Rows: lobbies passing check 6 without dibs. Columns: with dibs. ${best ? `The smallest gap that counts is ${best[0]}/${n} without vs ${best[1]}/${n} with dibs (p = ${fmtP(P.p[best[0]][best[1]])}).` : `No result at this size can reach p &lt; 0.05: even ${n}/${n} vs 0/${n} gives p = ${fmtP(P.p[0][n])}.`}${n === 1 ? " The outlined square is T1 vs T3." : ""}`;
+  document.querySelectorAll(".controls button").forEach((btn) => btn.setAttribute("aria-pressed", String(Number(btn.dataset.n) === n)));
+}
+document.querySelectorAll(".controls button").forEach((btn) => btn.addEventListener("click", () => drawGrid(Number(btn.dataset.n))));
+drawGrid(6);
+</script>

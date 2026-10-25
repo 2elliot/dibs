@@ -12,3 +12,5 @@ export {
 export * from "./metrics.ts";
 export * from "./compare.ts";
 export * from "./stats.ts";
+export * from "./mutants.ts";
+export * from "./detector.ts";

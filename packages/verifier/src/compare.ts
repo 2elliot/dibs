@@ -1,7 +1,7 @@
 // Cross-trial comparison: groups lobbies' metrics.json by arm (the lobby's mode, or a label you
 // give) and reports each metric with its spread and uncertainty, plus the difference between
 // two arms. One lobby per arm is an anecdote; this makes that visible instead of hiding it.
-import type { LobbyMetrics } from "./metrics.ts";
+import { ORACLE_TIERS, type LobbyMetrics } from "./metrics.ts";
 import {
   bootstrapMeanDiff,
   fisherExact,
@@ -23,7 +23,7 @@ export interface MetricDef {
   unit: string;
   pick: Pick;
   /** Which direction is better, for the summary line. */
-  better: "higher" | "lower";
+  better: "higher" | "lower" | "neutral";
 }
 
 const bool = (b: boolean | null | undefined) =>
@@ -126,14 +126,14 @@ export const METRICS: MetricDef[] = [
     label: "Agent messages",
     unit: "msgs",
     pick: (m) => m.coordination.messages,
-    better: "lower",
+    better: "neutral",
   },
   {
     id: "planRevisions",
     label: "Plan revisions",
     unit: "plans",
     pick: (m) => m.coordination.planRevisions,
-    better: "lower",
+    better: "neutral",
   },
   {
     id: "responseLatency",
@@ -147,14 +147,14 @@ export const METRICS: MetricDef[] = [
     label: "Lines added",
     unit: "lines",
     pick: (m) => m.work.linesAdded,
-    better: "lower",
+    better: "neutral",
   },
   {
     id: "linesRemoved",
     label: "Lines removed",
     unit: "lines",
     pick: (m) => m.work.linesRemoved,
-    better: "lower",
+    better: "neutral",
   },
   {
     id: "editsBefore",
@@ -189,14 +189,14 @@ export const METRICS: MetricDef[] = [
     label: "Agent tool calls",
     unit: "calls",
     pick: (m) => m.cost.toolCalls,
-    better: "lower",
+    better: "neutral",
   },
   {
     id: "agentActiveSec",
     label: "Agent active time (sum)",
     unit: "s",
     pick: (m) => m.cost.agentActiveSec,
-    better: "lower",
+    better: "neutral",
   },
   {
     id: "interventions",
@@ -211,21 +211,31 @@ export interface ArmReport {
   arm: string;
   lobbies: number[];
   fullPass: Rate;
+  /** ORACLE_TIERS id → pass rate */
+  tiers: Record<string, Rate>;
   /** check number → pass rate */
   checks: Record<string, Rate>;
   metrics: Record<string, Summary>;
 }
 
+export interface RateDiff {
+  a: Rate;
+  b: Rate;
+  delta: number | null;
+  fisherP: number | null;
+}
+
 export interface ArmDiff {
   a: string;
   b: string;
-  fullPass: { a: Rate; b: Rate; delta: number | null; fisherP: number | null };
-  checks: Record<
-    string,
-    { a: Rate; b: Rate; delta: number | null; fisherP: number | null }
-  >;
+  fullPass: RateDiff;
+  tiers: Record<string, RateDiff>;
+  checks: Record<string, RateDiff>;
   metrics: Record<string, Difference>;
-  /** Trials per arm to detect the observed full-pass difference (power 0.8, alpha 0.05). */
+  /**
+   * Trials per arm to detect the observed difference on the primary metric (full-stack tier;
+   * full pass when tiers are missing), power 0.8, two-sided alpha 0.05.
+   */
   trialsNeededPerArm: number | null;
 }
 
@@ -233,7 +243,10 @@ export interface ComparisonReport {
   schema: typeof COMPARE_SCHEMA;
   createdAt: string;
   arms: ArmReport[];
+  /** The primary comparison: baseline → treatment (default none → dibs). */
   diff: ArmDiff | null;
+  /** Every other arm → treatment (e.g. none → dibs and chat → dibs). */
+  diffs: ArmDiff[];
   warnings: string[];
 }
 
@@ -290,6 +303,12 @@ export function compare(
         arm,
         lobbies: ms.map((m) => m.lobbyId).sort((a, b) => a - b),
         fullPass: rateOf(ms.map((m) => m.outcome.fullPass)),
+        tiers: Object.fromEntries(
+          ORACLE_TIERS.map((t) => [
+            t.id,
+            rateOf(ms.map((m) => m.outcome.tiers?.[t.id])),
+          ]),
+        ),
         checks: Object.fromEntries(
           checkIds.map((c) => [c, rateOf(ms.map((m) => m.outcome.checks[c]))]),
         ),
@@ -304,24 +323,27 @@ export function compare(
   const a = baseline ?? (names.includes("none") ? "none" : names[0]);
   const b =
     treatment ?? (names.includes("dibs") ? "dibs" : names.find((n) => n !== a));
-  let diff: ArmDiff | null = null;
-  const A = arms.find((x) => x.arm === a);
-  const B = arms.find((x) => x.arm === b);
-  if (A && B && A !== B) {
+  const rateDiff = (ra: Rate, rb: Rate): RateDiff => ({
+    a: ra,
+    b: rb,
+    delta: ra.rate !== null && rb.rate !== null ? rb.rate - ra.rate : null,
+    fisherP:
+      ra.n && rb.n ? fisherExact(rb.k, rb.n - rb.k, ra.k, ra.n - ra.k) : null,
+  });
+  const diffOf = (A: ArmReport, B: ArmReport): ArmDiff => {
     const ga = groups.get(A.arm)!;
     const gb = groups.get(B.arm)!;
-    const rateDiff = (ra: Rate, rb: Rate) => ({
-      a: ra,
-      b: rb,
-      delta: ra.rate !== null && rb.rate !== null ? rb.rate - ra.rate : null,
-      fisherP:
-        ra.n && rb.n ? fisherExact(rb.k, rb.n - rb.k, ra.k, ra.n - ra.k) : null,
-    });
     const fp = rateDiff(A.fullPass, B.fullPass);
-    diff = {
+    const tiers = Object.fromEntries(
+      ORACLE_TIERS.map((t) => [t.id, rateDiff(A.tiers[t.id]!, B.tiers[t.id]!)]),
+    );
+    const primary =
+      tiers.fullstack?.a.n && tiers.fullstack.b.n ? tiers.fullstack : fp;
+    return {
       a: A.arm,
       b: B.arm,
       fullPass: fp,
+      tiers,
       checks: Object.fromEntries(
         checkIds.map((c) => [c, rateDiff(A.checks[c]!, B.checks[c]!)]),
       ),
@@ -332,19 +354,26 @@ export function compare(
         ]),
       ),
       trialsNeededPerArm:
-        fp.a.rate !== null && fp.b.rate !== null && fp.a.rate !== fp.b.rate
+        primary.a.rate !== null &&
+        primary.b.rate !== null &&
+        primary.a.rate !== primary.b.rate
           ? trialsNeeded(
-              Math.min(Math.max(fp.a.rate, 0.01), 0.99),
-              Math.min(Math.max(fp.b.rate, 0.01), 0.99),
+              Math.min(Math.max(primary.a.rate, 0.05), 0.95),
+              Math.min(Math.max(primary.b.rate, 0.05), 0.95),
             )
           : null,
     };
-  }
+  };
+  const A = arms.find((x) => x.arm === a);
+  const B = arms.find((x) => x.arm === b);
+  const diff = A && B && A !== B ? diffOf(A, B) : null;
+  const diffs = B ? arms.filter((x) => x !== B).map((x) => diffOf(x, B)) : [];
   return {
     schema: COMPARE_SCHEMA,
     createdAt: new Date().toISOString(),
     arms,
     diff,
+    diffs,
     warnings,
   };
 }
@@ -378,6 +407,13 @@ export function toMarkdown(report: ComparisonReport): string {
   out.push(
     `| **Full pass (all checks)** | ${arms.map((a) => rateText(a.fullPass)).join(" | ")}${d ? ` | ${d.fullPass.delta === null ? "–" : `${d.fullPass.delta >= 0 ? "+" : ""}${Math.round(d.fullPass.delta * 100)} pts, Fisher p=${fmt(d.fullPass.fisherP, 3)}`} |` : " |"}`,
   );
+  for (const t of ORACLE_TIERS) {
+    if (arms.every((a) => !a.tiers[t.id]?.n)) continue;
+    const dt = d?.tiers[t.id];
+    out.push(
+      `| ${t.label} | ${arms.map((a) => rateText(a.tiers[t.id]!)).join(" | ")}${d ? ` | ${dt?.delta === null || dt === undefined ? "–" : `${dt.delta >= 0 ? "+" : ""}${Math.round(dt.delta * 100)} pts, Fisher p=${fmt(dt.fisherP, 3)}`} |` : " |"}`,
+    );
+  }
   for (const c of Object.keys(arms[0]?.checks ?? {})) {
     const dc = d?.checks[c];
     out.push(
@@ -399,7 +435,7 @@ export function toMarkdown(report: ComparisonReport): string {
         ? "–"
         : `${dm.delta >= 0 ? "+" : ""}${fmt(dm.delta)}${dm.low !== null ? ` (${fmt(dm.low)} to ${fmt(dm.high)})` : " (n too small for CI)"}`;
     out.push(
-      `| ${def.label} (${def.unit}, ${def.better} is better) | ${cells.join(" | ")}${d ? ` | ${dcell} |` : " |"}`,
+      `| ${def.label} (${def.unit}${def.better === "neutral" ? "" : `, ${def.better} is better`}) | ${cells.join(" | ")}${d ? ` | ${dcell} |` : " |"}`,
     );
   }
   out.push("");
@@ -408,7 +444,7 @@ export function toMarkdown(report: ComparisonReport): string {
   if (d?.trialsNeededPerArm)
     out.push(
       "",
-      `To show the observed full-pass difference (${pct(d.fullPass.a.rate)} → ${pct(d.fullPass.b.rate)}) at p<0.05 with 80% power, run about **${d.trialsNeededPerArm} lobbies per arm**.`,
+      `To show the observed full-stack difference at p<0.05 with 80% power, run about **${d.trialsNeededPerArm} lobbies per arm** (rates clamped to 5–95% for planning).`,
     );
   out.push(
     "",
@@ -431,6 +467,7 @@ export function toCsv(
     "passed",
     "total",
     "fullPass",
+    ...ORACLE_TIERS.map((t) => `tier_${t.id}`),
     ...checkIds.map((c) => `check${c}`),
     ...METRICS.map((d) => d.id),
   ];
@@ -446,6 +483,7 @@ export function toCsv(
       m.outcome.passed,
       m.outcome.total,
       bool(m.outcome.fullPass),
+      ...ORACLE_TIERS.map((t) => bool(m.outcome.tiers?.[t.id])),
       ...checkIds.map((c) => bool(m.outcome.checks[c])),
       ...METRICS.map((d) => d.pick(m)),
     ]);

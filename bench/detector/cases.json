@@ -1,0 +1,1018 @@
+{
+  "schema": "dibs.detector-cases/v1",
+  "labelRule": "A key is labelled only when at least one agent produces it and another requires it. 'mismatch': the plans can't both be built as written; the analyzer should raise a proposal (conflict, dependency or duplicate). 'consistent': they can; any proposal is a false alarm. labels null = every shared key is consistent.",
+  "cases": [
+    {
+      "id": "s2-bearer-vs-cookie",
+      "split": "dev",
+      "scenario": "s",
+      "plans": {
+        "claude": {
+          "goal": "Implement login, /api/me and the current-user helper in src/auth.",
+          "produces": [
+            {
+              "key": "auth.session",
+              "text": "POST /api/login with {email,password} returns 200 {token} (random opaque token stored in store.sessions). Clients send it as Authorization: Bearer <token>. GET /api/me returns 200 {id,email} for a valid bearer token, 401 otherwise. No cookies are set."
+            },
+            {
+              "key": "auth.server",
+              "text": "src/auth/index.js exports requireUser(req, res, next): reads Authorization: Bearer <token>, sets req.user = {id,email} and calls next(); responds 401 {error} when the header is missing or the token is unknown."
+            }
+          ],
+          "requires": [],
+          "notes": "Bearer tokens are my tentative default; I can switch to a cookie if the UI needs it."
+        },
+        "codex": {
+          "goal": "Implement public/app.js: log in from the form, then register for the event and show the status.",
+          "produces": [],
+          "requires": [
+            {
+              "key": "auth.session",
+              "text": "POST /api/login sets an httpOnly session cookie; same-origin fetch sends it automatically, so the UI never stores or sends a token."
+            },
+            {
+              "key": "events.registration",
+              "text": "POST /api/events/<data-event-id>/registrations with no body returns 201 on success and 409 if already registered; 401 when not logged in."
+            }
+          ],
+          "notes": "Cookie session is my tentative default."
+        },
+        "droid": {
+          "goal": "Implement POST /api/events/:eventId/registrations in src/events.",
+          "produces": [
+            {
+              "key": "events.registration",
+              "text": "POST /api/events/:eventId/registrations (no body). 201 {id,eventId,userId} with a new UUID id; 409 {error} if this user is already registered; 404 {error} for an unknown event; 401 {error} when not logged in."
+            }
+          ],
+          "requires": [
+            {
+              "key": "auth.server",
+              "text": "A middleware exported from src/auth/index.js that sets req.user {id,email} or responds 401."
+            }
+          ],
+          "notes": ""
+        }
+      },
+      "labels": {
+        "auth.session": "mismatch",
+        "auth.server": "consistent",
+        "events.registration": "consistent"
+      },
+      "note": "From bench/dev (used to tune the analysis prompt)."
+    },
+    {
+      "id": "s2-helper-name-mismatch",
+      "split": "dev",
+      "scenario": "s",
+      "plans": {
+        "claude": {
+          "goal": "Implement auth with an httpOnly cookie session.",
+          "produces": [
+            {
+              "key": "auth.session",
+              "text": "POST /api/login sets an httpOnly cookie sid=<random id> and returns 200 {id,email}; GET /api/me returns 200 {id,email} from the cookie, 401 without it."
+            },
+            {
+              "key": "auth.server",
+              "text": "src/auth/index.js exports getCurrentUser(req): returns {id,email} or null. Callers decide how to respond."
+            }
+          ],
+          "requires": [],
+          "notes": ""
+        },
+        "codex": {
+          "goal": "Implement the page behaviour in public/app.js.",
+          "produces": [],
+          "requires": [
+            {
+              "key": "auth.session",
+              "text": "Login sets an httpOnly cookie; the UI relies on same-origin fetch sending it."
+            },
+            {
+              "key": "events.registration",
+              "text": "201 means registered, 409 means already registered, 401 means not logged in."
+            }
+          ],
+          "notes": ""
+        },
+        "droid": {
+          "goal": "Implement event registration.",
+          "produces": [
+            {
+              "key": "events.registration",
+              "text": "POST /api/events/:eventId/registrations returns 201 {id,eventId,userId}, 409 on a repeat, 404 unknown event, 401 unauthenticated."
+            }
+          ],
+          "requires": [
+            {
+              "key": "auth.server",
+              "text": "src/auth/index.js exports requireUser as Express middleware that sets req.user and sends 401 itself."
+            }
+          ],
+          "notes": ""
+        }
+      },
+      "labels": {
+        "auth.session": "consistent",
+        "auth.server": "mismatch",
+        "events.registration": "consistent"
+      },
+      "note": "From bench/dev (used to tune the analysis prompt)."
+    },
+    {
+      "id": "s2-status-code-mismatch",
+      "split": "dev",
+      "scenario": "s",
+      "plans": {
+        "claude": {
+          "goal": "Implement cookie auth.",
+          "produces": [
+            {
+              "key": "auth.session",
+              "text": "httpOnly cookie sid set by POST /api/login (200 {id,email}); GET /api/me 200 {id,email} or 401."
+            },
+            {
+              "key": "auth.server",
+              "text": "src/auth/index.js exports requireUser(req,res,next) middleware: sets req.user or responds 401."
+            }
+          ],
+          "requires": [],
+          "notes": ""
+        },
+        "codex": {
+          "goal": "Implement the UI.",
+          "produces": [],
+          "requires": [
+            {
+              "key": "auth.session",
+              "text": "Cookie session sent automatically by same-origin fetch."
+            },
+            {
+              "key": "events.registration",
+              "text": "A repeat registration returns 200 {alreadyRegistered:true}; the UI shows \"Already registered\" when that flag is set."
+            }
+          ],
+          "notes": ""
+        },
+        "droid": {
+          "goal": "Implement registration.",
+          "produces": [
+            {
+              "key": "events.registration",
+              "text": "201 {id,eventId,userId} on success; 409 {error:\"Already registered\"} on a repeat; 404 unknown event; 401 unauthenticated."
+            }
+          ],
+          "requires": [
+            {
+              "key": "auth.server",
+              "text": "requireUser middleware from src/auth/index.js."
+            }
+          ],
+          "notes": ""
+        }
+      },
+      "labels": {
+        "auth.session": "consistent",
+        "auth.server": "consistent",
+        "events.registration": "mismatch"
+      },
+      "note": "From bench/dev (used to tune the analysis prompt)."
+    },
+    {
+      "id": "s-all-cookie",
+      "split": "dev",
+      "scenario": "s",
+      "plans": {
+        "claude": {
+          "goal": "Implement cookie auth in src/auth.",
+          "produces": [
+            {
+              "key": "auth.session",
+              "text": "POST /api/login sets an httpOnly cookie sid and returns 200 {id,email}; GET /api/me 200 {id,email} or 401."
+            },
+            {
+              "key": "auth.server",
+              "text": "src/auth/index.js exports requireUser(req,res,next): sets req.user {id,email} from the sid cookie or responds 401 {error}."
+            }
+          ],
+          "requires": [],
+          "notes": ""
+        },
+        "codex": {
+          "goal": "Implement public/app.js.",
+          "produces": [],
+          "requires": [
+            {
+              "key": "auth.session",
+              "text": "Login sets an httpOnly cookie that same-origin fetch sends automatically."
+            },
+            {
+              "key": "events.registration",
+              "text": "201 registered, 409 already registered, 401 not logged in."
+            }
+          ],
+          "notes": ""
+        },
+        "droid": {
+          "goal": "Implement registration in src/events.",
+          "produces": [
+            {
+              "key": "events.registration",
+              "text": "POST /api/events/:eventId/registrations: 201 {id,eventId,userId}; 409 repeat; 404 unknown event; 401 unauthenticated."
+            }
+          ],
+          "requires": [
+            {
+              "key": "auth.server",
+              "text": "requireUser middleware from src/auth/index.js that sets req.user or responds 401."
+            }
+          ],
+          "notes": ""
+        }
+      },
+      "labels": null,
+      "note": "From bench/dev (used to tune the analysis prompt)."
+    },
+    {
+      "id": "s-all-bearer",
+      "split": "dev",
+      "scenario": "s",
+      "plans": {
+        "claude": {
+          "goal": "Implement bearer-token auth.",
+          "produces": [
+            {
+              "key": "auth.session",
+              "text": "POST /api/login returns 200 {token}; clients send Authorization: Bearer <token>; GET /api/me 200 {id,email} or 401."
+            },
+            {
+              "key": "auth.server",
+              "text": "src/auth/index.js exports requireUser(req,res,next) reading the bearer token; sets req.user or responds 401."
+            }
+          ],
+          "requires": [],
+          "notes": ""
+        },
+        "codex": {
+          "goal": "Implement the UI.",
+          "produces": [],
+          "requires": [
+            {
+              "key": "auth.session",
+              "text": "Login returns {token}; the UI keeps it in memory and sends Authorization: Bearer <token> on later requests."
+            },
+            {
+              "key": "events.registration",
+              "text": "201 registered, 409 already registered, 401 not logged in."
+            }
+          ],
+          "notes": ""
+        },
+        "droid": {
+          "goal": "Implement registration.",
+          "produces": [
+            {
+              "key": "events.registration",
+              "text": "201 {id,eventId,userId}; 409 on repeat; 404 unknown event; 401 unauthenticated."
+            }
+          ],
+          "requires": [
+            {
+              "key": "auth.server",
+              "text": "requireUser middleware from src/auth/index.js."
+            }
+          ],
+          "notes": ""
+        }
+      },
+      "labels": null,
+      "note": "From bench/dev (used to tune the analysis prompt)."
+    },
+    {
+      "id": "n-unrelated",
+      "split": "dev",
+      "scenario": "n",
+      "plans": {
+        "claude": {
+          "goal": "Add public/about.html with an About heading and a link to the contributing guide.",
+          "produces": [
+            {
+              "key": "docs.links",
+              "text": "public/about.html has an <h1>About</h1> and a link with the text \"Contributing guide\" to docs/CONTRIBUTING.md."
+            }
+          ],
+          "requires": [],
+          "notes": ""
+        },
+        "codex": {
+          "goal": "Add src/util/slug.js exporting slugify(text) with tests in test/util/.",
+          "produces": [],
+          "requires": [],
+          "notes": "No shared interfaces."
+        },
+        "droid": {
+          "goal": "Write docs/CONTRIBUTING.md: install, npm start, npm test.",
+          "produces": [],
+          "requires": [
+            {
+              "key": "docs.links",
+              "text": "The guide lives at docs/CONTRIBUTING.md; other pages may link to it by that path."
+            }
+          ],
+          "notes": ""
+        }
+      },
+      "labels": null,
+      "note": "From bench/dev (used to tune the analysis prompt)."
+    },
+    {
+      "id": "h-cookie-vs-localstorage",
+      "split": "heldout",
+      "scenario": "s",
+      "note": "Reverse of the planted case: the server uses a cookie, the UI expects a token in localStorage.",
+      "plans": {
+        "claude": {
+          "goal": "Implement login, /api/me and the current-user helper in src/auth.",
+          "produces": [
+            {
+              "key": "auth.session",
+              "text": "POST /api/login {email,password} sets an httpOnly cookie named sid and returns 200 {id,email}. GET /api/me reads the sid cookie: 200 {id,email}, else 401. No tokens in response bodies."
+            },
+            {
+              "key": "auth.server",
+              "text": "src/auth/index.js exports getCurrentUser(req): reads the sid cookie and returns {id,email} or null."
+            }
+          ],
+          "requires": [],
+          "notes": ""
+        },
+        "codex": {
+          "goal": "Implement public/app.js: log in from the form, then register for the event and show the status.",
+          "produces": [],
+          "requires": [
+            {
+              "key": "auth.session",
+              "text": "Login returns {token} in the JSON body; the UI saves it to localStorage and sends Authorization: Bearer <token> on later requests."
+            },
+            {
+              "key": "events.registration",
+              "text": "POST /api/events/<data-event-id>/registrations with no body: 201 shows \"Registered\", 409 shows \"Already registered\", 404 shows \"Event not found\", 401 asks the user to log in."
+            }
+          ],
+          "notes": ""
+        },
+        "droid": {
+          "goal": "Implement POST /api/events/:eventId/registrations in src/events.",
+          "produces": [
+            {
+              "key": "events.registration",
+              "text": "POST /api/events/:eventId/registrations (no body). 201 {id,eventId,userId}; 409 {error} if already registered; 404 {error} for an unknown event; 401 {error} when not logged in."
+            }
+          ],
+          "requires": [
+            {
+              "key": "auth.server",
+              "text": "getCurrentUser(req) from src/auth/index.js returning the user or null."
+            }
+          ],
+          "notes": ""
+        }
+      },
+      "labels": {
+        "auth.session": "mismatch",
+        "auth.server": "consistent",
+        "events.registration": "consistent"
+      }
+    },
+    {
+      "id": "h-token-field-name",
+      "split": "heldout",
+      "scenario": "s",
+      "note": "Both sides use bearer tokens, but the login response field differs (accessToken vs token).",
+      "plans": {
+        "claude": {
+          "goal": "Implement login, /api/me and the current-user helper in src/auth.",
+          "produces": [
+            {
+              "key": "auth.session",
+              "text": "POST /api/login {email,password} returns 200 {accessToken} (no other fields); clients send Authorization: Bearer <accessToken>. GET /api/me: 200 {id,email} or 401."
+            },
+            {
+              "key": "auth.server",
+              "text": "src/auth/index.js exports getCurrentUser(req): returns {id,email} for a valid bearer token, otherwise null. Routes respond 401 themselves when it returns null."
+            }
+          ],
+          "requires": [],
+          "notes": ""
+        },
+        "codex": {
+          "goal": "Implement public/app.js: log in from the form, then register for the event and show the status.",
+          "produces": [],
+          "requires": [
+            {
+              "key": "auth.session",
+              "text": "Login responds 200 with JSON {token}; the UI reads response.token, keeps it in memory and sends Authorization: Bearer <token>."
+            },
+            {
+              "key": "events.registration",
+              "text": "POST /api/events/<data-event-id>/registrations with no body: 201 shows \"Registered\", 409 shows \"Already registered\", 404 shows \"Event not found\", 401 asks the user to log in."
+            }
+          ],
+          "notes": ""
+        },
+        "droid": {
+          "goal": "Implement POST /api/events/:eventId/registrations in src/events.",
+          "produces": [
+            {
+              "key": "events.registration",
+              "text": "POST /api/events/:eventId/registrations (no body). 201 {id,eventId,userId}; 409 {error} if already registered; 404 {error} for an unknown event; 401 {error} when not logged in."
+            }
+          ],
+          "requires": [
+            {
+              "key": "auth.server",
+              "text": "getCurrentUser(req) from src/auth/index.js returning the user or null; this route sends 401 {error} when it is null."
+            }
+          ],
+          "notes": ""
+        }
+      },
+      "labels": {
+        "auth.session": "mismatch",
+        "auth.server": "consistent",
+        "events.registration": "consistent"
+      }
+    },
+    {
+      "id": "h-header-scheme",
+      "split": "heldout",
+      "scenario": "s",
+      "note": "Token transport agreed in spirit, but the server reads a custom header the UI never sends.",
+      "plans": {
+        "claude": {
+          "goal": "Implement login, /api/me and the current-user helper in src/auth.",
+          "produces": [
+            {
+              "key": "auth.session",
+              "text": "POST /api/login returns 200 {token}. Authenticated requests must send the token in an X-Session-Token header; /api/me reads only that header (200 {id,email}, else 401)."
+            },
+            {
+              "key": "auth.server",
+              "text": "src/auth/index.js exports getCurrentUser(req): reads the X-Session-Token header and returns {id,email} or null."
+            }
+          ],
+          "requires": [],
+          "notes": ""
+        },
+        "codex": {
+          "goal": "Implement public/app.js: log in from the form, then register for the event and show the status.",
+          "produces": [],
+          "requires": [
+            {
+              "key": "auth.session",
+              "text": "Login responds with {token}; the UI keeps it in memory and sends Authorization: Bearer <token> on /api/me and registration requests."
+            },
+            {
+              "key": "events.registration",
+              "text": "POST /api/events/<data-event-id>/registrations with no body: 201 shows \"Registered\", 409 shows \"Already registered\", 404 shows \"Event not found\", 401 asks the user to log in."
+            }
+          ],
+          "notes": ""
+        },
+        "droid": {
+          "goal": "Implement POST /api/events/:eventId/registrations in src/events.",
+          "produces": [
+            {
+              "key": "events.registration",
+              "text": "POST /api/events/:eventId/registrations (no body). 201 {id,eventId,userId}; 409 {error} if already registered; 404 {error} for an unknown event; 401 {error} when not logged in."
+            }
+          ],
+          "requires": [
+            {
+              "key": "auth.server",
+              "text": "getCurrentUser(req) from src/auth/index.js returning the user or null; this route sends 401 {error} when it is null."
+            }
+          ],
+          "notes": ""
+        }
+      },
+      "labels": {
+        "auth.session": "mismatch",
+        "auth.server": "consistent",
+        "events.registration": "consistent"
+      }
+    },
+    {
+      "id": "h-helper-async-throws",
+      "split": "heldout",
+      "scenario": "s",
+      "note": "The helper's contract differs: sync and null-returning vs async and throwing a 401 error.",
+      "plans": {
+        "claude": {
+          "goal": "Implement login, /api/me and the current-user helper in src/auth.",
+          "produces": [
+            {
+              "key": "auth.session",
+              "text": "POST /api/login {email,password} returns 200 {token}; the client sends Authorization: Bearer <token>. GET /api/me returns 200 {id,email} for a valid token, else 401. No cookies."
+            },
+            {
+              "key": "auth.server",
+              "text": "src/auth/index.js exports getCurrentUser(req): returns {id,email} for a valid bearer token, otherwise null. Routes respond 401 themselves when it returns null."
+            }
+          ],
+          "requires": [],
+          "notes": ""
+        },
+        "codex": {
+          "goal": "Implement public/app.js: log in from the form, then register for the event and show the status.",
+          "produces": [],
+          "requires": [
+            {
+              "key": "auth.session",
+              "text": "Login responds with {token}; the UI keeps it in memory and sends Authorization: Bearer <token> on /api/me and registration requests."
+            },
+            {
+              "key": "events.registration",
+              "text": "POST /api/events/<data-event-id>/registrations with no body: 201 shows \"Registered\", 409 shows \"Already registered\", 404 shows \"Event not found\", 401 asks the user to log in."
+            }
+          ],
+          "notes": ""
+        },
+        "droid": {
+          "goal": "Implement POST /api/events/:eventId/registrations in src/events.",
+          "produces": [
+            {
+              "key": "events.registration",
+              "text": "POST /api/events/:eventId/registrations (no body). 201 {id,eventId,userId}; 409 {error} if already registered; 404 {error} for an unknown event; 401 {error} when not logged in."
+            }
+          ],
+          "requires": [
+            {
+              "key": "auth.server",
+              "text": "An async getUser(req) exported from src/auth/index.js; I await it and it throws an HttpError with status 401 when the user isn't logged in, which my error handler turns into 401 {error}."
+            }
+          ],
+          "notes": ""
+        }
+      },
+      "labels": {
+        "auth.session": "consistent",
+        "auth.server": "mismatch",
+        "events.registration": "consistent"
+      }
+    },
+    {
+      "id": "h-registration-body",
+      "split": "heldout",
+      "scenario": "s",
+      "note": "The route requires a JSON body with userId; the UI sends no body.",
+      "plans": {
+        "claude": {
+          "goal": "Implement login, /api/me and the current-user helper in src/auth.",
+          "produces": [
+            {
+              "key": "auth.session",
+              "text": "POST /api/login {email,password} returns 200 {token}; the client sends Authorization: Bearer <token>. GET /api/me returns 200 {id,email} for a valid token, else 401. No cookies."
+            },
+            {
+              "key": "auth.server",
+              "text": "src/auth/index.js exports getCurrentUser(req): returns {id,email} for a valid bearer token, otherwise null. Routes respond 401 themselves when it returns null."
+            }
+          ],
+          "requires": [],
+          "notes": ""
+        },
+        "codex": {
+          "goal": "Implement public/app.js: log in from the form, then register for the event and show the status.",
+          "produces": [],
+          "requires": [
+            {
+              "key": "auth.session",
+              "text": "Login responds with {token}; the UI keeps it in memory and sends Authorization: Bearer <token> on /api/me and registration requests."
+            },
+            {
+              "key": "events.registration",
+              "text": "POST /api/events/<data-event-id>/registrations with no body: 201 shows \"Registered\", 409 shows \"Already registered\", 404 shows \"Event not found\", 401 asks the user to log in."
+            }
+          ],
+          "notes": ""
+        },
+        "droid": {
+          "goal": "Implement POST /api/events/:eventId/registrations in src/events.",
+          "produces": [
+            {
+              "key": "events.registration",
+              "text": "POST /api/events/:eventId/registrations with JSON body {userId}; the server checks it matches the logged-in user. 400 {error} if the body is missing; 201 {id,eventId,userId}; 409 repeat; 404 unknown event; 401 not logged in."
+            }
+          ],
+          "requires": [
+            {
+              "key": "auth.server",
+              "text": "getCurrentUser(req) from src/auth/index.js returning the user or null; this route sends 401 {error} when it is null."
+            }
+          ],
+          "notes": ""
+        }
+      },
+      "labels": {
+        "auth.session": "consistent",
+        "auth.server": "consistent",
+        "events.registration": "mismatch"
+      }
+    },
+    {
+      "id": "h-200-vs-201",
+      "split": "heldout",
+      "scenario": "s",
+      "note": "The route returns 200 on success; the UI treats only 201 as success.",
+      "plans": {
+        "claude": {
+          "goal": "Implement login, /api/me and the current-user helper in src/auth.",
+          "produces": [
+            {
+              "key": "auth.session",
+              "text": "POST /api/login {email,password} returns 200 {token}; the client sends Authorization: Bearer <token>. GET /api/me returns 200 {id,email} for a valid token, else 401. No cookies."
+            },
+            {
+              "key": "auth.server",
+              "text": "src/auth/index.js exports getCurrentUser(req): returns {id,email} for a valid bearer token, otherwise null. Routes respond 401 themselves when it returns null."
+            }
+          ],
+          "requires": [],
+          "notes": ""
+        },
+        "codex": {
+          "goal": "Implement public/app.js: log in from the form, then register for the event and show the status.",
+          "produces": [],
+          "requires": [
+            {
+              "key": "auth.session",
+              "text": "Login responds with {token}; the UI keeps it in memory and sends Authorization: Bearer <token> on /api/me and registration requests."
+            },
+            {
+              "key": "events.registration",
+              "text": "POST /api/events/<data-event-id>/registrations, no body. Only status 201 shows \"Registered\"; 409 shows \"Already registered\"; anything else shows an error."
+            }
+          ],
+          "notes": ""
+        },
+        "droid": {
+          "goal": "Implement POST /api/events/:eventId/registrations in src/events.",
+          "produces": [
+            {
+              "key": "events.registration",
+              "text": "POST /api/events/:eventId/registrations (no body). 200 {id,eventId,userId} on success; 409 {error} if already registered; 404 unknown event; 401 not logged in."
+            }
+          ],
+          "requires": [
+            {
+              "key": "auth.server",
+              "text": "getCurrentUser(req) from src/auth/index.js returning the user or null; this route sends 401 {error} when it is null."
+            }
+          ],
+          "notes": ""
+        }
+      },
+      "labels": {
+        "auth.session": "consistent",
+        "auth.server": "consistent",
+        "events.registration": "mismatch"
+      }
+    },
+    {
+      "id": "h-404-vs-400",
+      "split": "heldout",
+      "scenario": "s",
+      "note": "Unknown event: the route returns 400, the UI handles 404.",
+      "plans": {
+        "claude": {
+          "goal": "Implement login, /api/me and the current-user helper in src/auth.",
+          "produces": [
+            {
+              "key": "auth.session",
+              "text": "POST /api/login {email,password} returns 200 {token}; the client sends Authorization: Bearer <token>. GET /api/me returns 200 {id,email} for a valid token, else 401. No cookies."
+            },
+            {
+              "key": "auth.server",
+              "text": "src/auth/index.js exports getCurrentUser(req): returns {id,email} for a valid bearer token, otherwise null. Routes respond 401 themselves when it returns null."
+            }
+          ],
+          "requires": [],
+          "notes": ""
+        },
+        "codex": {
+          "goal": "Implement public/app.js: log in from the form, then register for the event and show the status.",
+          "produces": [],
+          "requires": [
+            {
+              "key": "auth.session",
+              "text": "Login responds with {token}; the UI keeps it in memory and sends Authorization: Bearer <token> on /api/me and registration requests."
+            },
+            {
+              "key": "events.registration",
+              "text": "POST /api/events/<data-event-id>/registrations with no body: 201 shows \"Registered\", 409 shows \"Already registered\", 404 shows \"Event not found\", 401 asks the user to log in."
+            }
+          ],
+          "notes": ""
+        },
+        "droid": {
+          "goal": "Implement POST /api/events/:eventId/registrations in src/events.",
+          "produces": [
+            {
+              "key": "events.registration",
+              "text": "POST /api/events/:eventId/registrations (no body). 201 {id,eventId,userId}; 409 {error} repeat; 400 {error:\"bad event\"} when the event id is unknown; 401 not logged in."
+            }
+          ],
+          "requires": [
+            {
+              "key": "auth.server",
+              "text": "getCurrentUser(req) from src/auth/index.js returning the user or null; this route sends 401 {error} when it is null."
+            }
+          ],
+          "notes": ""
+        }
+      },
+      "labels": {
+        "auth.session": "consistent",
+        "auth.server": "consistent",
+        "events.registration": "mismatch"
+      }
+    },
+    {
+      "id": "h-middleware-vs-helper",
+      "split": "heldout",
+      "scenario": "s",
+      "note": "Droid relies on req.user set by middleware; Claude only exports a lookup function and mounts nothing.",
+      "plans": {
+        "claude": {
+          "goal": "Implement login, /api/me and the current-user helper in src/auth.",
+          "produces": [
+            {
+              "key": "auth.session",
+              "text": "POST /api/login {email,password} returns 200 {token}; the client sends Authorization: Bearer <token>. GET /api/me returns 200 {id,email} for a valid token, else 401. No cookies."
+            },
+            {
+              "key": "auth.server",
+              "text": "src/auth/index.js exports getCurrentUser(req) returning {id,email} or null. No middleware is mounted; routes call the function themselves."
+            }
+          ],
+          "requires": [],
+          "notes": ""
+        },
+        "codex": {
+          "goal": "Implement public/app.js: log in from the form, then register for the event and show the status.",
+          "produces": [],
+          "requires": [
+            {
+              "key": "auth.session",
+              "text": "Login responds with {token}; the UI keeps it in memory and sends Authorization: Bearer <token> on /api/me and registration requests."
+            },
+            {
+              "key": "events.registration",
+              "text": "POST /api/events/<data-event-id>/registrations with no body: 201 shows \"Registered\", 409 shows \"Already registered\", 404 shows \"Event not found\", 401 asks the user to log in."
+            }
+          ],
+          "notes": ""
+        },
+        "droid": {
+          "goal": "Implement POST /api/events/:eventId/registrations in src/events.",
+          "produces": [
+            {
+              "key": "events.registration",
+              "text": "POST /api/events/:eventId/registrations (no body). 201 {id,eventId,userId}; 409 {error} if already registered; 404 {error} for an unknown event; 401 {error} when not logged in."
+            }
+          ],
+          "requires": [
+            {
+              "key": "auth.server",
+              "text": "req.user is already set to {id,email} by the auth middleware for every request; my route just reads req.user and sends 401 when it's undefined."
+            }
+          ],
+          "notes": ""
+        }
+      },
+      "labels": {
+        "auth.session": "consistent",
+        "auth.server": "mismatch",
+        "events.registration": "consistent"
+      }
+    },
+    {
+      "id": "h-consistent-409-wording",
+      "split": "heldout",
+      "scenario": "s",
+      "note": "All consistent; the 409 is described in different words on each side.",
+      "plans": {
+        "claude": {
+          "goal": "Implement login, /api/me and the current-user helper in src/auth.",
+          "produces": [
+            {
+              "key": "auth.session",
+              "text": "POST /api/login {email,password} returns 200 {token}; the client sends Authorization: Bearer <token>. GET /api/me returns 200 {id,email} for a valid token, else 401. No cookies."
+            },
+            {
+              "key": "auth.server",
+              "text": "src/auth/index.js exports getCurrentUser(req): returns {id,email} for a valid bearer token, otherwise null. Routes respond 401 themselves when it returns null."
+            }
+          ],
+          "requires": [],
+          "notes": ""
+        },
+        "codex": {
+          "goal": "Implement public/app.js: log in from the form, then register for the event and show the status.",
+          "produces": [],
+          "requires": [
+            {
+              "key": "auth.session",
+              "text": "Login responds with {token}; the UI keeps it in memory and sends Authorization: Bearer <token> on /api/me and registration requests."
+            },
+            {
+              "key": "events.registration",
+              "text": "Registering twice gives HTTP 409, which the UI shows as \"Already registered\"; a fresh registration gives 201 and shows \"Registered\". 401 means log in first; 404 shows \"Event not found\"."
+            }
+          ],
+          "notes": ""
+        },
+        "droid": {
+          "goal": "Implement POST /api/events/:eventId/registrations in src/events.",
+          "produces": [
+            {
+              "key": "events.registration",
+              "text": "Duplicate registration by the same user: 409 {error:\"Already registered\"}. Otherwise 201 {id,eventId,userId}. Unknown event 404 {error}; no session 401 {error}. The request has no body."
+            }
+          ],
+          "requires": [
+            {
+              "key": "auth.server",
+              "text": "getCurrentUser(req) from src/auth/index.js returning the user or null; this route sends 401 {error} when it is null."
+            }
+          ],
+          "notes": ""
+        }
+      },
+      "labels": {
+        "auth.session": "consistent",
+        "auth.server": "consistent",
+        "events.registration": "consistent"
+      }
+    },
+    {
+      "id": "h-consistent-cookie-paraphrase",
+      "split": "heldout",
+      "scenario": "s",
+      "note": "All consistent on cookies, phrased very differently by each agent.",
+      "plans": {
+        "claude": {
+          "goal": "Implement login, /api/me and the current-user helper in src/auth.",
+          "produces": [
+            {
+              "key": "auth.session",
+              "text": "POST /api/login {email,password} sets an httpOnly cookie named sid and returns 200 {id,email}. GET /api/me reads the sid cookie: 200 {id,email}, else 401. No tokens in response bodies."
+            },
+            {
+              "key": "auth.server",
+              "text": "src/auth/index.js exports getCurrentUser(req): reads the sid cookie and returns {id,email} or null."
+            }
+          ],
+          "requires": [],
+          "notes": ""
+        },
+        "codex": {
+          "goal": "Implement public/app.js: log in from the form, then register for the event and show the status.",
+          "produces": [],
+          "requires": [
+            {
+              "key": "auth.session",
+              "text": "After a successful login the browser holds the session cookie, so same-origin fetch calls to /api/me and registration are authenticated without the UI touching any token."
+            },
+            {
+              "key": "events.registration",
+              "text": "POST /api/events/<data-event-id>/registrations with no body: 201 shows \"Registered\", 409 shows \"Already registered\", 404 shows \"Event not found\", 401 asks the user to log in."
+            }
+          ],
+          "notes": ""
+        },
+        "droid": {
+          "goal": "Implement POST /api/events/:eventId/registrations in src/events.",
+          "produces": [
+            {
+              "key": "events.registration",
+              "text": "POST /api/events/:eventId/registrations (no body). 201 {id,eventId,userId}; 409 {error} if already registered; 404 {error} for an unknown event; 401 {error} when not logged in."
+            }
+          ],
+          "requires": [
+            {
+              "key": "auth.server",
+              "text": "A function in src/auth/index.js, getCurrentUser(req), that resolves the cookie session to {id,email} or null."
+            }
+          ],
+          "notes": ""
+        }
+      },
+      "labels": {
+        "auth.session": "consistent",
+        "auth.server": "consistent",
+        "events.registration": "consistent"
+      }
+    },
+    {
+      "id": "h-consistent-bearer-paraphrase",
+      "split": "heldout",
+      "scenario": "s",
+      "note": "All consistent on bearer tokens, phrased differently by each agent.",
+      "plans": {
+        "claude": {
+          "goal": "Implement login, /api/me and the current-user helper in src/auth.",
+          "produces": [
+            {
+              "key": "auth.session",
+              "text": "The login endpoint answers with a JSON body holding a token string under the key \"token\". Callers prove identity by putting that token in the Authorization header with the Bearer scheme; /api/me echoes {id,email} or 401."
+            },
+            {
+              "key": "auth.server",
+              "text": "src/auth/index.js exports getCurrentUser(req): returns {id,email} for a valid bearer token, otherwise null. Routes respond 401 themselves when it returns null."
+            }
+          ],
+          "requires": [],
+          "notes": ""
+        },
+        "codex": {
+          "goal": "Implement public/app.js: log in from the form, then register for the event and show the status.",
+          "produces": [],
+          "requires": [
+            {
+              "key": "auth.session",
+              "text": "Read token from the login response body and attach `Authorization: Bearer ${token}` to every later fetch; nothing is stored in cookies."
+            },
+            {
+              "key": "events.registration",
+              "text": "POST /api/events/<data-event-id>/registrations with no body: 201 shows \"Registered\", 409 shows \"Already registered\", 404 shows \"Event not found\", 401 asks the user to log in."
+            }
+          ],
+          "notes": ""
+        },
+        "droid": {
+          "goal": "Implement POST /api/events/:eventId/registrations in src/events.",
+          "produces": [
+            {
+              "key": "events.registration",
+              "text": "POST /api/events/:eventId/registrations (no body). 201 {id,eventId,userId}; 409 {error} if already registered; 404 {error} for an unknown event; 401 {error} when not logged in."
+            }
+          ],
+          "requires": [
+            {
+              "key": "auth.server",
+              "text": "Use getCurrentUser(req) from src/auth/index.js; null means unauthenticated and I reply 401."
+            }
+          ],
+          "notes": ""
+        }
+      },
+      "labels": {
+        "auth.session": "consistent",
+        "auth.server": "consistent",
+        "events.registration": "consistent"
+      }
+    },
+    {
+      "id": "h-n-unrelated-path",
+      "split": "heldout",
+      "scenario": "n",
+      "note": "Unrelated work; the one shared key agrees on the guide's path.",
+      "plans": {
+        "claude": {
+          "goal": "Add public/about.html with an About heading, a short paragraph and a link to the contributing guide.",
+          "produces": [
+            {
+              "key": "docs.links",
+              "text": "public/about.html contains <h1>About</h1>, one paragraph, and <a href=\"../docs/CONTRIBUTING.md\">Contributing guide</a> pointing at docs/CONTRIBUTING.md."
+            }
+          ],
+          "requires": [],
+          "notes": ""
+        },
+        "codex": {
+          "goal": "Add src/util/slug.js exporting slugify(text) with tests in test/util/.",
+          "produces": [],
+          "requires": [],
+          "notes": "No shared interfaces."
+        },
+        "droid": {
+          "goal": "Write docs/CONTRIBUTING.md covering install, npm start and npm test.",
+          "produces": [],
+          "requires": [
+            {
+              "key": "docs.links",
+              "text": "The guide is the file docs/CONTRIBUTING.md; any page may link to it at that path."
+            }
+          ],
+          "notes": ""
+        }
+      },
+      "labels": {
+        "docs.links": "consistent"
+      }
+    }
+  ]
+}

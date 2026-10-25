@@ -709,7 +709,61 @@ describe("compare", () => {
     expect(md).toContain("| **Full pass (all checks)** |");
     expect(md).toContain("Fisher p=0.4");
     const csv = toCsv(all).split("\n");
-    expect(csv[0]).toMatch(/^lobby,arm,passed,total,fullPass,check1/);
+    expect(csv[0]).toMatch(
+      /^lobby,arm,passed,total,fullPass,tier_component,tier_server,tier_fullstack,check1/,
+    );
     expect(csv[1]).toMatch(/^1,none,5,6,0,/);
+  });
+});
+
+describe("oracle tiers", () => {
+  const withChecks = (id: number, mode: string, failing: number[]) =>
+    computeMetrics({
+      lobbyId: id,
+      report: {
+        passed: 6 - failing.length,
+        total: 6,
+        checks: [1, 2, 3, 4, 5, 6].map((c) => ({
+          check: c,
+          name: `c${c}`,
+          ok: !failing.includes(c),
+        })),
+      },
+      mode,
+    });
+
+  it("splits the six checks by whose code they need", () => {
+    expect(withChecks(1, "none", [6]).outcome.tiers).toEqual({
+      component: true,
+      server: true,
+      fullstack: false,
+    });
+    expect(withChecks(2, "none", [4]).outcome.tiers).toEqual({
+      component: true,
+      server: false,
+      fullstack: true,
+    });
+    expect(
+      computeMetrics({
+        lobbyId: 3,
+        report: { passed: 0, total: 6, checks: [] },
+      }).outcome.tiers.fullstack,
+    ).toBeNull();
+  });
+
+  it("compares every arm against the treatment", () => {
+    const r = compare([
+      withChecks(1, "none", [6]),
+      withChecks(2, "chat", []),
+      withChecks(3, "dibs", []),
+    ]);
+    expect(r.diff).toMatchObject({ a: "none", b: "dibs" });
+    expect(r.diffs.map((d) => `${d.a}->${d.b}`).sort()).toEqual([
+      "chat->dibs",
+      "none->dibs",
+    ]);
+    expect(r.diff!.tiers.fullstack!.delta).toBe(1);
+    expect(r.diff!.tiers.component!.delta).toBe(0);
+    expect(toMarkdown(r)).toContain("Full-stack integration, 3 agents");
   });
 });

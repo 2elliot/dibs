@@ -17,6 +17,28 @@ import type { TimingReport } from "./timing.ts";
 
 export const METRICS_SCHEMA = "dibs.metrics/v1";
 
+/**
+ * The S1/S2 oracle's checks, grouped by whose code each one needs. Adding the six up treats
+ * "one agent's login is off" the same as "the parts don't fit together"; the tiers keep them apart.
+ * - component (1, 2): login and a bad password; Claude's area alone.
+ * - server (3, 4, 5): registration; Droid's route calling Claude's auth helper (auth.server).
+ * - fullstack (6): the browser flow; Codex's UI against both servers (auth.session,
+ *   events.registration). The interface dibs exists to protect.
+ */
+export const ORACLE_TIERS: { id: string; label: string; checks: number[] }[] = [
+  { id: "component", label: "Single agent (checks 1–2)", checks: [1, 2] },
+  {
+    id: "server",
+    label: "Server integration, 2 agents (checks 3–5)",
+    checks: [3, 4, 5],
+  },
+  {
+    id: "fullstack",
+    label: "Full-stack integration, 3 agents (check 6)",
+    checks: [6],
+  },
+];
+
 // ---------------------------------------------------------------------------------------------
 // Inputs
 
@@ -153,6 +175,8 @@ export interface LobbyMetrics {
     fullPass: boolean | null;
     /** check number → passed */
     checks: Record<string, boolean>;
+    /** ORACLE_TIERS id → every check in the tier passed (null when a check is missing). */
+    tiers: Record<string, boolean | null>;
     mergeTreeClean: boolean | null;
     outOfAreaFiles: number | null;
     missingAgents: number | null;
@@ -666,6 +690,17 @@ export function computeMetrics(input: MetricsInput): LobbyMetrics {
       fullPass: report ? report.passed === report.total : null,
       checks: Object.fromEntries(
         (report?.checks ?? []).map((c) => [String(c.check), c.ok]),
+      ),
+      tiers: Object.fromEntries(
+        ORACLE_TIERS.map((t) => {
+          const got = t.checks.map(
+            (c) => report?.checks.find((x) => x.check === c)?.ok,
+          );
+          return [
+            t.id,
+            got.some((g) => g === undefined) ? null : got.every(Boolean),
+          ];
+        }),
       ),
       mergeTreeClean: report?.mergeTreeClean ?? null,
       outOfAreaFiles: report?.outOfArea

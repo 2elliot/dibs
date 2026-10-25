@@ -1,0 +1,46 @@
+{
+  "schema": "dibs.trials/v1",
+  "note": "Every lobby run for the benchmark, valid or not. status: scored (counts), invalid (infrastructure, reason given, decided before scoring), dev (development, not part of any comparison). prereg: the row number in bench/PREREG.md's schedule, for round-2 lobbies.",
+  "lobbies": [
+    {
+      "lobby": 3,
+      "trial": "L3",
+      "scenario": "s2",
+      "mode": "dibs",
+      "status": "dev",
+      "reason": "Two agents only (no Droid); Codex launched three times. infra/LOBBY3_REPORT.md"
+    },
+    {
+      "lobby": 4,
+      "trial": "L4",
+      "scenario": "s2",
+      "mode": "dibs",
+      "status": "dev",
+      "reason": "First three-machine handshake; Droid and Codex relaunched by hand (2 interventions). infra/LOBBY4_REPORT.md"
+    },
+    {
+      "lobby": 5,
+      "trial": "T1",
+      "scenario": "s2",
+      "mode": "none",
+      "status": "scored",
+      "reason": "bench/TRIALS.md"
+    },
+    {
+      "lobby": 6,
+      "trial": "T2",
+      "scenario": "s2",
+      "mode": "dibs",
+      "status": "invalid",
+      "reason": "Claude's dibs tools didn't load until a second relaunch at +7 min; rule fixed before the score was known. bench/TRIALS.md"
+    },
+    {
+      "lobby": 7,
+      "trial": "T3",
+      "scenario": "s2",
+      "mode": "dibs",
+      "status": "scored",
+      "reason": "bench/TRIALS.md"
+    }
+  ]
+}
