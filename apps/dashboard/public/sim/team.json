@@ -1,0 +1,1550 @@
+{
+ "protocolVersion": 1,
+ "label": "SIMULATION \u00b7 not a real run",
+ "lobbyId": 900,
+ "exportedAtUs": 1792900905000000,
+ "tables": {
+  "lobby": [
+   {
+    "id": 900,
+    "scenario": "Simulated team: online shop",
+    "mode": "dibs",
+    "baseSha": "0000000000000000000000000000000000000000",
+    "vocabulary": [
+     "auth.session",
+     "api.orders",
+     "payments.checkout",
+     "search.products",
+     "notify.email",
+     "db.schema",
+     "ui.cart"
+    ],
+    "vocabularyJson": "[{\"key\": \"auth.session\", \"description\": \"How users stay logged in\"}, {\"key\": \"api.orders\", \"description\": \"The orders API format\"}, {\"key\": \"payments.checkout\", \"description\": \"Taking payment at checkout\"}, {\"key\": \"search.products\", \"description\": \"Product search\"}, {\"key\": \"notify.email\", \"description\": \"Order confirmation emails\"}, {\"key\": \"db.schema\", \"description\": \"The database tables\"}, {\"key\": \"ui.cart\", \"description\": \"The shopping cart page\"}]",
+    "charter": "Simulated.",
+    "buildHash": "sim",
+    "state": "stopped",
+    "analyzeAnywayFired": false,
+    "createdAtUs": 1792900000000000,
+    "startedAtUs": 1792900000000000,
+    "fallbackAtUs": 1792900360000000,
+    "endsAtUs": 1792900900000000
+   }
+  ],
+  "participant": [
+   {
+    "id": 1,
+    "identity": "sim-1",
+    "name": "Claude A",
+    "provider": "claude",
+    "role": "agent",
+    "online": true,
+    "buildHash": "sim",
+    "currentLobbyId": 900
+   },
+   {
+    "id": 2,
+    "identity": "sim-2",
+    "name": "Codex A",
+    "provider": "codex",
+    "role": "agent",
+    "online": true,
+    "buildHash": "sim",
+    "currentLobbyId": 900
+   },
+   {
+    "id": 3,
+    "identity": "sim-3",
+    "name": "Droid A",
+    "provider": "droid",
+    "role": "agent",
+    "online": true,
+    "buildHash": "sim",
+    "currentLobbyId": 900
+   },
+   {
+    "id": 4,
+    "identity": "sim-4",
+    "name": "Claude B",
+    "provider": "claude",
+    "role": "agent",
+    "online": true,
+    "buildHash": "sim",
+    "currentLobbyId": 900
+   },
+   {
+    "id": 5,
+    "identity": "sim-5",
+    "name": "Codex B",
+    "provider": "codex",
+    "role": "agent",
+    "online": true,
+    "buildHash": "sim",
+    "currentLobbyId": 900
+   },
+   {
+    "id": 6,
+    "identity": "sim-6",
+    "name": "Droid B",
+    "provider": "droid",
+    "role": "agent",
+    "online": true,
+    "buildHash": "sim",
+    "currentLobbyId": 900
+   },
+   {
+    "id": 7,
+    "identity": "sim-7",
+    "name": "Claude C",
+    "provider": "claude",
+    "role": "agent",
+    "online": true,
+    "buildHash": "sim",
+    "currentLobbyId": 900
+   }
+  ],
+  "plan": [
+   {
+    "id": 101,
+    "lobbyId": 900,
+    "participantId": 1,
+    "revision": 1,
+    "goal": "Build the orders API and the database tables.",
+    "notes": "simulated",
+    "requestId": "sim-101",
+    "current": true,
+    "createdAtUs": 1792900020000000
+   },
+   {
+    "id": 102,
+    "lobbyId": 900,
+    "participantId": 2,
+    "revision": 1,
+    "goal": "Build the shopping cart page and checkout screens.",
+    "notes": "simulated",
+    "requestId": "sim-102",
+    "current": true,
+    "createdAtUs": 1792900032000000
+   },
+   {
+    "id": 103,
+    "lobbyId": 900,
+    "participantId": 3,
+    "revision": 1,
+    "goal": "Handle payments at checkout.",
+    "notes": "simulated",
+    "requestId": "sim-103",
+    "current": true,
+    "createdAtUs": 1792900045000000
+   },
+   {
+    "id": 104,
+    "lobbyId": 900,
+    "participantId": 4,
+    "revision": 1,
+    "goal": "Build login and sessions.",
+    "notes": "simulated",
+    "requestId": "sim-104",
+    "current": true,
+    "createdAtUs": 1792900058000000
+   },
+   {
+    "id": 105,
+    "lobbyId": 900,
+    "participantId": 5,
+    "revision": 1,
+    "goal": "Build checkout payments and the receipt.",
+    "notes": "simulated",
+    "requestId": "sim-105",
+    "current": true,
+    "createdAtUs": 1792900070000000
+   },
+   {
+    "id": 106,
+    "lobbyId": 900,
+    "participantId": 6,
+    "revision": 1,
+    "goal": "Send order confirmation emails.",
+    "notes": "simulated",
+    "requestId": "sim-106",
+    "current": true,
+    "createdAtUs": 1792900084000000
+   },
+   {
+    "id": 107,
+    "lobbyId": 900,
+    "participantId": 5,
+    "revision": 2,
+    "goal": "Build product search.",
+    "notes": "simulated",
+    "requestId": "sim-107",
+    "current": true,
+    "createdAtUs": 1792900212000000
+   },
+   {
+    "id": 108,
+    "lobbyId": 900,
+    "participantId": 7,
+    "revision": 1,
+    "goal": "Add the mobile app login.",
+    "notes": "simulated",
+    "requestId": "sim-108",
+    "current": true,
+    "createdAtUs": 1792900262000000
+   },
+   {
+    "id": 109,
+    "lobbyId": 900,
+    "participantId": 4,
+    "revision": 2,
+    "goal": "Build login and sessions, then product search.",
+    "notes": "simulated",
+    "requestId": "sim-109",
+    "current": true,
+    "createdAtUs": 1792900340000000
+   },
+   {
+    "id": 110,
+    "lobbyId": 900,
+    "participantId": 4,
+    "revision": 3,
+    "goal": "Build login, sessions and the mobile token exchange.",
+    "notes": "simulated",
+    "requestId": "sim-110",
+    "current": true,
+    "createdAtUs": 1792900395000000
+   }
+  ],
+  "plan_item": [
+   {
+    "id": 201,
+    "planId": 101,
+    "lobbyId": 900,
+    "participantId": 1,
+    "kind": "produces",
+    "key": "api.orders",
+    "text": "Orders API returns snake_case JSON: order_id, line_items, total_cents.",
+    "current": true
+   },
+   {
+    "id": 202,
+    "planId": 101,
+    "lobbyId": 900,
+    "participantId": 1,
+    "kind": "produces",
+    "key": "db.schema",
+    "text": "orders and order_items tables, money stored as integer cents.",
+    "current": true
+   },
+   {
+    "id": 203,
+    "planId": 101,
+    "lobbyId": 900,
+    "participantId": 1,
+    "kind": "requires",
+    "key": "auth.session",
+    "text": "Requests carry the logged-in user.",
+    "current": true
+   },
+   {
+    "id": 204,
+    "planId": 102,
+    "lobbyId": 900,
+    "participantId": 2,
+    "kind": "produces",
+    "key": "ui.cart",
+    "text": "Cart page lists items and totals; Checkout button.",
+    "current": true
+   },
+   {
+    "id": 205,
+    "planId": 102,
+    "lobbyId": 900,
+    "participantId": 2,
+    "kind": "requires",
+    "key": "api.orders",
+    "text": "Orders API returns camelCase JSON: orderId, lineItems, total in dollars.",
+    "current": true
+   },
+   {
+    "id": 206,
+    "planId": 103,
+    "lobbyId": 900,
+    "participantId": 3,
+    "kind": "produces",
+    "key": "payments.checkout",
+    "text": "POST /api/checkout charges the cart with the test payment provider.",
+    "current": true
+   },
+   {
+    "id": 207,
+    "planId": 103,
+    "lobbyId": 900,
+    "participantId": 3,
+    "kind": "requires",
+    "key": "api.orders",
+    "text": "Read orders as orderId + lineItems.",
+    "current": true
+   },
+   {
+    "id": 208,
+    "planId": 104,
+    "lobbyId": 900,
+    "participantId": 4,
+    "kind": "produces",
+    "key": "auth.session",
+    "text": "httpOnly cookie session set by POST /api/login.",
+    "current": true
+   },
+   {
+    "id": 209,
+    "planId": 105,
+    "lobbyId": 900,
+    "participantId": 5,
+    "kind": "produces",
+    "key": "payments.checkout",
+    "text": "POST /api/pay charges the card and returns a receipt.",
+    "current": true
+   },
+   {
+    "id": 210,
+    "planId": 105,
+    "lobbyId": 900,
+    "participantId": 5,
+    "kind": "requires",
+    "key": "ui.cart",
+    "text": "Cart exposes a pay() hook.",
+    "current": true
+   },
+   {
+    "id": 211,
+    "planId": 106,
+    "lobbyId": 900,
+    "participantId": 6,
+    "kind": "produces",
+    "key": "notify.email",
+    "text": "Email on order placed, using the orders API.",
+    "current": true
+   },
+   {
+    "id": 212,
+    "planId": 106,
+    "lobbyId": 900,
+    "participantId": 6,
+    "kind": "requires",
+    "key": "api.orders",
+    "text": "Order has an email field and total in dollars.",
+    "current": true
+   },
+   {
+    "id": 213,
+    "planId": 107,
+    "lobbyId": 900,
+    "participantId": 5,
+    "kind": "produces",
+    "key": "search.products",
+    "text": "GET /api/search?q= returns products ranked by name match.",
+    "current": true
+   },
+   {
+    "id": 214,
+    "planId": 108,
+    "lobbyId": 900,
+    "participantId": 7,
+    "kind": "produces",
+    "key": "auth.session",
+    "text": "Login returns a bearer token for the mobile app.",
+    "current": true
+   },
+   {
+    "id": 215,
+    "planId": 108,
+    "lobbyId": 900,
+    "participantId": 7,
+    "kind": "requires",
+    "key": "api.orders",
+    "text": "Orders API in camelCase.",
+    "current": true
+   },
+   {
+    "id": 216,
+    "planId": 109,
+    "lobbyId": 900,
+    "participantId": 4,
+    "kind": "produces",
+    "key": "auth.session",
+    "text": "httpOnly cookie session set by POST /api/login.",
+    "current": true
+   },
+   {
+    "id": 217,
+    "planId": 109,
+    "lobbyId": 900,
+    "participantId": 4,
+    "kind": "produces",
+    "key": "search.products",
+    "text": "Search inside the orders API.",
+    "current": true
+   },
+   {
+    "id": 218,
+    "planId": 110,
+    "lobbyId": 900,
+    "participantId": 4,
+    "kind": "produces",
+    "key": "auth.session",
+    "text": "Cookie session plus /api/token for mobile.",
+    "current": true
+   }
+  ],
+  "message": [],
+  "job": [
+   {
+    "id": 301,
+    "slot": "900",
+    "lobbyId": 900,
+    "kind": "analyze",
+    "state": "done",
+    "inputKey": "sim",
+    "leaseToken": "",
+    "leaseExpiresUs": 0,
+    "attempts": 1,
+    "calls": 1,
+    "error": "",
+    "updatedAtUs": 1792900108000000
+   },
+   {
+    "id": 302,
+    "slot": "900",
+    "lobbyId": 900,
+    "kind": "analyze",
+    "state": "done",
+    "inputKey": "sim",
+    "leaseToken": "",
+    "leaseExpiresUs": 0,
+    "attempts": 1,
+    "calls": 1,
+    "error": "",
+    "updatedAtUs": 1792900156000000
+   },
+   {
+    "id": 303,
+    "slot": "900",
+    "lobbyId": 900,
+    "kind": "analyze",
+    "state": "done",
+    "inputKey": "sim",
+    "leaseToken": "",
+    "leaseExpiresUs": 0,
+    "attempts": 1,
+    "calls": 1,
+    "error": "",
+    "updatedAtUs": 1792900168000000
+   },
+   {
+    "id": 304,
+    "slot": "900",
+    "lobbyId": 900,
+    "kind": "analyze",
+    "state": "done",
+    "inputKey": "sim",
+    "leaseToken": "",
+    "leaseExpiresUs": 0,
+    "attempts": 1,
+    "calls": 1,
+    "error": "",
+    "updatedAtUs": 1792900279000000
+   },
+   {
+    "id": 305,
+    "slot": "900",
+    "lobbyId": 900,
+    "kind": "analyze",
+    "state": "done",
+    "inputKey": "sim",
+    "leaseToken": "",
+    "leaseExpiresUs": 0,
+    "attempts": 1,
+    "calls": 1,
+    "error": "",
+    "updatedAtUs": 1792900353000000
+   }
+  ],
+  "proposal": [
+   {
+    "id": 401,
+    "slot": "closed/401",
+    "lobbyId": 900,
+    "key": "api.orders",
+    "revision": 1,
+    "relation": "conflict",
+    "contractText": "Orders API uses camelCase JSON (orderId, lineItems) and money in dollars.",
+    "rationale": "Claude A returns snake_case and cents; Codex A, Droid A and Droid B expect camelCase, and two expect dollars.",
+    "citedItemIds": [
+     201,
+     205,
+     207,
+     212
+    ],
+    "requiredPartyIds": [
+     1,
+     2,
+     3,
+     6
+    ],
+    "state": "rejected",
+    "inputKey": "sim",
+    "createdAtUs": 1792900110000000,
+    "closedAtUs": 1792900147000000
+   },
+   {
+    "id": 402,
+    "slot": "closed/402",
+    "lobbyId": 900,
+    "key": "api.orders",
+    "revision": 2,
+    "relation": "conflict",
+    "contractText": "Orders API uses camelCase JSON (orderId, lineItems, email) and money as integer cents (totalCents); the UI formats dollars.",
+    "rationale": "Revised after Claude A's objection: keep cents, switch to camelCase, add email for Droid B.",
+    "citedItemIds": [
+     201,
+     205,
+     207,
+     212
+    ],
+    "requiredPartyIds": [
+     1,
+     2,
+     3,
+     6
+    ],
+    "state": "accepted",
+    "inputKey": "sim",
+    "createdAtUs": 1792900158000000,
+    "closedAtUs": 1792900191000000
+   },
+   {
+    "id": 403,
+    "slot": "closed/403",
+    "lobbyId": 900,
+    "key": "payments.checkout",
+    "revision": 1,
+    "relation": "duplicate",
+    "contractText": "Droid A keeps checkout payments (it claimed them first). Codex B moves to product search.",
+    "rationale": "Droid A and Codex B are both building checkout payments.",
+    "citedItemIds": [
+     206,
+     209
+    ],
+    "requiredPartyIds": [
+     3,
+     5
+    ],
+    "state": "accepted",
+    "inputKey": "sim",
+    "createdAtUs": 1792900172000000,
+    "closedAtUs": 1792900199000000
+   },
+   {
+    "id": 404,
+    "slot": "closed/404",
+    "lobbyId": 900,
+    "key": "auth.session",
+    "revision": 1,
+    "relation": "conflict",
+    "contractText": "Keep the httpOnly cookie for the web app; the mobile app exchanges it for a short-lived token at /api/token.",
+    "rationale": "Claude B built cookie sessions; Claude C plans bearer tokens for the same login.",
+    "citedItemIds": [
+     208,
+     214,
+     203
+    ],
+    "requiredPartyIds": [
+     1,
+     4,
+     7
+    ],
+    "state": "accepted",
+    "inputKey": "sim",
+    "createdAtUs": 1792900281000000,
+    "closedAtUs": 1792900318000000
+   },
+   {
+    "id": 405,
+    "slot": "closed/405",
+    "lobbyId": 900,
+    "key": "search.products",
+    "revision": 1,
+    "relation": "duplicate",
+    "contractText": "Codex B owns product search; Claude B stays on sessions and adds /api/token.",
+    "rationale": "Claude B and Codex B are both building product search.",
+    "citedItemIds": [
+     217,
+     213
+    ],
+    "requiredPartyIds": [
+     4,
+     5
+    ],
+    "state": "accepted",
+    "inputKey": "sim",
+    "createdAtUs": 1792900355000000,
+    "closedAtUs": 1792900382000000
+   }
+  ],
+  "response": [
+   {
+    "id": 501,
+    "lobbyId": 900,
+    "proposalId": 401,
+    "revision": 1,
+    "participantId": 2,
+    "decision": "accept",
+    "reason": "",
+    "requestId": "r501",
+    "createdAtUs": 1792900124000000
+   },
+   {
+    "id": 502,
+    "lobbyId": 900,
+    "proposalId": 401,
+    "revision": 1,
+    "participantId": 3,
+    "decision": "accept",
+    "reason": "",
+    "requestId": "r502",
+    "createdAtUs": 1792900131000000
+   },
+   {
+    "id": 503,
+    "lobbyId": 900,
+    "proposalId": 401,
+    "revision": 1,
+    "participantId": 6,
+    "decision": "accept",
+    "reason": "",
+    "requestId": "r503",
+    "createdAtUs": 1792900139000000
+   },
+   {
+    "id": 504,
+    "lobbyId": 900,
+    "proposalId": 401,
+    "revision": 1,
+    "participantId": 1,
+    "decision": "reject",
+    "reason": "Money must stay in integer cents to avoid rounding errors.",
+    "requestId": "r504",
+    "createdAtUs": 1792900147000000
+   },
+   {
+    "id": 505,
+    "lobbyId": 900,
+    "proposalId": 402,
+    "revision": 2,
+    "participantId": 1,
+    "decision": "accept",
+    "reason": "",
+    "requestId": "r505",
+    "createdAtUs": 1792900170000000
+   },
+   {
+    "id": 506,
+    "lobbyId": 900,
+    "proposalId": 402,
+    "revision": 2,
+    "participantId": 6,
+    "decision": "accept",
+    "reason": "",
+    "requestId": "r506",
+    "createdAtUs": 1792900176000000
+   },
+   {
+    "id": 507,
+    "lobbyId": 900,
+    "proposalId": 402,
+    "revision": 2,
+    "participantId": 3,
+    "decision": "accept",
+    "reason": "",
+    "requestId": "r507",
+    "createdAtUs": 1792900183000000
+   },
+   {
+    "id": 508,
+    "lobbyId": 900,
+    "proposalId": 402,
+    "revision": 2,
+    "participantId": 2,
+    "decision": "accept",
+    "reason": "",
+    "requestId": "r508",
+    "createdAtUs": 1792900191000000
+   },
+   {
+    "id": 509,
+    "lobbyId": 900,
+    "proposalId": 403,
+    "revision": 1,
+    "participantId": 3,
+    "decision": "accept",
+    "reason": "",
+    "requestId": "r509",
+    "createdAtUs": 1792900186000000
+   },
+   {
+    "id": 510,
+    "lobbyId": 900,
+    "proposalId": 403,
+    "revision": 1,
+    "participantId": 5,
+    "decision": "accept",
+    "reason": "",
+    "requestId": "r510",
+    "createdAtUs": 1792900199000000
+   },
+   {
+    "id": 511,
+    "lobbyId": 900,
+    "proposalId": 404,
+    "revision": 1,
+    "participantId": 4,
+    "decision": "accept",
+    "reason": "",
+    "requestId": "r511",
+    "createdAtUs": 1792900293000000
+   },
+   {
+    "id": 512,
+    "lobbyId": 900,
+    "proposalId": 404,
+    "revision": 1,
+    "participantId": 1,
+    "decision": "accept",
+    "reason": "",
+    "requestId": "r512",
+    "createdAtUs": 1792900301000000
+   },
+   {
+    "id": 513,
+    "lobbyId": 900,
+    "proposalId": 404,
+    "revision": 1,
+    "participantId": 7,
+    "decision": "accept",
+    "reason": "Fine, as long as /api/token exists for mobile.",
+    "requestId": "r513",
+    "createdAtUs": 1792900318000000
+   },
+   {
+    "id": 514,
+    "lobbyId": 900,
+    "proposalId": 405,
+    "revision": 1,
+    "participantId": 5,
+    "decision": "accept",
+    "reason": "",
+    "requestId": "r514",
+    "createdAtUs": 1792900368000000
+   },
+   {
+    "id": 515,
+    "lobbyId": 900,
+    "proposalId": 405,
+    "revision": 1,
+    "participantId": 4,
+    "decision": "accept",
+    "reason": "",
+    "requestId": "r515",
+    "createdAtUs": 1792900382000000
+   }
+  ],
+  "contract": [
+   {
+    "id": 601,
+    "lobbyId": 900,
+    "key": "db.schema",
+    "revision": 1,
+    "text": "orders and order_items tables, money in integer cents.",
+    "source": "aligned",
+    "proposalId": null,
+    "basisItemIds": [
+     202
+    ],
+    "current": true,
+    "createdAtUs": 1792900110000000
+   },
+   {
+    "id": 602,
+    "lobbyId": 900,
+    "key": "api.orders",
+    "revision": 2,
+    "text": "Orders API uses camelCase JSON (orderId, lineItems, email) and money as integer cents (totalCents); the UI formats dollars.",
+    "source": "agreed",
+    "proposalId": 402,
+    "basisItemIds": [
+     201,
+     205,
+     207,
+     212
+    ],
+    "current": true,
+    "createdAtUs": 1792900191000000
+   },
+   {
+    "id": 603,
+    "lobbyId": 900,
+    "key": "payments.checkout",
+    "revision": 1,
+    "text": "Droid A keeps checkout payments (it claimed them first). Codex B moves to product search.",
+    "source": "agreed",
+    "proposalId": 403,
+    "basisItemIds": [
+     206,
+     209
+    ],
+    "current": true,
+    "createdAtUs": 1792900199000000
+   },
+   {
+    "id": 604,
+    "lobbyId": 900,
+    "key": "auth.session",
+    "revision": 1,
+    "text": "Keep the httpOnly cookie for the web app; the mobile app exchanges it for a short-lived token at /api/token.",
+    "source": "agreed",
+    "proposalId": 404,
+    "basisItemIds": [
+     208,
+     214,
+     203
+    ],
+    "current": true,
+    "createdAtUs": 1792900318000000
+   },
+   {
+    "id": 605,
+    "lobbyId": 900,
+    "key": "search.products",
+    "revision": 1,
+    "text": "Codex B owns product search; Claude B stays on sessions and adds /api/token.",
+    "source": "agreed",
+    "proposalId": 405,
+    "basisItemIds": [
+     217,
+     213
+    ],
+    "current": true,
+    "createdAtUs": 1792900382000000
+   }
+  ],
+  "delivery": [],
+  "event": [
+   {
+    "id": 1,
+    "lobbyId": 900,
+    "atUs": 1792900000000000,
+    "actor": "system",
+    "type": "lobby_started",
+    "subjectId": 900,
+    "detail": "{}"
+   },
+   {
+    "id": 2,
+    "lobbyId": 900,
+    "atUs": 1792900004000000,
+    "actor": "Claude A",
+    "type": "joined_lobby",
+    "subjectId": 1,
+    "detail": "{}"
+   },
+   {
+    "id": 3,
+    "lobbyId": 900,
+    "atUs": 1792900007000000,
+    "actor": "Codex A",
+    "type": "joined_lobby",
+    "subjectId": 2,
+    "detail": "{}"
+   },
+   {
+    "id": 4,
+    "lobbyId": 900,
+    "atUs": 1792900010000000,
+    "actor": "Droid A",
+    "type": "joined_lobby",
+    "subjectId": 3,
+    "detail": "{}"
+   },
+   {
+    "id": 5,
+    "lobbyId": 900,
+    "atUs": 1792900013000000,
+    "actor": "Claude B",
+    "type": "joined_lobby",
+    "subjectId": 4,
+    "detail": "{}"
+   },
+   {
+    "id": 6,
+    "lobbyId": 900,
+    "atUs": 1792900016000000,
+    "actor": "Codex B",
+    "type": "joined_lobby",
+    "subjectId": 5,
+    "detail": "{}"
+   },
+   {
+    "id": 7,
+    "lobbyId": 900,
+    "atUs": 1792900019000000,
+    "actor": "Droid B",
+    "type": "joined_lobby",
+    "subjectId": 6,
+    "detail": "{}"
+   },
+   {
+    "id": 8,
+    "lobbyId": 900,
+    "atUs": 1792900020000000,
+    "actor": "Claude A",
+    "type": "plan_published",
+    "subjectId": 101,
+    "detail": "{\"items\": 3}"
+   },
+   {
+    "id": 9,
+    "lobbyId": 900,
+    "atUs": 1792900032000000,
+    "actor": "Codex A",
+    "type": "plan_published",
+    "subjectId": 102,
+    "detail": "{\"items\": 2}"
+   },
+   {
+    "id": 10,
+    "lobbyId": 900,
+    "atUs": 1792900045000000,
+    "actor": "Droid A",
+    "type": "plan_published",
+    "subjectId": 103,
+    "detail": "{\"items\": 2}"
+   },
+   {
+    "id": 11,
+    "lobbyId": 900,
+    "atUs": 1792900058000000,
+    "actor": "Claude B",
+    "type": "plan_published",
+    "subjectId": 104,
+    "detail": "{\"items\": 1}"
+   },
+   {
+    "id": 12,
+    "lobbyId": 900,
+    "atUs": 1792900070000000,
+    "actor": "Codex B",
+    "type": "plan_published",
+    "subjectId": 105,
+    "detail": "{\"items\": 2}"
+   },
+   {
+    "id": 13,
+    "lobbyId": 900,
+    "atUs": 1792900084000000,
+    "actor": "Droid B",
+    "type": "plan_published",
+    "subjectId": 106,
+    "detail": "{\"items\": 2}"
+   },
+   {
+    "id": 15,
+    "lobbyId": 900,
+    "atUs": 1792900096000000,
+    "actor": "system",
+    "type": "job_queued",
+    "subjectId": 301,
+    "detail": "{}"
+   },
+   {
+    "id": 16,
+    "lobbyId": 900,
+    "atUs": 1792900097500000,
+    "actor": "worker",
+    "type": "job_leased",
+    "subjectId": 301,
+    "detail": "{}"
+   },
+   {
+    "id": 17,
+    "lobbyId": 900,
+    "atUs": 1792900108000000,
+    "actor": "worker",
+    "type": "analysis_submitted",
+    "subjectId": 301,
+    "detail": "{}"
+   },
+   {
+    "id": 14,
+    "lobbyId": 900,
+    "atUs": 1792900110000000,
+    "actor": "worker",
+    "type": "contract_aligned",
+    "subjectId": 601,
+    "detail": "{\"key\": \"db.schema\"}"
+   },
+   {
+    "id": 18,
+    "lobbyId": 900,
+    "atUs": 1792900110000000,
+    "actor": "worker",
+    "type": "proposal_created",
+    "subjectId": 401,
+    "detail": "{\"key\": \"api.orders\", \"revision\": 1}"
+   },
+   {
+    "id": 19,
+    "lobbyId": 900,
+    "atUs": 1792900124000000,
+    "actor": "Codex A",
+    "type": "response_recorded",
+    "subjectId": 401,
+    "detail": "{\"participantId\": 2, \"decision\": \"accept\", \"revision\": 1}"
+   },
+   {
+    "id": 20,
+    "lobbyId": 900,
+    "atUs": 1792900131000000,
+    "actor": "Droid A",
+    "type": "response_recorded",
+    "subjectId": 401,
+    "detail": "{\"participantId\": 3, \"decision\": \"accept\", \"revision\": 1}"
+   },
+   {
+    "id": 21,
+    "lobbyId": 900,
+    "atUs": 1792900139000000,
+    "actor": "Droid B",
+    "type": "response_recorded",
+    "subjectId": 401,
+    "detail": "{\"participantId\": 6, \"decision\": \"accept\", \"revision\": 1}"
+   },
+   {
+    "id": 22,
+    "lobbyId": 900,
+    "atUs": 1792900147000000,
+    "actor": "Claude A",
+    "type": "response_recorded",
+    "subjectId": 401,
+    "detail": "{\"participantId\": 1, \"decision\": \"reject\", \"revision\": 1}"
+   },
+   {
+    "id": 23,
+    "lobbyId": 900,
+    "atUs": 1792900147000000,
+    "actor": "Claude A",
+    "type": "proposal_rejected",
+    "subjectId": 401,
+    "detail": "{\"reason\": \"Money must stay in integer cents to avoid rounding errors.\"}"
+   },
+   {
+    "id": 24,
+    "lobbyId": 900,
+    "atUs": 1792900148000000,
+    "actor": "system",
+    "type": "job_queued",
+    "subjectId": 302,
+    "detail": "{}"
+   },
+   {
+    "id": 25,
+    "lobbyId": 900,
+    "atUs": 1792900149500000,
+    "actor": "worker",
+    "type": "job_leased",
+    "subjectId": 302,
+    "detail": "{}"
+   },
+   {
+    "id": 26,
+    "lobbyId": 900,
+    "atUs": 1792900156000000,
+    "actor": "worker",
+    "type": "analysis_submitted",
+    "subjectId": 302,
+    "detail": "{}"
+   },
+   {
+    "id": 27,
+    "lobbyId": 900,
+    "atUs": 1792900158000000,
+    "actor": "worker",
+    "type": "proposal_created",
+    "subjectId": 402,
+    "detail": "{\"key\": \"api.orders\", \"revision\": 2}"
+   },
+   {
+    "id": 34,
+    "lobbyId": 900,
+    "atUs": 1792900160000000,
+    "actor": "system",
+    "type": "job_queued",
+    "subjectId": 303,
+    "detail": "{}"
+   },
+   {
+    "id": 35,
+    "lobbyId": 900,
+    "atUs": 1792900161500000,
+    "actor": "worker",
+    "type": "job_leased",
+    "subjectId": 303,
+    "detail": "{}"
+   },
+   {
+    "id": 36,
+    "lobbyId": 900,
+    "atUs": 1792900168000000,
+    "actor": "worker",
+    "type": "analysis_submitted",
+    "subjectId": 303,
+    "detail": "{}"
+   },
+   {
+    "id": 28,
+    "lobbyId": 900,
+    "atUs": 1792900170000000,
+    "actor": "Claude A",
+    "type": "response_recorded",
+    "subjectId": 402,
+    "detail": "{\"participantId\": 1, \"decision\": \"accept\", \"revision\": 2}"
+   },
+   {
+    "id": 37,
+    "lobbyId": 900,
+    "atUs": 1792900172000000,
+    "actor": "worker",
+    "type": "proposal_created",
+    "subjectId": 403,
+    "detail": "{\"key\": \"payments.checkout\", \"revision\": 1}"
+   },
+   {
+    "id": 29,
+    "lobbyId": 900,
+    "atUs": 1792900176000000,
+    "actor": "Droid B",
+    "type": "response_recorded",
+    "subjectId": 402,
+    "detail": "{\"participantId\": 6, \"decision\": \"accept\", \"revision\": 2}"
+   },
+   {
+    "id": 30,
+    "lobbyId": 900,
+    "atUs": 1792900183000000,
+    "actor": "Droid A",
+    "type": "response_recorded",
+    "subjectId": 402,
+    "detail": "{\"participantId\": 3, \"decision\": \"accept\", \"revision\": 2}"
+   },
+   {
+    "id": 38,
+    "lobbyId": 900,
+    "atUs": 1792900186000000,
+    "actor": "Droid A",
+    "type": "response_recorded",
+    "subjectId": 403,
+    "detail": "{\"participantId\": 3, \"decision\": \"accept\", \"revision\": 1}"
+   },
+   {
+    "id": 31,
+    "lobbyId": 900,
+    "atUs": 1792900191000000,
+    "actor": "Codex A",
+    "type": "response_recorded",
+    "subjectId": 402,
+    "detail": "{\"participantId\": 2, \"decision\": \"accept\", \"revision\": 2}"
+   },
+   {
+    "id": 32,
+    "lobbyId": 900,
+    "atUs": 1792900191000000,
+    "actor": "system",
+    "type": "proposal_accepted",
+    "subjectId": 402,
+    "detail": "{\"handshake\": \"4/4\"}"
+   },
+   {
+    "id": 33,
+    "lobbyId": 900,
+    "atUs": 1792900191000000,
+    "actor": "system",
+    "type": "contract_agreed",
+    "subjectId": 602,
+    "detail": "{\"key\": \"api.orders\"}"
+   },
+   {
+    "id": 39,
+    "lobbyId": 900,
+    "atUs": 1792900199000000,
+    "actor": "Codex B",
+    "type": "response_recorded",
+    "subjectId": 403,
+    "detail": "{\"participantId\": 5, \"decision\": \"accept\", \"revision\": 1}"
+   },
+   {
+    "id": 40,
+    "lobbyId": 900,
+    "atUs": 1792900199000000,
+    "actor": "system",
+    "type": "proposal_accepted",
+    "subjectId": 403,
+    "detail": "{\"handshake\": \"2/2\"}"
+   },
+   {
+    "id": 41,
+    "lobbyId": 900,
+    "atUs": 1792900199000000,
+    "actor": "system",
+    "type": "contract_agreed",
+    "subjectId": 603,
+    "detail": "{\"key\": \"payments.checkout\"}"
+   },
+   {
+    "id": 42,
+    "lobbyId": 900,
+    "atUs": 1792900212000000,
+    "actor": "Codex B",
+    "type": "plan_published",
+    "subjectId": 107,
+    "detail": "{\"items\": 1}"
+   },
+   {
+    "id": 43,
+    "lobbyId": 900,
+    "atUs": 1792900250000000,
+    "actor": "Claude C",
+    "type": "joined_lobby",
+    "subjectId": 7,
+    "detail": "{}"
+   },
+   {
+    "id": 44,
+    "lobbyId": 900,
+    "atUs": 1792900262000000,
+    "actor": "Claude C",
+    "type": "plan_published",
+    "subjectId": 108,
+    "detail": "{\"items\": 2}"
+   },
+   {
+    "id": 45,
+    "lobbyId": 900,
+    "atUs": 1792900268000000,
+    "actor": "system",
+    "type": "job_queued",
+    "subjectId": 304,
+    "detail": "{}"
+   },
+   {
+    "id": 46,
+    "lobbyId": 900,
+    "atUs": 1792900269500000,
+    "actor": "worker",
+    "type": "job_leased",
+    "subjectId": 304,
+    "detail": "{}"
+   },
+   {
+    "id": 47,
+    "lobbyId": 900,
+    "atUs": 1792900279000000,
+    "actor": "worker",
+    "type": "analysis_submitted",
+    "subjectId": 304,
+    "detail": "{}"
+   },
+   {
+    "id": 48,
+    "lobbyId": 900,
+    "atUs": 1792900281000000,
+    "actor": "worker",
+    "type": "proposal_created",
+    "subjectId": 404,
+    "detail": "{\"key\": \"auth.session\", \"revision\": 1}"
+   },
+   {
+    "id": 49,
+    "lobbyId": 900,
+    "atUs": 1792900293000000,
+    "actor": "Claude B",
+    "type": "response_recorded",
+    "subjectId": 404,
+    "detail": "{\"participantId\": 4, \"decision\": \"accept\", \"revision\": 1}"
+   },
+   {
+    "id": 50,
+    "lobbyId": 900,
+    "atUs": 1792900301000000,
+    "actor": "Claude A",
+    "type": "response_recorded",
+    "subjectId": 404,
+    "detail": "{\"participantId\": 1, \"decision\": \"accept\", \"revision\": 1}"
+   },
+   {
+    "id": 51,
+    "lobbyId": 900,
+    "atUs": 1792900318000000,
+    "actor": "Claude C",
+    "type": "response_recorded",
+    "subjectId": 404,
+    "detail": "{\"participantId\": 7, \"decision\": \"accept\", \"revision\": 1}"
+   },
+   {
+    "id": 52,
+    "lobbyId": 900,
+    "atUs": 1792900318000000,
+    "actor": "system",
+    "type": "proposal_accepted",
+    "subjectId": 404,
+    "detail": "{\"handshake\": \"3/3\"}"
+   },
+   {
+    "id": 53,
+    "lobbyId": 900,
+    "atUs": 1792900318000000,
+    "actor": "system",
+    "type": "contract_agreed",
+    "subjectId": 604,
+    "detail": "{\"key\": \"auth.session\"}"
+   },
+   {
+    "id": 54,
+    "lobbyId": 900,
+    "atUs": 1792900340000000,
+    "actor": "Claude B",
+    "type": "plan_published",
+    "subjectId": 109,
+    "detail": "{\"items\": 2}"
+   },
+   {
+    "id": 55,
+    "lobbyId": 900,
+    "atUs": 1792900345000000,
+    "actor": "system",
+    "type": "job_queued",
+    "subjectId": 305,
+    "detail": "{}"
+   },
+   {
+    "id": 56,
+    "lobbyId": 900,
+    "atUs": 1792900346500000,
+    "actor": "worker",
+    "type": "job_leased",
+    "subjectId": 305,
+    "detail": "{}"
+   },
+   {
+    "id": 57,
+    "lobbyId": 900,
+    "atUs": 1792900353000000,
+    "actor": "worker",
+    "type": "analysis_submitted",
+    "subjectId": 305,
+    "detail": "{}"
+   },
+   {
+    "id": 58,
+    "lobbyId": 900,
+    "atUs": 1792900355000000,
+    "actor": "worker",
+    "type": "proposal_created",
+    "subjectId": 405,
+    "detail": "{\"key\": \"search.products\", \"revision\": 1}"
+   },
+   {
+    "id": 59,
+    "lobbyId": 900,
+    "atUs": 1792900368000000,
+    "actor": "Codex B",
+    "type": "response_recorded",
+    "subjectId": 405,
+    "detail": "{\"participantId\": 5, \"decision\": \"accept\", \"revision\": 1}"
+   },
+   {
+    "id": 60,
+    "lobbyId": 900,
+    "atUs": 1792900382000000,
+    "actor": "Claude B",
+    "type": "response_recorded",
+    "subjectId": 405,
+    "detail": "{\"participantId\": 4, \"decision\": \"accept\", \"revision\": 1}"
+   },
+   {
+    "id": 61,
+    "lobbyId": 900,
+    "atUs": 1792900382000000,
+    "actor": "system",
+    "type": "proposal_accepted",
+    "subjectId": 405,
+    "detail": "{\"handshake\": \"2/2\"}"
+   },
+   {
+    "id": 62,
+    "lobbyId": 900,
+    "atUs": 1792900382000000,
+    "actor": "system",
+    "type": "contract_agreed",
+    "subjectId": 605,
+    "detail": "{\"key\": \"search.products\"}"
+   },
+   {
+    "id": 63,
+    "lobbyId": 900,
+    "atUs": 1792900395000000,
+    "actor": "Claude B",
+    "type": "plan_published",
+    "subjectId": 110,
+    "detail": "{\"items\": 1}"
+   },
+   {
+    "id": 64,
+    "lobbyId": 900,
+    "atUs": 1792900640000000,
+    "actor": "Droid A",
+    "type": "head_reported",
+    "subjectId": 803,
+    "detail": "{}"
+   },
+   {
+    "id": 65,
+    "lobbyId": 900,
+    "atUs": 1792900655000000,
+    "actor": "Claude A",
+    "type": "head_reported",
+    "subjectId": 801,
+    "detail": "{}"
+   },
+   {
+    "id": 66,
+    "lobbyId": 900,
+    "atUs": 1792900670000000,
+    "actor": "Codex B",
+    "type": "head_reported",
+    "subjectId": 805,
+    "detail": "{}"
+   },
+   {
+    "id": 67,
+    "lobbyId": 900,
+    "atUs": 1792900688000000,
+    "actor": "Codex A",
+    "type": "head_reported",
+    "subjectId": 802,
+    "detail": "{}"
+   },
+   {
+    "id": 68,
+    "lobbyId": 900,
+    "atUs": 1792900701000000,
+    "actor": "Droid B",
+    "type": "head_reported",
+    "subjectId": 806,
+    "detail": "{}"
+   },
+   {
+    "id": 69,
+    "lobbyId": 900,
+    "atUs": 1792900716000000,
+    "actor": "Claude B",
+    "type": "head_reported",
+    "subjectId": 804,
+    "detail": "{}"
+   },
+   {
+    "id": 70,
+    "lobbyId": 900,
+    "atUs": 1792900734000000,
+    "actor": "Claude C",
+    "type": "head_reported",
+    "subjectId": 807,
+    "detail": "{}"
+   },
+   {
+    "id": 71,
+    "lobbyId": 900,
+    "atUs": 1792900900000000,
+    "actor": "system",
+    "type": "lobby_stopped",
+    "subjectId": 900,
+    "detail": "{}"
+   }
+  ],
+  "head": [
+   {
+    "id": 803,
+    "lobbyId": 900,
+    "participantId": 3,
+    "sha": "3333333333333333333333333333333333333333",
+    "outOfAreaFiles": [],
+    "createdAtUs": 1792900640000000
+   },
+   {
+    "id": 801,
+    "lobbyId": 900,
+    "participantId": 1,
+    "sha": "1111111111111111111111111111111111111111",
+    "outOfAreaFiles": [],
+    "createdAtUs": 1792900655000000
+   },
+   {
+    "id": 805,
+    "lobbyId": 900,
+    "participantId": 5,
+    "sha": "5555555555555555555555555555555555555555",
+    "outOfAreaFiles": [],
+    "createdAtUs": 1792900670000000
+   },
+   {
+    "id": 802,
+    "lobbyId": 900,
+    "participantId": 2,
+    "sha": "2222222222222222222222222222222222222222",
+    "outOfAreaFiles": [],
+    "createdAtUs": 1792900688000000
+   },
+   {
+    "id": 806,
+    "lobbyId": 900,
+    "participantId": 6,
+    "sha": "6666666666666666666666666666666666666666",
+    "outOfAreaFiles": [],
+    "createdAtUs": 1792900701000000
+   },
+   {
+    "id": 804,
+    "lobbyId": 900,
+    "participantId": 4,
+    "sha": "4444444444444444444444444444444444444444",
+    "outOfAreaFiles": [],
+    "createdAtUs": 1792900716000000
+   },
+   {
+    "id": 807,
+    "lobbyId": 900,
+    "participantId": 7,
+    "sha": "7777777777777777777777777777777777777777",
+    "outOfAreaFiles": [],
+    "createdAtUs": 1792900734000000
+   }
+  ],
+  "verification": [],
+  "review": [],
+  "service": [
+   {
+    "name": "worker",
+    "lastBeatUs": 1792900900000000,
+    "detail": "{}"
+   }
+  ]
+ }
+}

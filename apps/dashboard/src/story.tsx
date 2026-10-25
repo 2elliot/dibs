@@ -178,15 +178,20 @@ export function StoryView({ rows, mode, live, replayLabel, countdown, history }:
   const [filter, setFilter] = useState<number | 'all'>('all');
   const [showTime, setShowTime] = useState(false);
   const [view, setView] = useState<View>({ x: 0, y: 0, k: 1 });
-  const viewRef = useRef(view); viewRef.current = view;
+  // Until someone pans or zooms, the camera follows the graph so every node stays on screen.
+  const [autoFit, setAutoFit] = useState(true);
+  const fitRef = useRef<View>({ x: 0, y: 0, k: 1 });
+  const viewRef = useRef(view);
   const svgRef = useRef<SVGSVGElement>(null);
   // Scroll to zoom around the pointer.
   useEffect(() => {
     const svg = svgRef.current; if (!svg) return;
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
-      setView(v => {
-        const k = Math.min(3, Math.max(0.3, v.k * Math.exp(-e.deltaY * 0.0015)));
+      const base = viewRef.current; setAutoFit(false);
+      setView(() => {
+        const v = base;
+        const k = Math.min(3, Math.max(0.2, v.k * Math.exp(-e.deltaY * 0.0015)));
         return { k, x: e.clientX - (e.clientX - v.x) * (k / v.k), y: e.clientY - (e.clientY - v.y) * (k / v.k) };
       });
     };
@@ -203,8 +208,9 @@ export function StoryView({ rows, mode, live, replayLabel, countdown, history }:
   const pan = (event: React.PointerEvent) => {
     if (event.button !== 0) return;
     const start = { x: event.clientX, y: event.clientY, v: viewRef.current };
+    let released = false;
     let moved = false;
-    const move = (e: PointerEvent) => { moved = moved || Math.abs(e.clientX - start.x) + Math.abs(e.clientY - start.y) > 3; setView({ ...start.v, x: start.v.x + e.clientX - start.x, y: start.v.y + e.clientY - start.y }); };
+    const move = (e: PointerEvent) => { moved = moved || Math.abs(e.clientX - start.x) + Math.abs(e.clientY - start.y) > 3; if (!moved) return; if (!released) { released = true; setAutoFit(false); } setView({ ...start.v, x: start.v.x + e.clientX - start.x, y: start.v.y + e.clientY - start.y }); };
     const up = () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); if (!moved) setFocus(null); };
     window.addEventListener('pointermove', move); window.addEventListener('pointerup', up);
   };
@@ -244,13 +250,31 @@ export function StoryView({ rows, mode, live, replayLabel, countdown, history }:
   };
   const issue = model.issues.find(i => i.key === openIssue);
   const resolved = model.issues.filter(i => i.state === 'accepted').length;
+  // Proposals being voted on right now. The simulation ticks continuously, so `now` animates the pulses.
+  const polls = model.issues.filter(i => i.state === 'proposed');
+  const now = performance.now();
+  // Fit the camera to the nodes (labels need room on the sides), easing toward it on every frame.
+  {
+    const pts = nodeSpecs.map(n => graph.pos(n.id)).filter((p): p is GNode => p?.x !== undefined && p.y !== undefined);
+    if (pts.length) {
+      const xs = pts.map(p => p.x!); const ys = pts.map(p => p.y!);
+      const minX = Math.min(...xs) - 260, maxX = Math.max(...xs) + 260, minY = Math.min(...ys) - 90, maxY = Math.max(...ys) + 130;
+      const top = 80, bottom = 120;
+      const k = Math.min(1.15, (w - 60) / (maxX - minX), (h - top - bottom) / (maxY - minY));
+      const target = { k, x: w / 2 - ((minX + maxX) / 2) * k, y: top + (h - top - bottom) / 2 - ((minY + maxY) / 2) * k };
+      const f = fitRef.current; const ease = f.k === 1 && f.x === 0 && f.y === 0 ? 1 : 0.08;
+      fitRef.current = { k: f.k + (target.k - f.k) * ease, x: f.x + (target.x - f.x) * ease, y: f.y + (target.y - f.y) * ease };
+    }
+  }
+  const shown = autoFit ? fitRef.current : view;
+  viewRef.current = shown;
 
   return <div className="story">
-    <svg ref={svgRef} className="graph" width={w} height={h} onPointerDown={pan} onDoubleClick={() => setView({ x: 0, y: 0, k: 1 })}>
+    <svg ref={svgRef} className="graph" width={w} height={h} onPointerDown={pan} onDoubleClick={() => setAutoFit(true)}>
       <defs>
         <pattern id="dots" width="32" height="32" patternUnits="userSpaceOnUse"><circle cx="16" cy="16" r="1.3" className="grid-dot" /></pattern>
       </defs>
-      <g transform={`translate(${view.x},${view.y}) scale(${view.k})`}>
+      <g transform={`translate(${shown.x},${shown.y}) scale(${shown.k})`}>
       <rect className="space" x={-20000} y={-20000} width={40000} height={40000} fill="url(#dots)" />
       {linkSpecs.map(link => {
         const a = graph.pos(link.source); const b = graph.pos(link.target);
@@ -260,21 +284,35 @@ export function StoryView({ rows, mode, live, replayLabel, countdown, history }:
         const involved = model.issues.find(i => i.key === key)?.parties.includes(agentId) ?? true;
         return <line key={link.id} className={`link ${link.kind} tone-${involved ? tone : 'neutral'}`} x1={a.x} y1={a.y} x2={b.x} y2={b.y} />;
       })}
+      {polls.map(poll => {
+        // A poll in progress: pulses travel from the topic to every agent that still has to vote.
+        const t = graph.pos(`k:${poll.key}`); if (t?.x === undefined || t.y === undefined) return null;
+        return poll.parties.filter(pid => !poll.votes.some(v => v.participantId === pid)).map((pid, i) => {
+          const a = graph.pos(`a:${pid}`); if (a?.x === undefined || a.y === undefined) return null;
+          return [0, 0.5].map(offset => {
+            const f = (now / 1400 + offset + i * 0.17) % 1;
+            return <circle key={`${poll.key}-${pid}-${offset}`} className={`poll-pulse ${poll.kind}`} cx={t.x! + (a.x! - t.x!) * f} cy={t.y! + (a.y! - t.y!) * f} r={6 - f * 2.5} opacity={1 - f * 0.6} />;
+          });
+        });
+      })}
       {topicKeys.map(key => {
         const p = graph.pos(`k:${key}`); if (p?.x === undefined || p.y === undefined) return null;
         const tone = toneOf(key);
         const label = model.describe(key);
+        const poll = polls.find(q => q.key === key);
         // Labels sit on the outside of the graph, so they don't run under the agents.
         const left = p.x < w / 2; const lx = left ? -28 : 28; const anchor = left ? 'end' : 'start';
         return <g key={key} className={`node topic tone-${tone}`} transform={`translate(${p.x},${p.y})`} onPointerDown={graph.drag(`k:${key}`)} onClick={e => { e.stopPropagation(); clickTopic(key); }}>
           <g className="grow">
             {['contradiction', 'redundancy', 'broken'].includes(tone) && <circle className="halo" r={30} />}
+            {poll && [0, 1, 2].map(i => <circle key={i} className={`poll-wave ${poll.kind}`} r={26} style={{ animationDelay: `${i * 0.6}s` }} />)}
+            {poll && <Ballot poll={poll} />}
             <circle className="dot" r={tone === 'neutral' ? 15 : 19} />
             {(tone === 'agreed' || tone === 'aligned') && <path className="tick" d="M-7 0 L-2 5.5 L7.5 -5.5" />}
             {(tone === 'contradiction' || tone === 'broken') && <text className="mark" dy="6">!</text>}
             {tone === 'redundancy' && <text className="mark" dy="6">=</text>}
             <text className="label" x={lx} dy="5" textAnchor={anchor}>{label}</text>
-            {tone !== 'neutral' && <text className="sublabel" x={lx} dy="25" textAnchor={anchor}>{tone === 'contradiction' ? 'contradiction · click for detail' : tone === 'redundancy' ? 'redundancy · click for detail' : tone === 'broken' ? "didn't fit · found only by testing" : tone === 'agreed' ? 'agreed by everyone' : 'already compatible'}</text>}
+            {tone !== 'neutral' && <text className="sublabel" x={lx} dy="25" textAnchor={anchor}>{poll ? `poll · ${poll.votes.filter(v => v.decision === 'accept').length} of ${poll.parties.length} agreed` : tone === 'contradiction' ? 'contradiction · click for detail' : tone === 'redundancy' ? 'redundancy · click for detail' : tone === 'broken' ? "didn't fit · found only by testing" : tone === 'agreed' ? 'agreed by everyone' : 'already compatible'}</text>}
           </g>
         </g>;
       })}
@@ -282,7 +320,8 @@ export function StoryView({ rows, mode, live, replayLabel, countdown, history }:
         const id = num(agent, 'id'); const p = graph.pos(`a:${id}`); if (p?.x === undefined || p.y === undefined) return null;
         const status = agentStatus(model, rows, agent); const provider = str(agent, 'provider');
         const hot = model.issues.find(i => i.parties.includes(id) && ['proposed', 'escalated', 'rejected'].includes(i.state));
-        return <g key={id} className={`node agent ${provider} ${status.tone} ${hot ? `hot-${hot.kind}` : ''}`} transform={`translate(${p.x},${p.y})`} onPointerDown={graph.drag(`a:${id}`)} onClick={e => { e.stopPropagation(); setFocus(focus === `a:${id}` ? null : `a:${id}`); }}>
+        const polled = polls.some(q => q.parties.includes(id) && !q.votes.some(v => v.participantId === id));
+        return <g key={id} className={`node agent ${provider} ${status.tone} ${hot ? `hot-${hot.kind}` : ''} ${polled ? 'polled' : ''}`} transform={`translate(${p.x},${p.y})`} onPointerDown={graph.drag(`a:${id}`)} onClick={e => { e.stopPropagation(); setFocus(focus === `a:${id}` ? null : `a:${id}`); }}>
           <g className="grow">
             <circle className="ring" r={52} />
             <circle className="body" r={42} />
@@ -295,13 +334,14 @@ export function StoryView({ rows, mode, live, replayLabel, countdown, history }:
       </g>
     </svg>
 
-    {focus && <FocusCard id={focus} model={model} rows={rows} pos={graph.pos(focus)} view={view} nameOf={nameOf} />}
+    {focus && <FocusCard id={focus} model={model} rows={rows} pos={graph.pos(focus)} view={shown} nameOf={nameOf} />}
 
     <header className="overlay top-left">
       <div className="mark-d">d</div>
       <div><b>dibs</b><span>lobby {str(model.lobby, 'id', '–')}</span></div>
       <div className={`mode ${mode === 'dibs' ? 'on' : 'off'}`}>{mode === 'dibs' ? 'dibs on' : 'dibs off'}</div>
     </header>
+    <div className="overlay hint">drag to pan · scroll to zoom · double-click to fit{history ? ' · T for time' : ''}</div>
 
     <div className="overlay top-right">
       {model.issues.length > 0 && <button className="chip issues" onClick={() => setOpenIssue(model.issues.find(i => i.state !== 'accepted')?.key ?? model.issues[0]!.key)}>{model.issues.length} issue{model.issues.length > 1 ? 's' : ''} · {resolved} resolved</button>}
@@ -317,7 +357,6 @@ export function StoryView({ rows, mode, live, replayLabel, countdown, history }:
     <div className={`overlay legend ${showTime && history ? 'hidden' : ''}`}>
       <span><i className="sw solid" />builds</span><span><i className="sw dashed" />needs</span>
       <span><i className="dot-sw contradiction" />contradiction</span><span><i className="dot-sw redundancy" />redundancy</span><span><i className="dot-sw agreed" />agreed</span>
-      <span className="hint">drag to pan · scroll to zoom · double-click to reset{history ? ' · T for time' : ''}</span>
     </div>
 
     {panel !== 'closed' && <aside className="side-panel">
@@ -332,6 +371,18 @@ export function StoryView({ rows, mode, live, replayLabel, countdown, history }:
 
     {issue && <Drawer issue={issue} rows={rows} nameOf={nameOf} providerOf={providerOf} close={() => setOpenIssue(null)} />}
   </div>;
+}
+
+/** The poll as a ring around the topic: one segment per voter, filled in as votes arrive. */
+function Ballot({ poll }: { poll: Issue }) {
+  const n = poll.parties.length; const r = 27; const gap = n > 1 ? 10 : 0;
+  const point = (deg: number) => [Math.cos((deg - 90) * Math.PI / 180) * r, Math.sin((deg - 90) * Math.PI / 180) * r] as const;
+  return <g className="ballot">{poll.parties.map((pid, i) => {
+    const from = (i * 360) / n + gap / 2; const to = ((i + 1) * 360) / n - gap / 2;
+    const [x1, y1] = point(from); const [x2, y2] = point(to);
+    const vote = poll.votes.find(v => v.participantId === pid);
+    return <path key={pid} className={`seat ${vote ? vote.decision : 'pending'}`} d={`M${x1} ${y1} A${r} ${r} 0 ${to - from > 180 ? 1 : 0} 1 ${x2} ${y2}`} />;
+  })}</g>;
 }
 
 function FocusCard({ id, model, rows, pos, view, nameOf }: { id: string; model: Model; rows: DashboardRows; pos?: GNode; view: View; nameOf: (id: number) => string }) {

@@ -108,7 +108,7 @@ function App() {
   const countdown = endAt ? Math.max(0, Math.ceil((endAt - displayedNow) / 1000)) : 0;
 
   if (params.get('view') === 'story') {
-    return <main className="dashboard story-page">
+    return <main className={`dashboard story-page ${params.get('theme') === 'dark' ? 'theme-dark' : ''}`}>
       <StoryView rows={snapshot} mode={str(lobby, 'mode', 'none')} live={source?.mode === 'live'} replayLabel={source?.mode === 'replay' ? source.label : undefined} countdown={countdown}
         history={replay ? <ReplayControls replay={replay} time={clock || replay.startUs} playing={playing} setPlaying={setPlaying} setClock={setClock} speed={speed} setSpeed={setSpeed}/> : undefined} />
       {error && <div className="overlay" style={{ left: 20, top: 64, color: '#ffb3ad', font: '12px DM Mono, monospace' }}>{error}</div>}
