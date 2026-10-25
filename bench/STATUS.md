@@ -1,8 +1,8 @@
 # Issue 4 (bench) + issue 5 (dashboard): status
 
-**As of Sat 16:00 PT** (Elliot's and Ren Jie's same-page replies folded in) · owner: Chris (C, M3 Mac) · branch `issue/4-bench` (PR #13) · dashboard `issue/5-dashboard` (PR #10)
+**As of Sat 17:10 PT** (lobby 3, the first two-machine dibs lobby, folded in) · owner: Chris (C, M3 Mac) · issue 4 and 5 work is merged in `real`; this update is on `issue/4-lobby3`
 
-The bench side is done and checked end to end. It holds the test app, the prompts, the hidden oracle, `dibs verify` and the Droid review. The S2 pilot fails exactly as designed (5/6), and the Droid review names the cause. What's left is wiring it to the shared database and running it on real dibs-mode lobbies.
+The bench side is done and checked end to end, and it's now proven live. It holds the test app, the prompts, the hidden oracle, `dibs verify` and the Droid review. The S2 pilot fails exactly as designed (5/6), and the Droid review names the cause. Lobby 3 (M1 Claude Code + M3 Codex) was verified and reviewed against the shared database. What's left: a lobby with all three providers, which needs the bridge fixes below and Droid on M2.
 
 ## What this part does, and where it sits
 
@@ -51,6 +51,46 @@ Droid SDK review of 901 (real Factory account): `auth.session` **violates** (roo
 1. **Agents read neighbouring folders.** Every trial clone must be isolated. On M3, keep Codex's clone away from `~/Desktop/dibs-i4` (the plaintext oracle is now deleted there) and `~/Desktop/dibs-pilot`.
 2. **Droid stops to ask the human** when it's unsure. In trials nobody can answer.
 3. **Each agent finished by saying it couldn't confirm the others' choices.** Claude even wrote out a contract the others "must follow". That's the gap dibs fills: use it in the pitch.
+
+## Lobby 3: first two-machine dibs lobby (16:38–16:52)
+
+`dibs-ch13-dev`, S2, dibs mode, base `f4001dc`, build `ac6cda3a…`. M1 ran Claude Code and M3 ran Codex; there was no Droid. Elliot's full timeline and database evidence are in `infra/LOBBY3_REPORT.md` (PR #17).
+
+| Result                                         | Value                                                                                                                                                                                          |
+| ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Heads                                          | claude `14fdc58` (code in `19881c7`), codex `a5b7a48`; 0 out-of-area files; merge-tree clean                                                                                                   |
+| Oracle (`dibs verify 3`, recorded as verifier) | **2/6.** Checks 1–2 pass. Checks 3–6 fail on the unbuilt registration route (501): no Droid, so `events.registration` had no owner. Check 6 shows "Unable to register", not "Please log in"    |
+| Droid SDK review                               | "Auth transport and server helpers conform. Registration remains an unconditional 501 stub, explaining all four oracle failures"                                                               |
+| Transport                                      | **Both bearer.** Claude planned bearer (16:37:25) and messaged the full contract to all (16:39:29). Codex's pushed `public/app.js` sends `Authorization: Bearer` and keeps the token in memory |
+
+**What it proves:**
+
+- On the shared database, these work across two machines: plan → worker analysis → notice → peer message → hook delivery.
+- So do finalize → push → `report_head` → `verify` → `review`, with the result recorded.
+- Claude's bearer message reached Codex through the hook even though Codex's tools were offline, and Codex built a matching UI.
+
+**Codex timeline on M3 (three launches):**
+
+1. **16:38, `session start` with `codex exec`** (plain `codex` needs a TTY on macOS): no hook fired, and it was killed at the 30 s hook-alive check.
+2. **~16:40, relaunched by hand in the clone:** hooks fired and Claude's bearer message arrived, but every dibs tool returned `offline` (`lobbyId 0`). Probably the bridge from launch 1 survived and held `bridge.lock`. At 16:47 `bridge.mjs` connected fine on its own. It built the bearer UI; **this is the pushed `a5b7a48`.**
+3. **~16:48, relaunched from `~`, not the clone:** no dibs tools at all. It found an old v1 folder, `~/Desktop/event-registration-fixture/app`, and wrote a cookie UI **there**, not in the clone. That edit was reverted, and the folder is being moved off the Desktop because its `bench/acceptance` holds the v1 hidden tests.
+
+**Corrections:**
+
+- Earlier relays said the cookie version was pushed. It wasn't; checked against the assembled tree in `bench/.work/lobby-3/tree`.
+- `/ps` was typed into Codex during launch 3. It's harmless, but it counts as an intervention.
+
+**Fixes before lobby 4:**
+
+| #   | Fix                                                                                                                                                                                                                                                    | Owner             |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------- |
+| 1   | One Codex headless launch path that works under `session start` on macOS and Windows: either exec mode with a hook-alive check that matches what exec fires, or a TTY. Never launch Codex by hand: launched outside the clone, it edits other projects | Ren Jie (issue 2) |
+| 2   | A failed or stopped session also kills the bridge in `bridge.lock`. The bridge exits when its stdin closes. A bridge that lost the lock retries it instead of staying offline                                                                          | Ren Jie (issue 2) |
+| 3   | Tool calls right after start wait briefly for the DB connection before answering `offline`                                                                                                                                                             | Ren Jie (issue 2) |
+| 4   | The Stop hook keeps blocking while any peer has no current plan and fallback hasn't passed (in lobby 3, Claude's keys read `clear` and it stopped at +4 min)                                                                                           | Ren Jie (issue 2) |
+| 5   | The worker keeps the valid findings when one citation is bad; redeploy with the lease fix                                                                                                                                                              | Elliot (issue 3)  |
+| 6   | **Decided:** early implementation stays allowed and the prompts don't change. The bench records per agent whether its last shared-key edit came after the contract delivery (`delivery` table vs agent transcripts)                                    | Chris (issue 4)   |
+| 7   | Droid joined, cloned at `f4001dc` and prepped on M2, so lobby 4 has all three providers and can reach 6/6                                                                                                                                              | Ren Jie (M2)      |
 
 ## Same-page replies
 
@@ -118,15 +158,17 @@ Droid SDK review of 901 (real Factory account): `auth.session` **violates** (roo
 
 ## Open items
 
-| Item                                                                                                                 | Owner             | Needed by                            |
-| -------------------------------------------------------------------------------------------------------------------- | ----------------- | ------------------------------------ |
-| Invite codes for `codex` and `verifier` on `dibs-ch13-dev`, so M3 can `dibs join`                                    | Ren Jie           | Now                                  |
-| Merge order into `real`: #12 (+#15) → #9 → #13 → #10; all four say "clean"                                           | Each owner        | Before the first shared-DB lobby     |
-| First dibs-mode S2 lobby on `dibs-ch13-dev`: M1 Claude Code + M3 Codex, then verify + review it                      | All               | Replaces the missed 13:30 checkpoint |
-| Add to all prompts: "No one can answer questions during this task; make reasonable assumptions and keep going."      | Chris             | Before Freeze 1 (18:25)              |
-| Run `check-oracle` once on Windows (M1 or M2), with the key passed temporarily via `DIBS_ORACLE_KEY`                 | Ren Jie or Elliot | Before trials                        |
-| Create `dibs-fixture` (protected `main`) and private `dibs-fixture-lobbies`; non-interactive push from every machine | Repo owner        | Before trials                        |
-| Dashboard live test against a real lobby (the simulator rejects `dibs-i5-*` names)                                   | Chris + Ren Jie   | Before 16:00                         |
+| Item                                                                                                                 | Owner             | Needed by                                             |
+| -------------------------------------------------------------------------------------------------------------------- | ----------------- | ----------------------------------------------------- |
+| ~~Invite codes for `codex` and `verifier`~~: done; M3 joined both                                                    | Elliot            | Done                                                  |
+| ~~Merge order into `real`~~: #11, #12 (+#15), #9, #13, #10, #16 merged (`c5f895f`)                                   | Each owner        | Done                                                  |
+| ~~First dibs-mode S2 lobby, M1 Claude Code + M3 Codex, verified and reviewed~~: lobby 3, above                       | All               | Done 17:05                                            |
+| ~~Add the no-questions sentence to all prompts~~: `d30256e`                                                          | Chris             | Done                                                  |
+| Lobby 3 fixes 1–7 (above), new bridge build hash on all machines, then lobby 4 with all three providers              | See table         | Before Freeze 1 (18:25)                               |
+| Move every non-clone fixture copy off M3's Desktop (`~/Desktop/event-registration-fixture` → `~/archive`)            | Chris             | Before lobby 4                                        |
+| Run `check-oracle` once on Windows (M1 or M2), with the key passed temporarily via `DIBS_ORACLE_KEY`                 | Ren Jie or Elliot | Before trials                                         |
+| Create `dibs-fixture` (protected `main`) and private `dibs-fixture-lobbies`; non-interactive push from every machine | Repo owner        | Before trials (lobby 3 moved heads with a git bundle) |
+| Dashboard live test against a real lobby (the simulator rejects `dibs-i5-*` names)                                   | Chris + Ren Jie   | Overdue; lobby 4 can serve                            |
 
 ## Questions for Ren Jie and Elliot (are we on the same page?)
 
@@ -136,4 +178,4 @@ Droid SDK review of 901 (real Factory account): `auth.session` **violates** (roo
 4. ~~Worker and model~~: answered. Connected since 14:02, `claude-sonnet-4-6`.
 5. **Both:** anything in A1–A7 that's wrong, or anything you need from issue 4 or 5 (fixture changes, prompt wording, verify/review output fields, dashboard panels)?
 
-Reply in PR #13, or edit this file on `issue/4-bench`.
+Reply in the PR for `issue/4-lobby3`.
