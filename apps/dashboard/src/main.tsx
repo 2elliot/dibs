@@ -6,6 +6,7 @@ import dibsFixture from '../fixtures/s2-dibs.json';
 import noneFixture from '../fixtures/s2-none.json';
 import './style.css';
 import './evidence.css';
+import { StoryView } from './story';
 
 const providers = PROVIDERS;
 const providerNames: Record<Provider,string> = { claude: 'Claude', codex: 'Codex', droid: 'Droid' };
@@ -105,6 +106,17 @@ function App() {
   const endAt = num(lobby, 'endsAtUs') / 1000;
   const displayedNow = replay ? (clock || replay.endUs) / 1000 : now;
   const countdown = endAt ? Math.max(0, Math.ceil((endAt - displayedNow) / 1000)) : 0;
+
+  if (params.get('view') === 'story') {
+    return <main className="dashboard story-page">
+      <header className="lobby-header">
+        <div className="brand-lockup"><div className="brand-mark">d</div><div><div className="eyebrow">LET YOUR AI AGENTS CALL DIBS BEFORE THEY BUILD</div><h1>dibs · lobby {str(lobby, 'id', '–')}</h1></div></div>
+        <div className="header-right">{error ? <div className="mode-chip">{error}</div> : null}<div className="countdown"><span>TIME REMAINING</span><strong>{String(Math.floor(countdown/60)).padStart(2,'0')}:{String(countdown%60).padStart(2,'0')}</strong></div></div>
+      </header>
+      <StoryView rows={snapshot} mode={str(lobby, 'mode', 'none')} replayLabel={source?.mode === 'replay' ? source.label : undefined} />
+      {replay && <ReplayControls replay={replay} time={clock || replay.startUs} playing={playing} setPlaying={setPlaying} setClock={setClock} speed={speed} setSpeed={setSpeed}/>}
+    </main>;
+  }
 
   return <main className="dashboard">
     {source?.mode === 'replay' && <div className="replay-ribbon"><span>REPLAY</span><b>{source.label}</b></div>}
