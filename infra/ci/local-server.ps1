@@ -15,10 +15,13 @@ do {
     $connection = [System.Net.Sockets.TcpClient]::new()
     $connection.Connect('127.0.0.1', $port)
     $connection.Dispose()
-    "DIBS_TEST_URI=http://127.0.0.1:$port" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
-    "DIBS_WORKER_LIVE_URI=http://127.0.0.1:$port" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
-    "SPACETIME_CLI_CONFIG=$(Join-Path $env:RUNNER_TEMP 'dibs-local-cli.toml')" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
-    exit 0
+    $env:DIBS_TEST_URI = "http://127.0.0.1:$port"
+    $env:DIBS_WORKER_LIVE_URI = "http://127.0.0.1:$port"
+    $env:SPACETIME_CLI_CONFIG = Join-Path $env:RUNNER_TEMP 'dibs-local-cli.toml'
+    "DIBS_TEST_URI=$env:DIBS_TEST_URI" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+    "DIBS_WORKER_LIVE_URI=$env:DIBS_WORKER_LIVE_URI" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+    "SPACETIME_CLI_CONFIG=$env:SPACETIME_CLI_CONFIG" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+    return $process
   } catch { Start-Sleep -Milliseconds 250 }
 } while ((Get-Date) -lt $deadline)
 throw 'The isolated database server did not become ready.'

@@ -43,7 +43,6 @@ jobs:
       - run: npx tsc --noEmit -p infra/ci
       - run: npx playwright install --with-deps chromium
       - run: ./infra/ci/install-spacetime.ps1
-      - run: ./infra/ci/local-server.ps1
       - name: Generated bindings match the schema
         run: |
           & $env:SPACETIME_BIN generate --lang typescript --out-dir packages/bindings/src --module-path spacetime --yes
@@ -51,10 +50,19 @@ jobs:
           git diff --exit-code -- packages/bindings
       - name: Workspace and real-database tests
         run: |
-          npm test
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          # Keep the server and every consumer in the same step lifetime.
+          # Windows runners can terminate a background child when its launching
+          # shell ends, even though the next step runs in the same VM.
+          $databaseProcess = & ./infra/ci/local-server.ps1
+          try {
+            npm test
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            npm run smoke:package -w @dibs/experience
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          } finally {
+            if (!$databaseProcess.HasExited) { Stop-Process -Id $databaseProcess.Id }
+          }
       - run: npm run build -w @dibs/dashboard
-      - run: npm run smoke:package -w @dibs/experience
       - name: Pack development installation (server selected explicitly)
         if: matrix.os == 'ubuntu-latest'
         run: |

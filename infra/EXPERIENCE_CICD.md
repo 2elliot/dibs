@@ -5,6 +5,8 @@
 SpacetimeDB 2.13 local server, committed-binding regeneration checks, a populated
 legacy-to-new schema upgrade, browser checks, and a relocated installed-package
 smoke. A Linux runner builds and smoke-tests the worker/dashboard container.
+The isolated database and all its test/package consumers share one step lifetime
+and use ephemeral signing keys plus a separate CLI identity configuration.
 
 Deployment only runs for `real_exp`, after both OS checks and container validation
 pass. It is opt-in through repository variable `DIBS_EXP_AUTO_DEPLOY=true`, or
