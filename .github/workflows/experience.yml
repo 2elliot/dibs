@@ -148,13 +148,21 @@ jobs:
       - run: npm ci
       - shell: pwsh
         run: ./infra/ci/install-spacetime.ps1
-      - name: Publish additive schema without deleting data
+      - name: Publish schema (data policy ${{ vars.SPACETIME_DELETE_DATA || 'always' }})
         shell: pwsh
+        env:
+          # always: wipe and recreate on every deploy; on-conflict: only on breaking
+          # schema changes; never: additive changes only.
+          SPACETIME_DELETE_DATA: ${{ vars.SPACETIME_DELETE_DATA || 'always' }}
         run: |
+          if ($env:SPACETIME_DELETE_DATA -notin 'always', 'on-conflict', 'never') { throw "Unsupported SPACETIME_DELETE_DATA: $env:SPACETIME_DELETE_DATA" }
           & $env:SPACETIME_BIN login --token $env:SPACETIME_PUBLISH_TOKEN
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          & $env:SPACETIME_BIN publish --server $env:SPACETIME_URI --module-path spacetime --delete-data=never --yes=remote,skip-login $env:SPACETIME_DB
+          & $env:SPACETIME_BIN publish --server $env:SPACETIME_URI --module-path spacetime "--delete-data=$env:SPACETIME_DELETE_DATA" --yes=remote,skip-login,migrate,delete-data,break-clients $env:SPACETIME_DB
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Re-register admin and worker after a data wipe
+        shell: pwsh
+        run: ./infra/ci/bootstrap-participants.ps1
       - name: Keep project onboarding disabled during rollout
         env:
           DIBS_ENABLE_PROJECTS: "false"

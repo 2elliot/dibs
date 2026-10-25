@@ -26,7 +26,7 @@ deployment in `infra/AGENT_HANDOFF.md` (`dibs-rg`, `dibs-env`, registry
 | Azure login       | its own managed identity                    | federated subject `repo:2elliot/dibs:environment:real-exp`           |
 | Azure permissions | `Contributor` on `dibs-exp-rg` only         | the identity can't see or change `dibs-rg`                           |
 | Azure resources   | own resource group, registry, env and app   | `deploy-preflight.mjs` refuses shared names and requires `exp` names |
-| SpacetimeDB       | own `dibs-ch13-exp` database and identities | preflight requires `-exp`; publish never deletes data                |
+| SpacetimeDB       | own `dibs-ch13-exp` database and identities | preflight requires `-exp`; only this database is ever wiped          |
 
 ## One-time setup (account owner's laptop)
 
@@ -196,7 +196,6 @@ grep '^spacetimedb_token' $STCFG | sed -E 's/^[^"]*"([^"]*)".*/\1/' \
   | gh secret set SPACETIME_PUBLISH_TOKEN --env real-exp --repo $REPO
 gh secret set SPACETIME_ADMIN_TOKEN  --env real-exp --repo $REPO < "$DIBS_HOME/admin/token"
 gh secret set SPACETIME_WORKER_TOKEN --env real-exp --repo $REPO < "$DIBS_HOME/worker/token"
-gh secret set ANTHROPIC_API_KEY      --env real-exp --repo $REPO   # prompts; paste the API key
 
 gh variable set SPACETIME_URI        --env real-exp --repo $REPO --body "$STDB"
 gh variable set SPACETIME_DB         --env real-exp --repo $REPO --body "$DB"
@@ -204,12 +203,19 @@ gh variable set AZURE_RESOURCE_GROUP --env real-exp --repo $REPO --body "$RG"
 gh variable set AZURE_CONTAINER_APP  --env real-exp --repo $REPO --body "$APP"
 gh variable set AZURE_ACR_NAME       --env real-exp --repo $REPO --body "$ACR"
 
-gh secret list   --env real-exp --repo $REPO   # 7 names
+gh secret list   --env real-exp --repo $REPO   # 6 names so far
 gh variable list --env real-exp --repo $REPO   # 5 names
 ```
 
 The publishing token is the owner's CLI login from step 4. It must stay the
 identity that owns `dibs-ch13-exp`; future schema publishes use it.
+
+**Add the Anthropic API key in the GitHub web UI:** repository **Settings →
+Environments → `real-exp` → Environment secrets → Add environment secret**, name
+`ANTHROPIC_API_KEY`. It must be an environment secret, not a repository secret.
+Afterwards `gh secret list --env real-exp --repo $REPO` shows 7 names. Do step 6
+only once it's there; otherwise the deploy job stops at its preflight with
+`Missing names: ANTHROPIC_API_KEY`.
 
 ### 6. Turn on deployment and run it
 
@@ -249,7 +255,16 @@ unset DIBS_HOME ADMIN_CODE WORKER_CODE
 ```
 
 Later deployments need no laptop: every push to `real_exp` deploys. To pause
-them, set `DIBS_EXP_AUTO_DEPLOY` to `false`. To remove the whole experiment,
+them, set `DIBS_EXP_AUTO_DEPLOY` to `false`.
+
+**Each deploy wipes the experiment database** and recreates it with the new
+schema, so schema changes never block a deploy. Open rooms and their join codes
+end with it; testers create a new room afterwards (`dibs leave --local`, then
+`dibs create`/`dibs join`). The admin and worker identities are re-registered
+automatically, so the stored secrets keep working. To keep data across deploys
+instead, set the environment variable `SPACETIME_DELETE_DATA` to `on-conflict`
+(wipe only when the schema change is breaking) or `never` (additive changes only;
+a breaking change fails the deploy). To remove the whole experiment,
 run `az group delete --name dibs-exp-rg` and delete the `real-exp` environment;
 the shared project is untouched.
 
@@ -259,9 +274,11 @@ the shared project is untouched.
    `exp` names, as well as any of the shared project's resource names. It never
    silently falls back to the shared database.
 2. Logs into Azure with OIDC. Installs the pinned SpacetimeDB CLI, logs in using
-   the publishing secret, then publishes with **`--delete-data=never`** and
-   noninteractive remote/login confirmations only. Breaking migrations fail;
-   the workflow never resets a database or automatically approves data loss.
+   the publishing secret, then publishes with **`--delete-data=always`** by
+   default (`SPACETIME_DELETE_DATA` overrides it), which wipes the experiment
+   database and applies the new schema. `infra/ci/bootstrap-participants.ps1`
+   then re-registers the admin and worker under their existing identities from
+   the stored tokens; it does nothing when they survived the publish.
 3. Keeps project onboarding disabled during rollout. After the new worker is
    ready and is the only active revision, enables it through an admin-only reducer with ten active
    rooms, twenty creations/day, and one hundred analysis leases/day. Room limit
@@ -286,17 +303,17 @@ silently connecting users to the old shared app.
 
 ## Failures and rollback
 
-Database updates are additive in this change: new private tables and reducers,
-with existing public row shapes preserved. A failed schema publish stops before
-updating Azure. If a later step fails, the workflow fails and retains its logs;
-it does not pretend schema and application changes are transactional. Inspect the
-last successful deployment manifest and restore its image digest if needed.
-Keep additive tables in place; do not use database deletion as rollback. Disable
-project onboarding through `configure_projects` if rolling back support for it.
+A failed schema publish stops before updating Azure. If a later step fails, the
+workflow fails and retains its logs; it does not pretend schema and application
+changes are transactional. To roll back, push a revert to `real_exp`: the next
+deploy wipes the database again and publishes the reverted schema and image
+together. Disable project onboarding through `configure_projects` if rolling
+back support for it.
 
-The real `c5f895f` baseline module is published and seeded in the upgrade test,
-then updated to this schema without deleting data. Existing identities, lobby,
-plan, and benchmark operations are asserted after the upgrade.
+The wipe policy only applies to this experiment database. The additive upgrade
+from the real `c5f895f` baseline is still exercised in CI (published, seeded,
+then updated without deleting data), so the same schema can later be published
+to a database whose data matters, using `--delete-data=never`.
 
 References: [Azure OIDC](https://learn.microsoft.com/en-us/azure/developer/github/connect-from-azure-openid-connect),
 [Container Apps GitHub Actions](https://learn.microsoft.com/en-us/azure/container-apps/github-actions),
