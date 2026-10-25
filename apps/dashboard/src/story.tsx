@@ -20,7 +20,7 @@ const ids = (value: unknown): number[] => {
 };
 const parse = (value: unknown): Row => { if (typeof value !== 'string') return (value as Row) ?? {}; try { return JSON.parse(value) as Row; } catch { return {}; } };
 const display = (name: string) => /^[a-z]/.test(name) ? name.charAt(0).toUpperCase() + name.slice(1) : name;
-const clock = (us: number) => us ? new Date(us / 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '';
+const clock = (us: number) => us ? new Date(us / 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }) : '';
 
 const PROVIDER_LABEL: Record<string, string> = { claude: 'Claude Code', codex: 'Codex', droid: 'Droid' };
 const PROVIDER_MARK: Record<string, string> = { claude: 'C', codex: 'X', droid: 'D' };
@@ -124,7 +124,7 @@ function useForceGraph(nodeIds: { id: string; type: 'agent' | 'topic'; parent?: 
   useEffect(() => {
     // Light forces and heavy damping: nodes glide into place slowly rather than snapping.
     const s = forceSimulation<GNode, GLink>().velocityDecay(0.6).alphaDecay(0.008).alphaTarget(0.003)
-      .force('collide', forceCollide<GNode>(n => n.type === 'agent' ? 130 : 115).strength(0.9))
+      .force('collide', forceCollide<GNode>(n => n.type === 'agent' ? 130 : 140).strength(0.9))
       // A slow, per-node drift so the graph keeps gently floating instead of freezing.
       .force('float', () => {
         const t = performance.now() / 4000;
@@ -204,7 +204,6 @@ export function StoryView({ rows, mode, live, replayLabel, countdown, timeline }
   const jump = (atUs: number) => { if (!timeline) return; timeline.setPlaying(false); timeline.setClock(Math.min(timeline.end, atUs + 1_500_000)); };
   const model = useModel(rows);
   const { w, h } = useSize();
-  const [openIssue, setOpenIssue] = useState<string | null>(null);
   const [focus, setFocus] = useState<string | null>(null);
   const [panel, setPanel] = useState<'closed' | 'timeline' | 'replay'>('closed');
   const [filter, setFilter] = useState<number | 'all'>('all');
@@ -278,11 +277,12 @@ export function StoryView({ rows, mode, live, replayLabel, countdown, timeline }
     .map(i => ({ id: `l:${str(i, 'id')}`, source: `a:${num(i, 'participantId')}`, target: `k:${str(i, 'key')}`, kind: (str(i, 'kind') === 'produces' ? 'produces' : 'requires') as 'produces' | 'requires' }));
   const graph = useForceGraph(nodeSpecs, linkSpecs, w, h, viewRef);
 
-  const clickTopic = (key: string) => {
-    if (model.issues.some(i => i.key === key)) { setOpenIssue(key); setFocus(null); }
-    else setFocus(focus === `k:${key}` ? null : `k:${key}`);
-  };
-  const issue = model.issues.find(i => i.key === openIssue);
+  const clickTopic = (key: string) => setFocus(`k:${key}`);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setFocus(null); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
   const resolved = model.issues.filter(i => i.state === 'accepted').length;
   // Proposals being voted on right now. The simulation ticks continuously, so `now` animates the pulses.
   const polls = model.issues.filter(i => i.state === 'proposed');
@@ -341,18 +341,21 @@ export function StoryView({ rows, mode, live, replayLabel, countdown, timeline }
         const poll = polls.find(q => q.key === key);
         // Labels sit on the outside of the graph, so they don't run under the agents.
         const left = p.x < w / 2; const lx = left ? -28 : 28; const anchor = left ? 'end' : 'start';
+        const rr = tone === 'neutral' ? 15 : 19;
         return <g key={key} className={`node topic tone-${tone}`} transform={`translate(${p.x},${p.y})`} onPointerDown={dragNode(`k:${key}`)} onClick={e => { e.stopPropagation(); clickTopic(key); }}>
-          <g className="grow">
+          <g className="grow"><g className="hoverable">
+            <circle className="hover-ring" r={rr + 9} />
             {['contradiction', 'redundancy', 'broken'].includes(tone) && <circle className="halo" r={30} />}
             {poll && [0, 1, 2].map(i => <circle key={i} className={`poll-wave ${poll.kind}`} r={26} style={{ animationDelay: `${i * 0.6}s` }} />)}
             {poll && <Ballot poll={poll} />}
-            <circle className="dot" r={tone === 'neutral' ? 15 : 19} />
+            <circle className="dot" r={rr} />
+            <Badge r={rr} />
             {(tone === 'agreed' || tone === 'aligned') && <path className="tick" d="M-7 0 L-2 5.5 L7.5 -5.5" />}
             {(tone === 'contradiction' || tone === 'broken') && <text className="mark" dy="6">!</text>}
             {tone === 'redundancy' && <text className="mark" dy="6">=</text>}
             <text className="label" x={lx} dy="5" textAnchor={anchor}>{label}</text>
-            {tone !== 'neutral' && <text className="sublabel" x={lx} dy="25" textAnchor={anchor}>{poll ? `poll · ${poll.votes.filter(v => v.decision === 'accept').length} of ${poll.parties.length} agreed` : tone === 'contradiction' ? 'contradiction · click for detail' : tone === 'redundancy' ? 'redundancy · click for detail' : tone === 'broken' ? "didn't fit · found only by testing" : tone === 'agreed' ? 'agreed by everyone' : 'already compatible'}</text>}
-          </g>
+            {tone !== 'neutral' && <text className="sublabel" x={lx} dy="25" textAnchor={anchor}>{poll ? `poll · ${poll.votes.filter(v => v.decision === 'accept').length} of ${poll.parties.length} agreed` : tone === 'contradiction' ? 'contradiction' : tone === 'redundancy' ? 'redundancy' : tone === 'dependency' ? 'depends on' : tone === 'broken' ? "didn't fit · found only by testing" : tone === 'agreed' ? 'agreed by everyone' : 'already compatible'}</text>}
+          </g></g>
         </g>;
       })}
       {model.agents.map(agent => {
@@ -360,20 +363,22 @@ export function StoryView({ rows, mode, live, replayLabel, countdown, timeline }
         const status = agentStatus(model, rows, agent); const provider = str(agent, 'provider');
         const hot = model.issues.find(i => i.parties.includes(id) && ['proposed', 'escalated', 'rejected'].includes(i.state));
         const polled = polls.some(q => q.parties.includes(id) && !q.votes.some(v => v.participantId === id));
-        return <g key={id} className={`node agent ${provider} ${status.tone} ${hot ? `hot-${hot.kind}` : ''} ${polled ? 'polled' : ''}`} transform={`translate(${p.x},${p.y})`} onPointerDown={dragNode(`a:${id}`)} onClick={e => { e.stopPropagation(); setFocus(focus === `a:${id}` ? null : `a:${id}`); }}>
-          <g className="grow">
+        return <g key={id} className={`node agent ${provider} ${status.tone} ${hot ? `hot-${hot.kind}` : ''} ${polled ? 'polled' : ''}`} transform={`translate(${p.x},${p.y})`} onPointerDown={dragNode(`a:${id}`)} onClick={e => { e.stopPropagation(); setFocus(`a:${id}`); }}>
+          <g className="grow"><g className="hoverable">
             <circle className="ring" r={52} />
+            <circle className="hover-ring" r={58} />
             <circle className="body" r={42} />
+            <Badge r={42} />
             <text className="mark" dy="10">{PROVIDER_MARK[provider] ?? '?'}</text>
             <text className="name" dy="76">{display(str(agent, 'name'))}</text>
             <text className="status" dy="96">{status.label} · #{id}</text>
-          </g>
+          </g></g>
         </g>;
       })}
       </g>
     </svg>
 
-    {focus && <FocusCard id={focus} model={model} rows={rows} pos={graph.pos(focus)} view={shown} nameOf={nameOf} />}
+    {focus && <IndexCard id={focus} model={model} rows={rows} nameOf={nameOf} failedRoot={mode !== 'dibs' ? failedRoot : undefined} verification={model.verification} close={() => setFocus(null)} />}
 
     <header className="overlay top-left">
       <div className="mark-d">d</div>
@@ -383,7 +388,7 @@ export function StoryView({ rows, mode, live, replayLabel, countdown, timeline }
     <div className="overlay hint">drag to pan · scroll to zoom · double-click to fit{history ? ' · T for time' : ''}</div>
 
     <div className="overlay top-right">
-      {model.issues.length > 0 && <button className="chip issues" onClick={() => setOpenIssue(model.issues.find(i => i.state !== 'accepted')?.key ?? model.issues[0]!.key)}>{model.issues.length} issue{model.issues.length > 1 ? 's' : ''} · {resolved} resolved</button>}
+      {model.issues.length > 0 && <button className="chip issues" onClick={() => setFocus(`k:${model.issues.find(i => i.state !== 'accepted')?.key ?? model.issues[0]!.key}`)}>{model.issues.length} issue{model.issues.length > 1 ? 's' : ''} · {resolved} resolved</button>}
       {history ? <button className={`chip replay ${showTime ? 'active' : ''}`} onClick={() => setShowTime(v => !v)} title="Show or hide the time controls (T)"><i />REPLAY{replayLabel ? ` · ${replayLabel}` : ''} <kbd>T</kbd></button>
         : <span className={`chip ${live ? 'live' : 'replay'}`}><i />{live ? 'LIVE' : 'REPLAY'}</span>}
       {countdown > 0 && <span className="chip time">{String(Math.floor(countdown / 60)).padStart(2, '0')}:{String(countdown % 60).padStart(2, '0')}</span>}
@@ -418,7 +423,7 @@ export function StoryView({ rows, mode, live, replayLabel, countdown, timeline }
       <Timeline rows={rows} model={model} filter={filter} setFilter={setFilter} nameOf={nameOf} providerOf={providerOf} onJump={timeline ? jump : undefined} />
     </aside>}
 
-    {issue && <Drawer issue={issue} rows={rows} nameOf={nameOf} providerOf={providerOf} close={() => setOpenIssue(null)} />}
+
   </div>;
 }
 
@@ -500,26 +505,84 @@ function Ballot({ poll }: { poll: Issue }) {
   })}</g>;
 }
 
-function FocusCard({ id, model, rows, pos, view, nameOf }: { id: string; model: Model; rows: DashboardRows; pos?: GNode; view: View; nameOf: (id: number) => string }) {
-  if (pos?.x === undefined || pos.y === undefined) return null;
-  const sx = pos.x * view.k + view.x; const sy = pos.y * view.k + view.y;
-  const style = { left: Math.min(sx + 60 * view.k, window.innerWidth - 360), top: Math.max(sy - 40, 70) };
-  if (id.startsWith('a:')) {
+/** A small "open me" mark on everything that has a popup. */
+function Badge({ r }: { r: number }) {
+  const d = r * 0.72;
+  return <g className="badge" transform={`translate(${d},${-d})`}><circle r={8} /><path d="M-2.6 2.6 L2.6 -2.6 M-1.2 -2.6 H2.6 V1.2" /></g>;
+}
+
+const RISK: Record<Kind, string> = {
+  contradiction: 'Each part works alone; together the app breaks.',
+  redundancy: 'Two versions of the same work to reconcile.',
+  dependency: 'Built against a guess about the other part.',
+};
+
+/** The popup: a plain index card, centred, one timestamped line per thing that happened. */
+function IndexCard({ id, model, rows, nameOf, failedRoot, verification, close }: { id: string; model: Model; rows: DashboardRows; nameOf: (id: number) => string; failedRoot?: Row; verification?: Row; close: () => void }) {
+  type Line = { at: number; label: string; text: string; tone?: string };
+  const lines: Line[] = [];
+  const planAt = (planId: number) => num(rows.plan.find(p => num(p, 'id') === planId), 'createdAtUs');
+  let title = ''; let tag = ''; let tagTone = '';
+  if (id.startsWith('k:')) {
+    const key = id.slice(2);
+    title = model.describe(key);
+    const issue = model.issues.find(i => i.key === key);
+    const contract = model.contracts.find(c => str(c, 'key') === key);
+    for (const it of model.items.filter(i => str(i, 'key') === key))
+      lines.push({ at: planAt(num(it, 'planId')), label: nameOf(num(it, 'participantId')), text: `${str(it, 'kind') === 'produces' ? 'builds' : 'needs'}: ${str(it, 'text')}` });
+    if (issue) {
+      for (const rev of issue.revisions) {
+        const at = num(rev, 'createdAtUs');
+        if (rev === issue.revisions[0]) {
+          lines.push({ at, label: 'Found', text: str(rev, 'rationale') || `${KIND_LABEL[issue.kind]}.`, tone: issue.kind });
+          lines.push({ at, label: 'Risk', text: RISK[issue.kind] });
+        }
+        lines.push({ at, label: rev === issue.revisions[0] ? 'Fix' : `Fix v${str(rev, 'revision')}`, text: str(rev, 'contractText') });
+        for (const r of rows.response.filter(x => num(x, 'proposalId') === num(rev, 'id')))
+          lines.push({ at: num(r, 'createdAtUs'), label: nameOf(num(r, 'participantId')), text: str(r, 'decision') === 'accept' ? 'agreed ✓' : `pushed back${str(r, 'reason') ? `: “${str(r, 'reason')}”` : ''}`, tone: str(r, 'decision') === 'accept' ? 'good' : 'bad' });
+        const closed = num(rev, 'closedAtUs');
+        if (str(rev, 'state') === 'accepted' && closed) lines.push({ at: closed, label: 'Agreed', text: 'everyone involved accepted the fix', tone: 'good' });
+        if (str(rev, 'state') === 'rejected' && closed) lines.push({ at: closed, label: 'Revising', text: 'dibs is rewriting the fix', tone: 'bad' });
+      }
+      tag = `${KIND_LABEL[issue.kind]} · ${issue.state === 'accepted' ? 'resolved' : issue.state === 'proposed' ? 'voting' : issue.state === 'rejected' ? 'revising' : issue.state}`;
+      tagTone = issue.state === 'accepted' ? 'good' : issue.kind;
+    } else if (contract) {
+      lines.push({ at: num(contract, 'createdAtUs'), label: str(contract, 'source') === 'agreed' ? 'Agreed' : 'Compatible', text: str(contract, 'text'), tone: 'good' });
+      tag = str(contract, 'source') === 'agreed' ? 'Agreed' : 'Already compatible'; tagTone = 'good';
+    } else {
+      tag = 'No conflict found';
+    }
+    if (failedRoot && str(failedRoot, 'key') === key) {
+      lines.push({ at: num(verification, 'createdAtUs'), label: 'Test', text: str(failedRoot, 'explanation'), tone: 'bad' });
+      tag = "Didn't fit · found only by testing"; tagTone = 'contradiction';
+    }
+  } else {
     const pid = Number(id.slice(2));
-    const plan = rows.plan.filter(p => num(p, 'participantId') === pid).sort((a, b) => num(b, 'revision') - num(a, 'revision'))[0];
     const agent = rows.participant.find(p => num(p, 'id') === pid);
-    return <div className="focus-card" style={style}>
-      <b>{nameOf(pid)}</b><span>{PROVIDER_LABEL[str(agent, 'provider')] ?? str(agent, 'provider')} · session #{pid}</span>
-      <p>{plan ? str(plan, 'goal') : "Hasn't shared a plan yet."}</p>
-      <ul>{model.items.filter(i => num(i, 'participantId') === pid).map(i => <li key={str(i, 'id')}><em>{str(i, 'kind') === 'produces' ? 'builds' : 'needs'}</em>{model.describe(str(i, 'key'))}</li>)}</ul>
-    </div>;
+    title = nameOf(pid);
+    tag = `${PROVIDER_LABEL[str(agent, 'provider')] ?? str(agent, 'provider')} · session #${pid}`;
+    for (const plan of rows.plan.filter(p => num(p, 'participantId') === pid))
+      lines.push({ at: num(plan, 'createdAtUs'), label: num(plan, 'revision') > 1 ? `Plan v${str(plan, 'revision')}` : 'Plan', text: str(plan, 'goal') });
+    for (const it of model.items.filter(i => num(i, 'participantId') === pid))
+      lines.push({ at: planAt(num(it, 'planId')), label: str(it, 'kind') === 'produces' ? 'Builds' : 'Needs', text: model.describe(str(it, 'key')) });
+    for (const r of rows.response.filter(x => num(x, 'participantId') === pid)) {
+      const prop = rows.proposal.find(p => num(p, 'id') === num(r, 'proposalId'));
+      lines.push({ at: num(r, 'createdAtUs'), label: 'Voted', text: `${str(r, 'decision') === 'accept' ? 'agreed to' : 'pushed back on'} the fix for ${model.describe(str(prop, 'key')).toLowerCase()}`, tone: str(r, 'decision') === 'accept' ? 'good' : 'bad' });
+    }
+    const head = rows.head.find(h => num(h, 'participantId') === pid);
+    if (head) lines.push({ at: num(head, 'createdAtUs'), label: 'Done', text: 'handed in its work' });
   }
-  const key = id.slice(2);
-  const contract = model.contracts.find(c => str(c, 'key') === key);
-  return <div className="focus-card" style={style}>
-    <b>{model.describe(key)}</b><span>{key}</span>
-    <ul>{model.items.filter(i => str(i, 'key') === key).map(i => <li key={str(i, 'id')}><em>{nameOf(num(i, 'participantId'))} {str(i, 'kind') === 'produces' ? 'builds' : 'needs'}</em>{str(i, 'text')}</li>)}</ul>
-    {contract && <p className="agreed-text">{str(contract, 'source') === 'agreed' ? 'Agreed' : 'Compatible'}: {str(contract, 'text')}</p>}
+  lines.sort((a, b) => a.at - b.at);
+  return <div className="card-backdrop" onClick={close}>
+    <article className="index-card" onClick={e => e.stopPropagation()} role="dialog" aria-label={title}>
+      <header>
+        <div><h2>{title}</h2><span className={`card-tag ${tagTone}`}>{tag}</span></div>
+        <button onClick={close} aria-label="Close">✕</button>
+      </header>
+      {lines.length ? <div className="card-rows">{lines.map((l, i) => <div key={i} className={`card-row ${l.tone ?? ''}`}>
+        <time>{l.at ? clock(l.at) : ''}</time><b>{l.label}</b><span>{l.text}</span>
+      </div>)}</div> : <p className="card-empty">Nothing yet.</p>}
+    </article>
   </div>;
 }
 
@@ -546,36 +609,7 @@ function Narration({ model, mode, nameOf, failedRoot }: { model: Model; mode: st
   } else if (model.items.length) {
     title = mode === 'dibs' ? 'Plans shared · no problems so far' : 'Each agent is building on its own guesses';
   }
-  return <div key={`${tone}-${title}`} className={`overlay narration ${tone}`}><em><i />NOW</em><div><b>{title}</b>{detail && <span>{detail}</span>}</div></div>;
-}
-
-function Drawer({ issue, rows, nameOf, providerOf, close }: { issue: Issue; rows: DashboardRows; nameOf: (id: number) => string; providerOf: (id: number) => string; close: () => void }) {
-  return <div className="drawer-backdrop" onClick={close}>
-    <aside className={`drawer ${issue.state === 'accepted' ? 'agreed' : issue.kind}`} onClick={event => event.stopPropagation()}>
-      <button className="drawer-close" onClick={close} aria-label="Close">×</button>
-      <span className="issue-kind">{KIND_LABEL[issue.kind]} · {issue.state === 'accepted' ? 'resolved' : issue.state === 'proposed' ? 'voting' : issue.state}</span>
-      <h2>{issue.label}</h2>
-      <p className="drawer-lead">{str(issue.latest, 'rationale')}</p>
-      <h3>What each agent assumed</h3>
-      <div className="assumptions">{issue.cited.map(item => <div key={str(item, 'id')} className="assumption">
-        <div className={`avatar ${providerOf(num(item, 'participantId'))}`}>{PROVIDER_MARK[providerOf(num(item, 'participantId'))] ?? '?'}</div>
-        <div><b>{nameOf(num(item, 'participantId'))} {str(item, 'kind') === 'produces' ? 'builds' : 'expects'}</b><p>{str(item, 'text')}</p></div>
-      </div>)}</div>
-      <h3>If it had carried on</h3>
-      <p className="consequence">{CONSEQUENCE[issue.kind]}</p>
-      <h3>The fix everyone voted on</h3>
-      <p className="fix">{str(issue.latest, 'contractText')}</p>
-      <h3>Votes</h3>
-      <ol className="history">{issue.revisions.map(rev => {
-        const votes = rows.response.filter(r => num(r, 'proposalId') === num(rev, 'id'));
-        return <li key={str(rev, 'id')}><b>Proposal {str(rev, 'revision')}</b> <span className={`pill ${str(rev, 'state')}`}>{str(rev, 'state') === 'proposed' ? 'voting' : str(rev, 'state')}</span>
-          <ul>{ids(rev.requiredPartyIds).map(p => {
-            const vote = votes.find(v => num(v, 'participantId') === p);
-            return <li key={p}>{nameOf(p)}: {vote ? (str(vote, 'decision') === 'accept' ? 'agreed' : `pushed back${str(vote, 'reason') ? `: “${str(vote, 'reason')}”` : ''}`) : 'hasn’t voted yet'}</li>;
-          })}</ul></li>;
-      })}</ol>
-    </aside>
-  </div>;
+  return <div key={`${tone}-${title}`} className={`overlay narration ${tone}`} title={detail ? `${title}: ${detail}` : title}><em><i />NOW</em><b>{title}</b>{detail && <span>{detail}</span>}</div>;
 }
 
 const EVENT_TEXT: Record<string, (actor: string, detail: Row, subject: string) => string | null> = {
