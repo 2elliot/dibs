@@ -109,12 +109,23 @@ Record what happened (and whether hooks fire under `codex exec`) in `docs/compat
    ```
 3. **Windows:** the same `prep` for `claude` (`~/dibs-clones/claude/fixture`) and `session start`.
    This laptop has no system Node or `claude` on PATH: run from a worktree built at the pinned
-   `real` commit with the
-   Codex-runtime `node.exe` directory prepended to `PATH` (the generated MCP and hook configs call
-   `node` by name) and `DIBS_CLAUDE_BIN` pointing at the Claude Code 2.1.308 `claude.exe`.
+   `real` commit with the Codex-runtime `node.exe` directory prepended to `PATH` (the generated MCP
+   and hook configs call `node` by name) and `DIBS_CLAUDE_BIN` pointing at the Claude Code 2.1.308
+   `claude.exe`.
 4. **Admin** runs `npm run dibs -- lobby start N` once both `session start` commands are waiting.
    Both agents launch together. Fallback is at +6 min, the lobby stops at +15 min, and then each
    `session start` commits, pushes `lobby/N/<provider>` to the local bare repo, and calls `report_head`.
+
+**Timing limits in `dibs session start`** (both seen in lobby 3):
+
+- **2 minutes to start the lobby.** `session start` waits at most 120 s for the lobby to become
+  `running`, then exits with `lobby did not start (last state: setup)`. Run both `session start`
+  commands within 2 minutes of `lobby start`: M3 starts its own and tells the admin at once, and the
+  admin starts Windows' `session start` and then `lobby start` together. If one times out, run
+  `session start` again; `prep` doesn't need repeating.
+- **30 seconds for the SessionStart hook.** After launching the agent, `session start` kills it if
+  `hook-alive.json` for this lobby doesn't appear within 30 s. A launch path whose hooks don't run
+  (for example `codex exec`) is always killed here. Check that the agent's hooks fire before the lobby.
 
 Don't type into either agent during the run; that counts as an intervention.
 
