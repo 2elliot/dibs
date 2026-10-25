@@ -19,7 +19,7 @@ import type {
 import type { AnalysisRequest } from "../model/types.ts";
 
 /** ~4000 output tokens per the plan; one place to tune. */
-export const MAX_OUTPUT_TOKENS = 4000;
+export const MAX_OUTPUT_TOKENS = 8000;
 
 const SYSTEM = `You are the analysis service for "dibs", a tool that coordinates a team whose developers each run a different coding agent on their own machine. Each agent has published a short plan of what it will PRODUCE and what it REQUIRES, keyed by a fixed shared vocabulary. Your job is to compare these plans and, for every SHARED key, decide how the plans relate and write the single contract the affected developers should build against.
 
