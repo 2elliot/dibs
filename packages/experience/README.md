@@ -1,13 +1,13 @@
 # dibs project sessions
 
-Connect Claude Code and Codex to the same coordination room from ordinary project
+Connect Claude Code, Codex and Droid (Factory) to the same coordination room from ordinary project
 directories. A Git repository, benchmark fixture, and shared code remote are not
 required. Each agent edits its own files; dibs exchanges plans and agreements.
 
 > [!WARNING]
 > **The experiment server is reset on every push to `real_exp`.** Each deploy
 > wipes all rooms and join codes. If your room stops working after a push, run
-> `dibs leave --local --provider <claude|codex>` in your project, then create or
+> `dibs leave --local --provider <claude|codex|droid>` in your project, then create or
 > join a new room. Coordinate with whoever is pushing before a test session.
 > Details: `infra/EXPERIENCE_CICD.md`.
 
@@ -35,13 +35,23 @@ dibs join <join-code> --provider codex
 codex
 ```
 
+A third developer can join the same room with Droid:
+
+```sh
+dibs join <join-code> --provider droid
+droid
+```
+
 Accept the coding agent's normal project, MCP, and hook trust prompts. Codex
-reviews project trust and hook trust separately. dibs does not approve these on
-your behalf. If an agent was already open, restart it so it loads the new config.
+reviews project trust and hook trust separately. Droid asks to approve the dibs
+MCP tools. dibs does not approve these on your behalf. Droid's setup writes
+`.factory/mcp.json` and `.factory/hooks.json`; if the project already keeps its
+Droid hooks in `.factory/settings.json` (and has no `hooks.json`), dibs adds its
+hooks there instead, so the existing ones keep loading. If an agent was already open, restart it so it loads the new config.
 Tell each agent what part of the shared project it should build. SessionStart
 context tells it to publish its assumptions and respond to proposals.
 
-One Claude and one Codex seat are supported per room. By default both use
+Each room has one Claude, one Codex and one Droid seat. By default they all use
 `project.interface` for shared routes, data shapes, and integration assumptions.
 For several explicit boundaries, create with repeated flags:
 
@@ -108,5 +118,5 @@ npm run smoke:package -w @dibs/experience
 
 Set `DIBS_TEST_URI` to an isolated local server to include the installed-tarball
 create/join/MCP smoke. Tests use scripted MCP clients and deterministic model
-findings where noted. They do not substitute for a native Claude/Codex trust and
+findings where noted. They do not substitute for a native Claude/Codex/Droid trust and
 cross-laptop rehearsal. Operator setup is in `infra/EXPERIENCE_CICD.md`.

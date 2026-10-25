@@ -47,8 +47,8 @@ const help = npm(
   ["exec", "--offline", "--prefix", prefix, "--", "dibs", "--help"],
   project,
 );
-assert.match(help, /dibs create --provider claude/);
-assert.match(help, /dibs join <code> --provider codex/);
+assert.match(help, /dibs create --provider claude\|codex\|droid/);
+assert.match(help, /dibs join <code> --provider claude\|codex\|droid/);
 const installed = path.join(prefix, "node_modules", "@dibs", "experience");
 const metadata = JSON.parse(
   fs.readFileSync(path.join(installed, "package.json"), "utf8"),
@@ -93,6 +93,8 @@ if (process.env.DIBS_TEST_URI) {
   const service = `http://127.0.0.1:${http.address().port}`;
   const peerProject = path.join(scratch, "another-empty-project");
   fs.mkdirSync(peerProject);
+  const droidProject = path.join(scratch, "a-third-empty-project");
+  fs.mkdirSync(droidProject);
   const home = path.join(scratch, "private-state");
   const env = { ...process.env, DIBS_HOME: home };
   const exec = promisify(execFile);
@@ -136,53 +138,63 @@ if (process.env.DIBS_TEST_URI) {
     const code = output.match(/dibs1_[A-Za-z0-9_-]+/)?.[0];
     assert.ok(code, "Packaged create did not produce a join code");
     await run(["join", code, "--provider", "codex"], peerProject);
+    await run(["join", code, "--provider", "droid"], droidProject);
     const status = JSON.parse(
       await run(["status", "--provider", "codex", "--json"], peerProject),
     );
-    assert.equal(status.roster.length, 2);
-    const config = JSON.parse(
-      fs.readFileSync(path.join(project, ".mcp.json"), "utf8"),
-    ).mcpServers.dibs;
-    assert.ok(
-      config.args[0].startsWith(installed),
-      "MCP must use installed package assets",
-    );
-    transport = new StdioClientTransport({
-      command: config.command,
-      args: config.args,
-      cwd: project,
-      env,
-      stderr: "pipe",
-    });
-    client = new Client({ name: "installed-package-smoke", version: "1" });
-    await client.connect(transport);
-    const deadline = Date.now() + 15000;
-    let connected = false;
-    while (Date.now() < deadline) {
-      const result = await client.callTool({
-        name: "dibs_status",
-        arguments: {},
-      });
-      const data = JSON.parse(
-        result.content.find((x) => x.type === "text").text,
+    assert.equal(status.roster.length, 3);
+    // Each provider's own config file must launch the installed bridge.
+    for (const [cwd, file] of [
+      [project, ".mcp.json"],
+      [droidProject, ".factory/mcp.json"],
+    ]) {
+      const config = JSON.parse(fs.readFileSync(path.join(cwd, file), "utf8"))
+        .mcpServers.dibs;
+      assert.ok(
+        config.args[0].startsWith(installed),
+        `${file} must use installed package assets`,
       );
-      if (data.status === "ok" && data.roster.length === 2) {
-        connected = true;
-        break;
+      transport = new StdioClientTransport({
+        command: config.command,
+        args: config.args,
+        cwd,
+        env,
+        stderr: "pipe",
+      });
+      client = new Client({ name: "installed-package-smoke", version: "1" });
+      await client.connect(transport);
+      const deadline = Date.now() + 15000;
+      let connected = false;
+      while (Date.now() < deadline) {
+        const result = await client.callTool({
+          name: "dibs_status",
+          arguments: {},
+        });
+        const data = JSON.parse(
+          result.content.find((x) => x.type === "text").text,
+        );
+        if (data.status === "ok" && data.roster.length === 3) {
+          connected = true;
+          break;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 100));
       }
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      assert.ok(
+        connected,
+        `Installed bridge from ${file} did not connect to its project membership`,
+      );
+      await client.close();
+      client = undefined;
+      await transport.close();
+      transport = undefined;
     }
-    assert.ok(
-      connected,
-      "Installed bridge did not connect to its project membership",
-    );
-    await client.close();
-    client = undefined;
+    await run(["leave", "--provider", "droid"], droidProject);
+    assert.ok(!fs.existsSync(path.join(droidProject, ".factory/hooks.json")));
     await run(["leave", "--provider", "codex"], peerProject);
     await run(["close", "--provider", "claude"], project);
     assert.ok(!fs.existsSync(path.join(project, ".mcp.json")));
     console.log(
-      "Installed create/join/status, packaged MCP connection, leave and close pass on two ordinary directories.",
+      "Installed create/join/status, packaged MCP connections, leave and close pass for Claude, Codex and Droid in three ordinary directories.",
     );
   } finally {
     if (client) await client.close();

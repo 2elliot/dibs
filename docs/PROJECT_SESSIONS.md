@@ -11,7 +11,7 @@ identified by a private `project_room` entry and public `lobby.buildHash` equal 
 - `project_room`: lobby ID, unique 192-bit client-generated capability, owner
   identity, canonical creation payload for identity-bound retries.
 - `project_member`: permanent `(lobby, provider)` seat, unique identity and
-  participant ID. One Claude and one Codex seat per room.
+  participant ID. One Claude, one Codex and one Droid seat per room.
 - `project_settings`: operator enable switch, active/daily creation limits,
   daily lease budget and current counters. Absent/disabled means no onboarding.
 

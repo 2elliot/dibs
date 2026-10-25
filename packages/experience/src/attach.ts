@@ -3,7 +3,8 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parse as parseToml } from "smol-toml";
 
-export type Provider = "claude" | "codex";
+export type Provider = "claude" | "codex" | "droid";
+export const PROVIDERS: readonly Provider[] = ["claude", "codex", "droid"];
 type Json = Record<string, any>;
 interface Edit {
   keys: string[];
@@ -212,6 +213,38 @@ export function planAttachment(
           }),
         ),
       ]),
+    );
+  } else if (provider === "droid") {
+    changes.push(
+      jsonChange(checkedFile(project, ".factory/mcp.json"), [
+        {
+          keys: ["mcpServers", "dibs"],
+          value: { type: "stdio", command: process.execPath, args },
+        },
+      ]),
+    );
+    // A standalone hooks.json has event names as its top-level keys. Droid only
+    // reads the `hooks` key of settings.json when hooks.json is absent, so keep
+    // a project's existing settings hooks working by adding ours beside them.
+    const hooksFile = checkedFile(project, ".factory/hooks.json");
+    const settingsFile = checkedFile(project, ".factory/settings.json");
+    const settings = read(settingsFile);
+    const inSettings =
+      read(hooksFile) === null &&
+      settings !== null &&
+      object(settings, settingsFile).hooks !== undefined;
+    const command = [process.execPath, ...hookArgs]
+      .map(shellArgument)
+      .join(" ");
+    changes.push(
+      jsonChange(
+        inSettings ? settingsFile : hooksFile,
+        events.map((event) => ({
+          keys: inSettings ? ["hooks", event] : [event],
+          append: true,
+          value: { hooks: [{ type: "command", command, timeout: 10 }] },
+        })),
+      ),
     );
   } else {
     const file = checkedFile(project, ".codex/config.toml");

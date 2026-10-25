@@ -123,6 +123,73 @@ describe("ordinary project attachment", () => {
     );
     expect(fs.existsSync(path.join(root, "config.toml"))).toBe(false);
   });
+  test("Droid adds its MCP server and standalone hooks; detach removes only what it created", () => {
+    const { project, runtime, home } = setup();
+    fs.mkdirSync(path.join(project, ".factory"));
+    const mcpFile = path.join(project, ".factory/mcp.json");
+    fs.writeFileSync(
+      mcpFile,
+      JSON.stringify({
+        mcpServers: { docs: { type: "stdio", command: "docs" } },
+      }),
+    );
+    applyAttachment(planAttachment(project, "droid", home, runtime));
+    const mcp = JSON.parse(fs.readFileSync(mcpFile, "utf8"));
+    expect(mcp.mcpServers.docs.command).toBe("docs");
+    expect(mcp.mcpServers.dibs).toMatchObject({
+      type: "stdio",
+      command: process.execPath,
+    });
+    expect(mcp.mcpServers.dibs.args).toEqual(
+      expect.arrayContaining(["--provider", "droid", home]),
+    );
+    const hooksFile = path.join(project, ".factory/hooks.json");
+    const hooks = JSON.parse(fs.readFileSync(hooksFile, "utf8"));
+    // A standalone hooks.json has event names at the top level, no "hooks" wrapper.
+    expect(hooks.hooks).toBeUndefined();
+    for (const event of [
+      "SessionStart",
+      "UserPromptSubmit",
+      "PostToolUse",
+      "Stop",
+    ]) {
+      const [entry] = hooks[event];
+      expect(entry.hooks[0].command).toContain("dibs-hook.mjs");
+      expect(entry.hooks[0].command).toContain("--provider");
+    }
+    expect(fs.existsSync(path.join(project, ".factory/settings.json"))).toBe(
+      false,
+    );
+    expect(detachAttachment(home)).toEqual([]);
+    expect(JSON.parse(fs.readFileSync(mcpFile, "utf8")).mcpServers).toEqual({
+      docs: { type: "stdio", command: "docs" },
+    });
+    expect(fs.existsSync(hooksFile)).toBe(false);
+  });
+  test("Droid keeps a project's settings.json hooks working instead of shadowing them", () => {
+    const { project, runtime, home } = setup();
+    fs.mkdirSync(path.join(project, ".factory"));
+    const settingsFile = path.join(project, ".factory/settings.json");
+    const original = {
+      sessionDefaultSettings: { autonomyLevel: "medium" },
+      hooks: { Stop: [{ hooks: [{ type: "command", command: "existing" }] }] },
+    };
+    fs.writeFileSync(settingsFile, JSON.stringify(original));
+    applyAttachment(planAttachment(project, "droid", home, runtime));
+    // Creating hooks.json would make Droid ignore the hooks in settings.json.
+    expect(fs.existsSync(path.join(project, ".factory/hooks.json"))).toBe(
+      false,
+    );
+    const settings = JSON.parse(fs.readFileSync(settingsFile, "utf8"));
+    expect(settings.sessionDefaultSettings.autonomyLevel).toBe("medium");
+    expect(settings.hooks.Stop).toHaveLength(2);
+    expect(settings.hooks.Stop[0].hooks[0].command).toBe("existing");
+    expect(settings.hooks.SessionStart[0].hooks[0].command).toContain(
+      "dibs-hook.mjs",
+    );
+    detachAttachment(home);
+    expect(JSON.parse(fs.readFileSync(settingsFile, "utf8"))).toEqual(original);
+  });
   test("malformed or occupied settings fail before any writes", () => {
     const { project, runtime, home } = setup();
     fs.mkdirSync(path.join(project, ".codex"));

@@ -19,8 +19,15 @@ import {
   applyAttachment,
   detachAttachment,
   asset,
+  PROVIDERS,
   type Provider,
 } from "./attach.ts";
+
+const AGENT: Record<Provider, string> = {
+  claude: "Claude Code (claude)",
+  codex: "Codex (codex)",
+  droid: "Droid (droid)",
+};
 
 export const PROTOCOL = "project-v1";
 // SDK informational logging must not contaminate `status --json` output.
@@ -386,7 +393,7 @@ export async function main(argv: string[]) {
   const command = positionals[0];
   if (!command || values.help || command === "help") {
     console.log(
-      "dibs create --provider claude [--brief <text>] [--interface key=description]\ndibs join <code> --provider codex\ndibs status|doctor|leave|close --provider claude|codex\nOptions: --project <directory>, --server <HTTPS URL> (create), --local (leave), --json (status)",
+      "dibs create --provider claude|codex|droid [--brief <text>] [--interface key=description]\ndibs join <code> --provider claude|codex|droid\ndibs status|doctor|leave|close --provider claude|codex|droid\nOptions: --project <directory>, --server <HTTPS URL> (create), --local (leave), --json (status)",
     );
     return;
   }
@@ -394,9 +401,9 @@ export async function main(argv: string[]) {
     !["create", "join", "status", "doctor", "leave", "close"].includes(command)
   )
     throw new Error("Unknown command. Run dibs --help.");
-  const provider = values.provider;
-  if (provider !== "claude" && provider !== "codex")
-    throw new Error("Choose --provider claude or --provider codex.");
+  const provider = values.provider as Provider;
+  if (!PROVIDERS.includes(provider))
+    throw new Error("Choose --provider claude, codex or droid.");
   const project = fs.realpathSync(values.project ?? process.cwd());
   const home = projectHome(project, provider);
   const release = operationLock(home);
@@ -484,7 +491,7 @@ async function runCommand(
     }
     await attach(state, home, stateFile, plan);
     console.log(
-      `Joined project ${state.lobbyId} as ${provider}. Open ${provider === "claude" ? "Claude Code (claude)" : "Codex (codex)"} normally in this directory and accept its native MCP/project/hook trust prompts.`,
+      `Joined project ${state.lobbyId} as ${provider}. Open ${AGENT[provider]} normally in this directory and accept its native MCP/project/hook trust prompts.`,
     );
     console.log(`Dashboard: ${state.server}/?lobby=${state.lobbyId}`);
     console.log(

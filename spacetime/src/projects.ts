@@ -62,8 +62,8 @@ export const configureProjects = db.reducer(
 
 function validateProvider(provider: string) {
   check(
-    provider === "claude" || provider === "codex",
-    "Projects support Claude and Codex.",
+    provider === "claude" || provider === "codex" || provider === "droid",
+    "Projects support Claude, Codex and Droid.",
   );
 }
 function validateCode(code: string) {

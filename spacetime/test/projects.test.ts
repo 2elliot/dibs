@@ -183,6 +183,33 @@ describe("ordinary project rooms on a real database", () => {
       }),
     ).rejects.toThrow();
   });
+  test("one room seats Claude, Codex and Droid, and rejects other providers", async () => {
+    const { input, lobbyId } = await project();
+    const join = (provider: string) => ({
+      code: input.code,
+      provider,
+      protocol: "project-v1",
+    });
+    const codex = await h.stranger(),
+      droid = await h.stranger(),
+      other = await h.stranger();
+    await codex.reducers.joinProject(join("codex"));
+    await droid.reducers.joinProject(join("droid"));
+    await expect(other.reducers.joinProject(join("gemini"))).rejects.toThrow(
+      "Claude, Codex and Droid",
+    );
+    await expect(other.reducers.joinProject(join("droid"))).rejects.toThrow(
+      "already taken",
+    );
+    const seats = await waitFor(() => {
+      const providers = [...h.admin.db.participant.iter()]
+        .filter((p) => p.currentLobbyId === lobbyId)
+        .map((p) => p.provider)
+        .sort();
+      return providers.length === 3 && providers;
+    });
+    expect(seats).toEqual(["claude", "codex", "droid"]);
+  });
   test("global creation/analysis budgets terminate unavailable jobs without allocating another lease", async () => {
     await h.admin.reducers.configureProjects({
       enabled: true,
