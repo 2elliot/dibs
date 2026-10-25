@@ -203,3 +203,9 @@ button.chip{cursor:pointer}button.chip:hover{border-color:var(--faint)}
 /* Timeline entries jump the replay */
 .timeline li.jumpable{cursor:pointer;border-radius:8px}
 .timeline li.jumpable:hover{background:var(--raised)}
+.recordings{display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:10px 12px;border-bottom:1px solid var(--line)}
+.recordings span{font:600 10px 'DM Mono',monospace;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-right:4px}
+.recordings a{font:600 12px Manrope,sans-serif;color:var(--text);text-decoration:none;padding:5px 10px;border-radius:999px;border:1px solid var(--line)}
+.recordings a.selected,.recordings a:hover{background:var(--raised);border-color:var(--faint)}
+.kf span{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) rotate(-45deg);font:700 8px 'DM Mono',monospace;color:#fff;pointer-events:none}
+.kf{width:15px;height:15px}

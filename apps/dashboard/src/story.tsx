@@ -19,6 +19,7 @@ const ids = (value: unknown): number[] => {
   return [];
 };
 const parse = (value: unknown): Row => { if (typeof value !== 'string') return (value as Row) ?? {}; try { return JSON.parse(value) as Row; } catch { return {}; } };
+const display = (name: string) => /^[a-z]/.test(name) ? name.charAt(0).toUpperCase() + name.slice(1) : name;
 const clock = (us: number) => us ? new Date(us / 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '';
 
 const PROVIDER_LABEL: Record<string, string> = { claude: 'Claude Code', codex: 'Codex', droid: 'Droid' };
@@ -76,7 +77,10 @@ function useModel(rows: DashboardRows) {
       return { key, label: describe(key), kind: KIND_OF[str(latest, 'relation')]!, revisions, latest, state: str(latest, 'state'), parties: ids(latest.requiredPartyIds), cited, votes };
     }).sort((a, b) => num(a.latest, 'createdAtUs') - num(b.latest, 'createdAtUs'));
     const contracts = rows.contract.filter(c => c.current !== false);
-    const verification = [...rows.verification].sort((a, b) => num(b, 'id') - num(a, 'id'))[0];
+    // A check that ran before every agent's work was in (lobby 7's early 0/6) isn't the result.
+    const handedIn = new Set(rows.head.map(h => num(h, 'participantId'))).size;
+    const complete = rows.verification.filter(v => Object.keys(parse(v.assembledFrom)).length >= handedIn);
+    const verification = [...complete].sort((a, b) => num(b, 'id') - num(a, 'id'))[0];
     const review = verification ? rows.review.filter(r => num(r, 'verificationId') === num(verification, 'id')).sort((a, b) => num(b, 'id') - num(a, 'id'))[0] : undefined;
     const analyzing = rows.job.some(j => ['queued', 'leased'].includes(str(j, 'state')));
     return { lobby, describe, agents, items, issues, contracts, verification, review, analyzing };
@@ -88,7 +92,9 @@ type Tone = 'neutral' | Kind | 'agreed' | 'aligned' | 'broken';
 
 function agentStatus(model: Model, rows: DashboardRows, agent: Row): { label: string; tone: 'working' | 'done' | 'member' } {
   if (rows.head.some(h => num(h, 'participantId') === num(agent, 'id'))) return { label: 'done', tone: 'done' };
-  if (agent.online && str(model.lobby, 'state', 'running') === 'running') return { label: 'working', tone: 'working' };
+  // Replays don't keep who was online when, so an agent that has shared a plan in a running lobby counts as working.
+  const planned = rows.plan.some(p => num(p, 'participantId') === num(agent, 'id'));
+  if ((agent.online || planned) && str(model.lobby, 'state', 'running') === 'running') return { label: 'working', tone: 'working' };
   return { label: 'member', tone: 'member' };
 }
 
@@ -178,12 +184,19 @@ function useForceGraph(nodeIds: { id: string; type: 'agent' | 'topic'; parent?: 
 
 // ---- View -------------------------------------------------------------------------------------
 
+const RECORDINGS = [
+  { url: '/replays/t1-lobby5.json', label: 'T1 · without dibs' },
+  { url: '/replays/t3-lobby7.json', label: 'T3 · with dibs' },
+  { url: '/sim/team.json', label: 'Simulated team' },
+  { url: '/sim/chaos.json', label: 'Chaos (simulated)' },
+];
+
 export interface StoryTimeline {
   start: number; end: number; time: number;
   playing: boolean; setPlaying: (v: boolean) => void; setClock: (v: number) => void;
   speed: number; setSpeed: (v: number) => void;
   /** The whole run, not just the past, so keyframes can show what's coming. */
-  events: Row[]; proposals: Row[];
+  events: Row[]; proposals: Row[]; verifications: Row[]; heads: Row[];
 }
 
 export function StoryView({ rows, mode, live, replayLabel, countdown, timeline }: { rows: DashboardRows; mode: string; live: boolean; replayLabel?: string; countdown: number; timeline?: StoryTimeline }) {
@@ -236,7 +249,7 @@ export function StoryView({ rows, mode, live, replayLabel, countdown, timeline }
     window.addEventListener('pointermove', move); window.addEventListener('pointerup', up);
   };
 
-  const nameOf = (participantId: number) => str(rows.participant.find(p => num(p, 'id') === participantId), 'name', `#${participantId}`);
+  const nameOf = (participantId: number) => display(str(rows.participant.find(p => num(p, 'id') === participantId), 'name', `#${participantId}`));
   const providerOf = (participantId: number) => str(rows.participant.find(p => num(p, 'id') === participantId), 'provider');
   const failedRoot = model.verification && num(model.verification, 'passed') < num(model.verification, 'total')
     ? parse(str(model.review, 'findings', '{}')).rootCause as Row | undefined : undefined;
@@ -352,7 +365,7 @@ export function StoryView({ rows, mode, live, replayLabel, countdown, timeline }
             <circle className="ring" r={52} />
             <circle className="body" r={42} />
             <text className="mark" dy="10">{PROVIDER_MARK[provider] ?? '?'}</text>
-            <text className="name" dy="76">{str(agent, 'name')}</text>
+            <text className="name" dy="76">{display(str(agent, 'name'))}</text>
             <text className="status" dy="96">{status.label} · #{id}</text>
           </g>
         </g>;
@@ -398,6 +411,10 @@ export function StoryView({ rows, mode, live, replayLabel, countdown, timeline }
         <a href={location.search.replace(/([?&])view=story&?/, '$1') || '?'} className="side-link">Evidence view</a>
         <button className="close" onClick={() => setPanel('closed')} aria-label="Close">×</button>
       </div>
+      <div className="recordings"><span>Recordings</span>
+        {RECORDINGS.map(r => <a key={r.url} href={`?view=story&replay=${r.url}`} className={location.search.includes(r.url) ? 'selected' : ''}>{r.label}</a>)}
+        <a href="?view=story&uri=https://maincloud.spacetimedb.com&db=dibs-ch13-dev">Live</a>
+      </div>
       <Timeline rows={rows} model={model} filter={filter} setFilter={setFilter} nameOf={nameOf} providerOf={providerOf} onJump={timeline ? jump : undefined} />
     </aside>}
 
@@ -412,34 +429,59 @@ const KEYFRAME: Record<string, { tone: string; label: (subject: string, detail: 
   proposal_accepted: { tone: 'agreed', label: s => `Agreed${s ? `: ${s}` : ''}` },
   fallback_reached: { tone: 'start', label: () => 'Fallback: talking time is up' },
   verification_recorded: { tone: 'tested', label: () => 'Combined app tested' },
+  review_recorded: { tone: 'tested', label: () => 'The AI reviewer explained the result' },
 };
 
 /** Play, scrub and jump between the moments that matter (problems found, pushback, agreement, test). */
 function TimeBar({ tl, describe }: { tl: StoryTimeline; describe: (key: string) => string }) {
-  const span = Math.max(1, tl.end - tl.start);
-  const pct = (t: number) => ((t - tl.start) / span) * 100;
+  // The track starts just before the lobby starts, not when it was created.
+  const started = tl.events.find(e => str(e, 'type') === 'lobby_started');
+  const start = started ? Math.max(tl.start, num(started, 'atUs') - 5_000_000) : tl.start;
+  const span = Math.max(1, tl.end - start);
+  const pct = (t: number) => Math.max(0, ((t - start) / span) * 100);
   const proposalKey = (id: number) => str(tl.proposals.find(p => num(p, 'id') === id), 'key');
   const relationOf = (id: number) => str(tl.proposals.find(p => num(p, 'id') === id), 'relation');
+  const handedIn = new Set(tl.heads.map(h => num(h, 'participantId'))).size;
+  const verificationLabel = (id: number) => {
+    const v = tl.verifications.find(r => num(r, 'id') === id);
+    if (!v) return 'Combined app tested';
+    if (Object.keys(parse(v.assembledFrom)).length < handedIn) return 'Early check before all work was handed in (superseded)';
+    return `Combined app tested: ${num(v, 'passed')} of ${num(v, 'total')} checks passed`;
+  };
+  const partial = (id: number) => { const v = tl.verifications.find(r => num(r, 'id') === id); return Boolean(v) && Object.keys(parse(v!.assembledFrom)).length < handedIn; };
   const frames = tl.events.filter(e => KEYFRAME[str(e, 'type')] && !(str(e, 'type') === 'verification_recorded' && str(parse(e.detail), 'state') === 'verified'))
     .map(e => {
       const type = str(e, 'type'); const detail = parse(e.detail);
       const key = str(detail, 'key') || (type.startsWith('proposal') ? proposalKey(num(e, 'subjectId')) : '');
       const relation = type === 'proposal_created' ? relationOf(num(e, 'subjectId')) : '';
-      const tone = relation === 'duplicate' ? 'redundancy' : relation === 'dependency' ? 'dependency' : KEYFRAME[type]!.tone;
-      return { at: num(e, 'atUs'), tone, label: `${clock(num(e, 'atUs'))} · ${KEYFRAME[type]!.label(key ? describe(key).toLowerCase() : '', detail)}` };
+      const isCheck = type === 'verification_recorded';
+      const tone = isCheck ? (partial(num(e, 'subjectId')) ? 'start' : 'tested') : relation === 'duplicate' ? 'redundancy' : relation === 'dependency' ? 'dependency' : KEYFRAME[type]!.tone;
+      const text = isCheck ? verificationLabel(num(e, 'subjectId')) : KEYFRAME[type]!.label(key ? describe(key).toLowerCase() : '', detail);
+      return { at: num(e, 'atUs'), tone, label: `${clock(num(e, 'atUs'))} · ${text}` };
     }).sort((a, b) => a.at - b.at);
   const go = (at: number) => { tl.setPlaying(false); tl.setClock(Math.min(tl.end, at + 1_500_000)); };
+  // Moments that would sit on top of each other share one diamond (the most important one shows).
+  const RANK = ['issue', 'pushback', 'redundancy', 'dependency', 'tested', 'agreed', 'start'];
+  const clusters: { at: number; frames: typeof frames }[] = [];
+  for (const f of frames) {
+    const last = clusters.at(-1);
+    if (last && pct(f.at) - pct(last.frames.at(-1)!.at) < 1.4) last.frames.push(f); else clusters.push({ at: f.at, frames: [f] });
+  }
   const prev = [...frames].reverse().find(f => f.at + 1_500_000 < tl.time - 500_000);
   const next = frames.find(f => f.at + 1_500_000 > tl.time + 500_000);
   return <div className="overlay timebar">
-    <button className="tb-btn" onClick={() => prev ? go(prev.at) : tl.setClock(tl.start)} title="Previous key moment">⏮</button>
+    <button className="tb-btn" onClick={() => prev ? go(prev.at) : tl.setClock(start)} title="Previous key moment">⏮</button>
     <button className="tb-btn play" onClick={() => tl.setPlaying(!tl.playing)} aria-label={tl.playing ? 'Pause' : 'Play'}>{tl.playing ? '❚❚' : '▶'}</button>
     <button className="tb-btn" onClick={() => next && go(next.at)} disabled={!next} title="Next key moment">⏭</button>
     <span className="tb-time">{clock(tl.time)}</span>
     <div className="tb-track">
       <div className="tb-fill" style={{ width: `${pct(tl.time)}%` }} />
-      <input type="range" aria-label="Replay timeline" min={tl.start} max={tl.end} value={tl.time} onChange={e => { tl.setPlaying(false); tl.setClock(Number(e.target.value)); }} />
-      {frames.map((f, i) => <button key={i} className={`kf ${f.tone} ${f.at <= tl.time ? 'past' : ''}`} style={{ left: `${pct(f.at)}%` }} title={f.label} aria-label={f.label} onClick={() => go(f.at)} />)}
+      <input type="range" aria-label="Replay timeline" min={start} max={tl.end} value={Math.max(start, tl.time)} onChange={e => { tl.setPlaying(false); tl.setClock(Number(e.target.value)); }} />
+      {clusters.map((c, i) => {
+        const tone = [...c.frames].sort((a, b) => RANK.indexOf(a.tone) - RANK.indexOf(b.tone))[0]!.tone;
+        const title = c.frames.map(f => f.label).join('\n');
+        return <button key={i} className={`kf ${tone} ${c.at <= tl.time ? 'past' : ''}`} style={{ left: `${pct(c.at)}%` }} title={title} aria-label={title} onClick={() => go(c.at)}>{c.frames.length > 1 && <span>{c.frames.length}</span>}</button>;
+      })}
     </div>
     <span className="tb-time">{clock(tl.end)}</span>
     <select className="tb-speed" value={tl.speed} onChange={e => tl.setSpeed(Number(e.target.value))} aria-label="Speed">{[0.25, 0.5, 1, 2, 4].map(v => <option key={v} value={v}>{v}×</option>)}</select>
@@ -487,7 +529,7 @@ function Narration({ model, mode, nameOf, failedRoot }: { model: Model; mode: st
   if (model.verification) {
     const passed = num(model.verification, 'passed'); const total = num(model.verification, 'total');
     if (passed === total) { tone = 'good'; title = `Works together ✓  all ${total} real-user checks passed`; }
-    else { tone = 'bad'; title = `Broken ✗  ${passed} of ${total} checks passed`; detail = str(failedRoot, 'explanation') || str(model.review, 'summary'); }
+    else { tone = 'bad'; title = `Broken ✗  ${passed} of ${total} checks passed`; detail = str(failedRoot, 'explanation') || str(model.review, 'summary') || 'The AI reviewer is looking into why…'; }
   } else if (open) {
     tone = open.kind;
     const agreed = open.votes.filter(v => v.decision === 'accept').length;
@@ -589,7 +631,7 @@ function Timeline({ rows, model, filter, setFilter, nameOf, providerOf, onJump }
   return <div className="timeline">
     <div className="timeline-filters">
       <button className={filter === 'all' ? 'selected' : ''} onClick={() => setFilter('all')}>Everyone</button>
-      {model.agents.map(a => <button key={str(a, 'id')} className={filter === num(a, 'id') ? 'selected' : ''} onClick={() => setFilter(num(a, 'id'))}><span className={`avatar tiny ${str(a, 'provider')}`}>{PROVIDER_MARK[str(a, 'provider')]}</span>{str(a, 'name')}</button>)}
+      {model.agents.map(a => <button key={str(a, 'id')} className={filter === num(a, 'id') ? 'selected' : ''} onClick={() => setFilter(num(a, 'id'))}><span className={`avatar tiny ${str(a, 'provider')}`}>{PROVIDER_MARK[str(a, 'provider')]}</span>{display(str(a, 'name'))}</button>)}
     </div>
     <ol>{shown.map(({ event, actorId, text }) => <li key={str(event, 'id')} className={`${str(event, 'type')} ${onJump ? 'jumpable' : ''}`} onClick={() => onJump?.(num(event, 'atUs'))} title={onJump ? 'Go to this moment' : undefined}>
       <time>{clock(num(event, 'atUs'))}</time>

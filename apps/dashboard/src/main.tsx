@@ -113,7 +113,7 @@ function App() {
   if (params.get('view') === 'story') {
     return <main className={`dashboard story-page ${params.get('theme') === 'dark' ? 'theme-dark' : ''}`}>
       <StoryView rows={snapshot} mode={str(lobby, 'mode', 'none')} live={source?.mode === 'live'} replayLabel={source?.mode === 'replay' ? source.label : undefined} countdown={countdown}
-        timeline={replay && fullRun ? { start: replay.startUs, end: replay.endUs, time: clock || replay.startUs, playing, setPlaying, setClock, speed, setSpeed, events: fullRun.event, proposals: fullRun.proposal } : undefined} />
+        timeline={replay && fullRun ? { start: replay.startUs, end: replay.endUs, time: clock || replay.startUs, playing, setPlaying, setClock, speed, setSpeed, events: fullRun.event, proposals: fullRun.proposal, verifications: fullRun.verification, heads: fullRun.head } : undefined} />
       {error && <div className="overlay" style={{ left: 20, top: 64, color: '#ffb3ad', font: '12px DM Mono, monospace' }}>{error}</div>}
     </main>;
   }
