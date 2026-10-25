@@ -13,6 +13,13 @@ pass. It is opt-in through repository variable `DIBS_EXP_AUTO_DEPLOY=true`, or
 **Run workflow → deploy=true**. It never deploys pull-request code. Deployments are
 serialized and use the tested commit SHA.
 
+To deploy faster, put **`[skip checks]`** in the pushed commit message. The
+Windows/Linux validate jobs (typechecks, binding check, full test suite against a
+local database, installed-package smoke; about 9 minutes) are skipped, and the push
+goes straight to the image build and deploy, whose hosted smoke test still has
+to pass. Use it for docs or config pushes, not schema or code changes. Pull
+requests always run the checks.
+
 > [!WARNING]
 > **Every push to `real_exp` wipes the experiment database.** Each deploy
 > deletes all data in `dibs-ch13-exp` (rooms, join codes, plans, contracts)

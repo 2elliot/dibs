@@ -18,6 +18,11 @@ permissions:
 jobs:
   validate:
     name: Validate (${{ matrix.os }})
+    # `[skip checks]` in a pushed commit message skips this job; the image build,
+    # deploy and its hosted smoke test still run. Pull requests always validate.
+    if: >-
+      ${{ !(github.event_name == 'push' &&
+        contains(github.event.head_commit.message, '[skip checks]')) }}
     strategy:
       fail-fast: false
       matrix:
@@ -85,6 +90,8 @@ jobs:
   container:
     name: Build deployment image
     needs: validate
+    # Runs after validate succeeded or was skipped, never after it failed.
+    if: ${{ !failure() && !cancelled() }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -107,9 +114,11 @@ jobs:
     name: Deploy experiment
     needs: [validate, container]
     if: >-
+      ${{ !failure() && !cancelled() &&
+      needs.container.result == 'success' &&
       github.ref == 'refs/heads/real_exp' &&
       (vars.DIBS_EXP_AUTO_DEPLOY == 'true' ||
-       (github.event_name == 'workflow_dispatch' && inputs.deploy))
+       (github.event_name == 'workflow_dispatch' && inputs.deploy)) }}
     runs-on: ubuntu-latest
     environment: real-exp
     concurrency:
