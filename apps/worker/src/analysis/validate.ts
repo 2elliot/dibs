@@ -16,9 +16,21 @@ export interface DroppedFinding {
   ignored?: boolean;
 }
 
+/** A kept finding whose citations were trimmed to the lobby's current items on its own key. */
+export interface RepairedFinding {
+  key: string;
+  removedIds: number[];
+}
+
 export interface ValidationResult {
   kept: Finding[];
   dropped: DroppedFinding[];
+  repaired: RepairedFinding[];
+}
+
+/** The model's output is unusable. Not an Anthropic API error: the call itself succeeded. */
+export class InvalidFindingsError extends Error {
+  override name = "InvalidFindingsError";
 }
 
 const NEEDS_CONTRACT: ReadonlySet<Relation> = new Set<Relation>([
@@ -38,10 +50,13 @@ export function validateFindings(
     !Array.isArray(raw.findings) ||
     raw.findings.length > 100
   ) {
-    throw new Error("invalid model findings: expected a findings array");
+    throw new InvalidFindingsError(
+      "invalid model findings: expected a findings array",
+    );
   }
   const kept: Finding[] = [];
   const dropped: DroppedFinding[] = [];
+  const repaired: RepairedFinding[] = [];
 
   const vocab = new Set(input.vocabulary.map((v) => v.key));
   const itemById = new Map(input.items.map((it) => [it.id, it]));
@@ -64,7 +79,7 @@ export function validateFindings(
       typeof finding.contractText !== "string" ||
       finding.contractText.length > 4000
     )
-      throw new Error("invalid model finding fields");
+      throw new InvalidFindingsError("invalid model finding fields");
     const drop = (reason: string) => dropped.push({ finding, reason });
 
     if (!relations.has(finding.relation)) {
@@ -80,15 +95,23 @@ export function validateFindings(
       continue;
     }
 
-    // Rule 3: cited ids must exist in the lobby's current items.
-    const cited = finding.citedItemIds ?? [];
-    const missing = cited.filter((id) => itemById.get(id)?.key !== finding.key);
-    if (missing.length > 0) {
-      drop(`cites nonexistent item or wrong-key id(s) ${missing.join(", ")}`);
+    // Rule 3: cited ids must exist in the lobby's current items. A stray id (nonexistent, or an
+    // item on another key, e.g. the helper cited while explaining a route) is removed; the finding
+    // survives if a citation on its own key remains. Required parties come from the reducer, not
+    // from citations, so trimming them never changes who must respond.
+    const allCited = finding.citedItemIds ?? [];
+    if (allCited.length === 0) {
+      drop(`${finding.relation} finding cites no items`);
       continue;
     }
+    const cited = allCited.filter(
+      (id) => itemById.get(id)?.key === finding.key,
+    );
+    const stray = allCited.filter(
+      (id) => itemById.get(id)?.key !== finding.key,
+    );
     if (cited.length === 0) {
-      drop(`${finding.relation} finding cites no items`);
+      drop(`cites nonexistent item or wrong-key id(s) ${stray.join(", ")}`);
       continue;
     }
 
@@ -118,15 +141,17 @@ export function validateFindings(
       }
     }
 
-    // Normalize: unowned carries no contract text.
-    const normalized: Finding =
-      finding.relation === "unowned"
-        ? { ...finding, contractText: "" }
-        : finding;
+    // Normalize: unowned carries no contract text; citations keep only the valid ids.
+    const normalized: Finding = {
+      ...finding,
+      citedItemIds: cited,
+      ...(finding.relation === "unowned" ? { contractText: "" } : {}),
+    };
+    if (stray.length) repaired.push({ key: finding.key, removedIds: stray });
 
     seenKeys.add(finding.key);
     kept.push(normalized);
   }
 
-  return { kept, dropped };
+  return { kept, dropped, repaired };
 }

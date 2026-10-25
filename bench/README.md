@@ -83,3 +83,36 @@ Answer these:
 ## Verify and review
 
 See `packages/verifier/README.md`.
+
+## Revision timing
+
+Early implementation is allowed (lobby 3 decision). For each agent, this records whether its last edit to a shared file came after the first contract delivery it could see. A shared file is one in its area, minus `test/**`.
+
+```sh
+npx tsx bench/scripts/revision-timing.ts <lobbyId> \
+  --transcript codex=<rollout.jsonl> --clone codex=<clone path> \
+  [--transcript claude=<project .jsonl> --clone claude=<clone path>] [--deliveries <json>]
+```
+
+**Inputs:**
+
+- Transcripts:
+  - Codex: `~/.codex/sessions/YYYY/MM/DD/rollout-*.jsonl`.
+  - Claude Code: `~/.claude/projects/<clone slug>/*.jsonl`.
+  - Droid: its session log.
+  - Repeat `--transcript` for an agent that was launched more than once.
+- `--clone`: drops edits made in other folders.
+- Contract times come from the `delivery` table, read as the verifier. Pass `--deliveries` with `[{provider, kind, queuedAtUs, receivedAtUs, shownAtUs}]` to work offline.
+
+**Output:** `bench/results/<lobbyId>/timing.json`. Every counted edit says how it was detected, so you can check them.
+
+**Verdicts:**
+
+| Verdict                  | Meaning                                                           |
+| ------------------------ | ----------------------------------------------------------------- |
+| `built-after-contract`   | Every shared edit came after the contract                         |
+| `revised-after-contract` | Edits before the contract, then a revision after it               |
+| `never-revised`          | Every shared edit came before the contract                        |
+| `no-shared-edits`        | The agent never edited a shared file                              |
+| `no-contract`            | No `contract` or `aligned` delivery; a peer message doesn't count |
+| `no-transcript`          | No transcript was given for this agent                            |

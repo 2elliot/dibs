@@ -8,6 +8,7 @@ import { TIMING } from "@dibs/protocol";
 import type { ModelClient } from "../model/types.ts";
 import type { HealthState } from "../http/health.ts";
 import { runAnalysisWithRetry } from "../analysis/analyze.ts";
+import { InvalidFindingsError } from "../analysis/validate.ts";
 import type { DibsDb, LeasableJob, QueuedJob } from "./db.ts";
 
 // Leave enough time for a 5 s reducer call before the frozen 60 s lease expires.
@@ -201,7 +202,9 @@ export class WorkerLoop {
         { deadlineMs },
       );
     } catch (e) {
-      this.health.recordAnthropicError();
+      // Unusable model output is not an API failure; /health/status counts only the latter.
+      if (!(e instanceof InvalidFindingsError))
+        this.health.recordAnthropicError();
       this.log("analysis failed; failing job", { jobId, error: String(e) });
       await this.db.failJob(jobId, leaseToken, String(e));
       return;
@@ -224,6 +227,13 @@ export class WorkerLoop {
         jobId,
         key: d.finding.key,
         reason: d.reason,
+      });
+    }
+    for (const r of outcome.repaired) {
+      this.log("removed invalid citations", {
+        jobId,
+        key: r.key,
+        removedIds: r.removedIds,
       });
     }
 

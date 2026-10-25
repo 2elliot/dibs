@@ -64,7 +64,10 @@ disabled so the worker owns the retry budget. One retry is allowed only if at le
 remain before fallback, measured after the first attempt. The frozen database lease lasts 60 seconds,
 so production worker model work (including retries) has a shared 54-second deadline; 6 seconds remain
 for recording success/failure before expiry. The standalone dry-run tool retains the 90-second cap.
-Invalid output fails the job rather than silently submitting empty findings. Latency and token usage
+Citations to items on another key (or to nonexistent items) are removed, and a finding left with no
+valid citation is dropped; the remaining findings are submitted. Output with findings but none usable
+fails the job (deterministic notices) rather than submitting empty findings, and is not counted as an
+Anthropic error in `/health/status`. Latency and token usage
 are logged; prompts and source are never logged.
 
 `/config.json` preserves the protocol's `dbUri`/`dbName` and also supplies the dashboard's `uri`/`db`

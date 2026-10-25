@@ -2,11 +2,17 @@ import { TIMING } from "@dibs/protocol";
 import type { AnalysisInput, Finding, Findings } from "@dibs/protocol";
 import type { ModelClient, ModelUsage } from "../model/types.ts";
 import { buildAnalysisRequest } from "./prompt.ts";
-import { validateFindings, type DroppedFinding } from "./validate.ts";
+import {
+  InvalidFindingsError,
+  validateFindings,
+  type DroppedFinding,
+  type RepairedFinding,
+} from "./validate.ts";
 
 export interface AnalysisOutcome {
   kept: Finding[];
   dropped: DroppedFinding[];
+  repaired: RepairedFinding[];
   raw: Findings;
   usage: ModelUsage;
   latencyMs: number;
@@ -57,17 +63,22 @@ export async function runAnalysis(
       }),
       interrupted,
     ]);
-    const { kept, dropped } = validateFindings(result.findings, input);
-    // Invalid output must not turn a conflicted key into "clear" by submitting empty findings.
+    const { kept, dropped, repaired } = validateFindings(
+      result.findings,
+      input,
+    );
+    // Submit whatever is valid. Only output with findings but none usable fails (and is retried):
+    // submitting it empty would turn every key "clear", while fail_job sends overlap notices.
     const invalid = dropped.filter((d) => !d.ignored);
-    if (invalid.length) {
-      throw new Error(
+    if (invalid.length && !kept.length) {
+      throw new InvalidFindingsError(
         "invalid model findings: " + invalid.map((d) => d.reason).join("; "),
       );
     }
     return {
       kept,
       dropped,
+      repaired,
       raw: result.findings,
       usage: result.usage,
       latencyMs: result.latencyMs,
