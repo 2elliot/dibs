@@ -192,6 +192,19 @@ const RECORDINGS = [
   { url: '/replays/exp-room2.json', label: 'Playground · Claude + Codex' },
 ];
 
+/** LIVE only while a lobby is actually running; otherwise say we're connected and what we're waiting for. */
+function LiveChip({ live, lobby }: { live: boolean; lobby: Row | undefined }) {
+  if (!live) return <span className="chip replay"><i />REPLAY</span>;
+  const state = str(lobby, 'state');
+  const id = str(lobby, 'id');
+  const [cls, text, title] =
+    !lobby ? ['idle', 'CONNECTED · no lobby yet', 'Connected to the database. A lobby will appear here when one is created.']
+    : state === 'running' ? ['live', 'LIVE', `Lobby ${id} is running`]
+    : state === 'setup' ? ['setup', 'SETTING UP', `Lobby ${id} has been created; agents are joining`]
+    : ['idle', `CONNECTED · lobby ${id} ended`, 'Nothing is running right now. The next lobby will appear here as soon as it starts.'];
+  return <span className={`chip ${cls}`} title={title}><i />{text}</span>;
+}
+
 export interface StoryTimeline {
   start: number; end: number; time: number;
   playing: boolean; setPlaying: (v: boolean) => void; setClock: (v: number) => void;
@@ -405,7 +418,7 @@ export function StoryView({ rows, mode, live, replayLabel, countdown, timeline }
     <div className="overlay top-right">
       {model.issues.length > 0 && <button className="chip issues" onClick={() => setFocus(`k:${model.issues.find(i => i.state !== 'accepted')?.key ?? model.issues[0]!.key}`)}>{model.issues.length} issue{model.issues.length > 1 ? 's' : ''} · {resolved} resolved</button>}
       {history ? <button className={`chip replay ${showTime ? 'active' : ''}`} onClick={() => setShowTime(v => !v)} title="Show or hide the time controls (T)"><i />REPLAY{replayLabel ? ` · ${replayLabel}` : ''} <kbd>T</kbd></button>
-        : <span className={`chip ${live ? 'live' : 'replay'}`}><i />{live ? 'LIVE' : 'REPLAY'}</span>}
+        : <LiveChip live={live} lobby={model.lobby} />}
       {countdown > 0 && <span className="chip time">{String(Math.floor(countdown / 60)).padStart(2, '0')}:{String(countdown % 60).padStart(2, '0')}</span>}
       <button className="chip menu" aria-label="History" onClick={() => setPanel(panel === 'closed' ? 'timeline' : 'closed')}>☰</button>
     </div>

@@ -249,3 +249,7 @@ button.chip{cursor:pointer}button.chip:hover{border-color:var(--faint)}
 .card-row.good b{color:var(--agreed-text)}.card-row.bad b{color:var(--contra-text)}
 .card-row.contradiction b{color:var(--contra-text)}.card-row.redundancy b{color:var(--redund-text)}.card-row.dependency b{color:var(--depend)}
 .card-empty{padding:16px 20px;color:var(--muted);margin:0}
+
+/* Live chip states: blinking red only while a lobby runs. */
+.chip.setup{color:var(--redund-text)}.chip.setup i{background:var(--redund);animation:blink 1.4s ease-in-out infinite}
+.chip.idle{color:var(--muted)}.chip.idle i{background:var(--muted)}
