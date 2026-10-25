@@ -190,6 +190,7 @@ const RECORDINGS = [
   { url: '/sim/team.json', label: 'Simulated team' },
   { url: '/sim/chaos.json', label: 'Chaos (simulated)' },
   { url: '/replays/exp-room2.json', label: 'Playground · Claude + Codex' },
+  { url: '/replays/exp-board-dibs.json', label: 'Task board · 3 agents (dibs)' },
 ];
 
 /** LIVE only while a lobby is actually running; otherwise say we're connected and what we're waiting for. */
