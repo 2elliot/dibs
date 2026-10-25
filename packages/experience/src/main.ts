@@ -493,10 +493,10 @@ async function runCommand(
     console.log(
       `Joined project ${state.lobbyId} as ${provider}. Open ${AGENT[provider]} normally in this directory and accept its native MCP/project/hook trust prompts.`,
     );
-    console.log(`Dashboard: ${state.server}/?lobby=${state.lobbyId}`);
     console.log(
-      `Story view: ${state.server}/?view=story&lobby=${state.lobbyId}`,
+      `Dashboard: ${state.server}/?view=story&lobby=${state.lobbyId}`,
     );
+    console.log(`Evidence view: ${state.server}/?lobby=${state.lobbyId}`);
     console.log(
       "Project lifetime: 24 hours; at most 30 analysis leases (model retries may use additional requests). Plans and messages are publicly readable in this demo database.",
     );

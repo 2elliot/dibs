@@ -42,6 +42,10 @@ dibs join <join-code> --provider codex
 codex
 ```
 
+The printed **Dashboard** link opens the live coordination graph for your room
+(`?view=story&lobby=<id>`). **Evidence view** opens the table-based contracts,
+timeline, and verification panels for the same room (`?lobby=<id>`).
+
 A third developer can join the same room with Droid:
 
 ```sh
