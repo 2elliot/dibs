@@ -108,18 +108,21 @@ function useSize() {
 }
 
 /** Keeps one force simulation alive across data changes, so existing nodes stay put and new ones grow out of their agent. */
-function useForceGraph(nodeIds: { id: string; type: 'agent' | 'topic'; parent?: string }[], links: { id: string; source: string; target: string; kind: 'produces' | 'requires' }[], w: number, h: number) {
+interface View { x: number; y: number; k: number }
+
+function useForceGraph(nodeIds: { id: string; type: 'agent' | 'topic'; parent?: string }[], links: { id: string; source: string; target: string; kind: 'produces' | 'requires' }[], w: number, h: number, view: React.MutableRefObject<View>) {
   const sim = useRef<Simulation<GNode, GLink> | null>(null);
   const nodes = useRef(new Map<string, GNode>());
   const [, setTick] = useState(0);
   const signature = JSON.stringify([nodeIds, links]);
   useEffect(() => {
-    const s = forceSimulation<GNode, GLink>().velocityDecay(0.35).alphaDecay(0.015).alphaTarget(0.004)
-      .force('collide', forceCollide<GNode>(n => n.type === 'agent' ? 90 : 80).strength(0.9))
+    // Light forces and heavy damping: nodes glide into place slowly rather than snapping.
+    const s = forceSimulation<GNode, GLink>().velocityDecay(0.6).alphaDecay(0.008).alphaTarget(0.003)
+      .force('collide', forceCollide<GNode>(n => n.type === 'agent' ? 120 : 100).strength(0.7))
       // A slow, per-node drift so the graph keeps gently floating instead of freezing.
       .force('float', () => {
         const t = performance.now() / 4000;
-        s.nodes().forEach((n, i) => { if (n.fx != null) return; n.vx = (n.vx ?? 0) + Math.sin(t + i * 1.7) * 0.012; n.vy = (n.vy ?? 0) + Math.cos(t * 0.8 + i * 2.3) * 0.012; });
+        s.nodes().forEach((n, i) => { if (n.fx != null) return; n.vx = (n.vx ?? 0) + Math.sin(t + i * 1.7) * 0.006; n.vy = (n.vy ?? 0) + Math.cos(t * 0.8 + i * 2.3) * 0.006; });
       });
     let frame = 0;
     s.on('tick', () => { cancelAnimationFrame(frame); frame = requestAnimationFrame(() => setTick(t => t + 1)); });
@@ -137,7 +140,7 @@ function useForceGraph(nodeIds: { id: string; type: 'agent' | 'topic'; parent?: 
       if (spec.type === 'agent') {
         const i = agents.findIndex(a => a.id === spec.id);
         const angle = -Math.PI / 2 + (i / Math.max(agents.length, 1)) * Math.PI * 2 + Math.PI / 6;
-        x += Math.cos(angle) * Math.min(w, h) * 0.3; y += Math.sin(angle) * Math.min(w, h) * 0.3;
+        x += Math.cos(angle) * Math.min(w, h) * 0.33; y += Math.sin(angle) * Math.min(w, h) * 0.33;
       } else {
         const parent = spec.parent ? nodes.current.get(spec.parent) ?? next.get(spec.parent) : undefined;
         if (parent?.x !== undefined && parent.y !== undefined) { x = parent.x + (Math.random() - 0.5) * 30; y = parent.y + (Math.random() - 0.5) * 30; }
@@ -147,18 +150,18 @@ function useForceGraph(nodeIds: { id: string; type: 'agent' | 'topic'; parent?: 
     nodes.current = next;
     s.nodes([...next.values()]);
     const k = Math.max(0.6, Math.min(w, h) / 1080);
-    s.force('charge', forceManyBody<GNode>().strength(n => (n.type === 'agent' ? -2400 : -1000) * k).distanceMax(900 * k));
-    s.force('link', forceLink<GNode, GLink>(links.map(l => ({ ...l }))).id(n => n.id).distance(l => (l.kind === 'produces' ? 200 : 250) * k).strength(0.45));
-    s.force('x', forceX<GNode>(w / 2).strength(0.03));
-    s.force('y', forceY<GNode>(h / 2).strength(0.045));
-    s.alpha(0.8).restart();
+    s.force('charge', forceManyBody<GNode>().strength(n => (n.type === 'agent' ? -1800 : -700) * k).distanceMax(1000 * k));
+    s.force('link', forceLink<GNode, GLink>(links.map(l => ({ ...l }))).id(n => n.id).distance(l => (l.kind === 'produces' ? 250 : 310) * k).strength(0.22));
+    s.force('x', forceX<GNode>(w / 2).strength(0.018));
+    s.force('y', forceY<GNode>(h / 2).strength(0.028));
+    s.alpha(0.5).restart();
   }, [signature, w, h]); // eslint-disable-line react-hooks/exhaustive-deps
   const drag = (id: string) => (event: React.PointerEvent) => {
     const node = nodes.current.get(id); const s = sim.current; if (!node || !s) return;
-    (event.target as Element).setPointerCapture(event.pointerId);
-    s.alphaTarget(0.25).restart();
-    const move = (e: PointerEvent) => { node.fx = e.clientX; node.fy = e.clientY; };
-    const up = () => { node.fx = null; node.fy = null; s.alphaTarget(0); window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); };
+    event.stopPropagation();
+    s.alphaTarget(0.15).restart();
+    const move = (e: PointerEvent) => { const v = view.current; node.fx = (e.clientX - v.x) / v.k; node.fy = (e.clientY - v.y) / v.k; };
+    const up = () => { node.fx = null; node.fy = null; s.alphaTarget(0.003); window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); };
     window.addEventListener('pointermove', move); window.addEventListener('pointerup', up);
   };
   return { pos: (id: string) => nodes.current.get(id), drag };
@@ -173,6 +176,38 @@ export function StoryView({ rows, mode, live, replayLabel, countdown, history }:
   const [focus, setFocus] = useState<string | null>(null);
   const [panel, setPanel] = useState<'closed' | 'timeline' | 'replay'>('closed');
   const [filter, setFilter] = useState<number | 'all'>('all');
+  const [showTime, setShowTime] = useState(false);
+  const [view, setView] = useState<View>({ x: 0, y: 0, k: 1 });
+  const viewRef = useRef(view); viewRef.current = view;
+  const svgRef = useRef<SVGSVGElement>(null);
+  // Scroll to zoom around the pointer.
+  useEffect(() => {
+    const svg = svgRef.current; if (!svg) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      setView(v => {
+        const k = Math.min(3, Math.max(0.3, v.k * Math.exp(-e.deltaY * 0.0015)));
+        return { k, x: e.clientX - (e.clientX - v.x) * (k / v.k), y: e.clientY - (e.clientY - v.y) * (k / v.k) };
+      });
+    };
+    svg.addEventListener('wheel', onWheel, { passive: false });
+    return () => svg.removeEventListener('wheel', onWheel);
+  }, []);
+  // T shows or hides the time controls.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if ((e.key === 't' || e.key === 'T') && !(e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement)) setShowTime(v => !v); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+  // Drag the background to pan.
+  const pan = (event: React.PointerEvent) => {
+    if (event.button !== 0) return;
+    const start = { x: event.clientX, y: event.clientY, v: viewRef.current };
+    let moved = false;
+    const move = (e: PointerEvent) => { moved = moved || Math.abs(e.clientX - start.x) + Math.abs(e.clientY - start.y) > 3; setView({ ...start.v, x: start.v.x + e.clientX - start.x, y: start.v.y + e.clientY - start.y }); };
+    const up = () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); if (!moved) setFocus(null); };
+    window.addEventListener('pointermove', move); window.addEventListener('pointerup', up);
+  };
 
   const nameOf = (participantId: number) => str(rows.participant.find(p => num(p, 'id') === participantId), 'name', `#${participantId}`);
   const providerOf = (participantId: number) => str(rows.participant.find(p => num(p, 'id') === participantId), 'provider');
@@ -201,7 +236,7 @@ export function StoryView({ rows, mode, live, replayLabel, countdown, history }:
   const linkSpecs = model.items
     .filter(i => model.agents.some(a => num(a, 'id') === num(i, 'participantId')))
     .map(i => ({ id: `l:${str(i, 'id')}`, source: `a:${num(i, 'participantId')}`, target: `k:${str(i, 'key')}`, kind: (str(i, 'kind') === 'produces' ? 'produces' : 'requires') as 'produces' | 'requires' }));
-  const graph = useForceGraph(nodeSpecs, linkSpecs, w, h);
+  const graph = useForceGraph(nodeSpecs, linkSpecs, w, h, viewRef);
 
   const clickTopic = (key: string) => {
     if (model.issues.some(i => i.key === key)) { setOpenIssue(key); setFocus(null); }
@@ -211,10 +246,12 @@ export function StoryView({ rows, mode, live, replayLabel, countdown, history }:
   const resolved = model.issues.filter(i => i.state === 'accepted').length;
 
   return <div className="story">
-    <svg className="graph" width={w} height={h} onClick={() => setFocus(null)}>
+    <svg ref={svgRef} className="graph" width={w} height={h} onPointerDown={pan} onDoubleClick={() => setView({ x: 0, y: 0, k: 1 })}>
       <defs>
-        <filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="6" result="b" /><feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge></filter>
+        <pattern id="dots" width="32" height="32" patternUnits="userSpaceOnUse"><circle cx="16" cy="16" r="1.3" className="grid-dot" /></pattern>
       </defs>
+      <g transform={`translate(${view.x},${view.y}) scale(${view.k})`}>
+      <rect className="space" x={-20000} y={-20000} width={40000} height={40000} fill="url(#dots)" />
       {linkSpecs.map(link => {
         const a = graph.pos(link.source); const b = graph.pos(link.target);
         if (a?.x === undefined || b?.x === undefined) return null;
@@ -228,16 +265,16 @@ export function StoryView({ rows, mode, live, replayLabel, countdown, history }:
         const tone = toneOf(key);
         const label = model.describe(key);
         // Labels sit on the outside of the graph, so they don't run under the agents.
-        const left = p.x < w / 2; const lx = left ? -20 : 20; const anchor = left ? 'end' : 'start';
+        const left = p.x < w / 2; const lx = left ? -28 : 28; const anchor = left ? 'end' : 'start';
         return <g key={key} className={`node topic tone-${tone}`} transform={`translate(${p.x},${p.y})`} onPointerDown={graph.drag(`k:${key}`)} onClick={e => { e.stopPropagation(); clickTopic(key); }}>
           <g className="grow">
-            {['contradiction', 'redundancy', 'broken'].includes(tone) && <circle className="halo" r={22} />}
-            <circle className="dot" r={tone === 'neutral' ? 11 : 14} />
-            {(tone === 'agreed' || tone === 'aligned') && <path className="tick" d="M-5 0 L-1.5 4 L5.5 -4" />}
-            {(tone === 'contradiction' || tone === 'broken') && <text className="mark" dy="4.5">!</text>}
-            {tone === 'redundancy' && <text className="mark" dy="4.5">=</text>}
-            <text className="label" x={lx} dy="4" textAnchor={anchor}>{label}</text>
-            {tone !== 'neutral' && <text className="sublabel" x={lx} dy="20" textAnchor={anchor}>{tone === 'contradiction' ? 'contradiction · click for detail' : tone === 'redundancy' ? 'redundancy · click for detail' : tone === 'broken' ? "didn't fit · found only by testing" : tone === 'agreed' ? 'agreed by everyone' : 'already compatible'}</text>}
+            {['contradiction', 'redundancy', 'broken'].includes(tone) && <circle className="halo" r={30} />}
+            <circle className="dot" r={tone === 'neutral' ? 15 : 19} />
+            {(tone === 'agreed' || tone === 'aligned') && <path className="tick" d="M-7 0 L-2 5.5 L7.5 -5.5" />}
+            {(tone === 'contradiction' || tone === 'broken') && <text className="mark" dy="6">!</text>}
+            {tone === 'redundancy' && <text className="mark" dy="6">=</text>}
+            <text className="label" x={lx} dy="5" textAnchor={anchor}>{label}</text>
+            {tone !== 'neutral' && <text className="sublabel" x={lx} dy="25" textAnchor={anchor}>{tone === 'contradiction' ? 'contradiction · click for detail' : tone === 'redundancy' ? 'redundancy · click for detail' : tone === 'broken' ? "didn't fit · found only by testing" : tone === 'agreed' ? 'agreed by everyone' : 'already compatible'}</text>}
           </g>
         </g>;
       })}
@@ -247,17 +284,18 @@ export function StoryView({ rows, mode, live, replayLabel, countdown, history }:
         const hot = model.issues.find(i => i.parties.includes(id) && ['proposed', 'escalated', 'rejected'].includes(i.state));
         return <g key={id} className={`node agent ${provider} ${status.tone} ${hot ? `hot-${hot.kind}` : ''}`} transform={`translate(${p.x},${p.y})`} onPointerDown={graph.drag(`a:${id}`)} onClick={e => { e.stopPropagation(); setFocus(focus === `a:${id}` ? null : `a:${id}`); }}>
           <g className="grow">
-            <circle className="ring" r={38} />
-            <circle className="body" r={30} />
-            <text className="mark" dy="7">{PROVIDER_MARK[provider] ?? '?'}</text>
-            <text className="name" dy="56">{str(agent, 'name')}</text>
-            <text className="status" dy="72">{status.label} · #{id}</text>
+            <circle className="ring" r={52} />
+            <circle className="body" r={42} />
+            <text className="mark" dy="10">{PROVIDER_MARK[provider] ?? '?'}</text>
+            <text className="name" dy="76">{str(agent, 'name')}</text>
+            <text className="status" dy="96">{status.label} · #{id}</text>
           </g>
         </g>;
       })}
+      </g>
     </svg>
 
-    {focus && <FocusCard id={focus} model={model} rows={rows} pos={graph.pos(focus)} nameOf={nameOf} />}
+    {focus && <FocusCard id={focus} model={model} rows={rows} pos={graph.pos(focus)} view={view} nameOf={nameOf} />}
 
     <header className="overlay top-left">
       <div className="mark-d">d</div>
@@ -267,16 +305,19 @@ export function StoryView({ rows, mode, live, replayLabel, countdown, history }:
 
     <div className="overlay top-right">
       {model.issues.length > 0 && <button className="chip issues" onClick={() => setOpenIssue(model.issues.find(i => i.state !== 'accepted')?.key ?? model.issues[0]!.key)}>{model.issues.length} issue{model.issues.length > 1 ? 's' : ''} · {resolved} resolved</button>}
-      <span className={`chip ${live ? 'live' : 'replay'}`}><i />{live ? 'LIVE' : `REPLAY${replayLabel ? ` · ${replayLabel}` : ''}`}</span>
+      {history ? <button className={`chip replay ${showTime ? 'active' : ''}`} onClick={() => setShowTime(v => !v)} title="Show or hide the time controls (T)"><i />REPLAY{replayLabel ? ` · ${replayLabel}` : ''} <kbd>T</kbd></button>
+        : <span className={`chip ${live ? 'live' : 'replay'}`}><i />{live ? 'LIVE' : 'REPLAY'}</span>}
       {countdown > 0 && <span className="chip time">{String(Math.floor(countdown / 60)).padStart(2, '0')}:{String(countdown % 60).padStart(2, '0')}</span>}
       <button className="chip menu" aria-label="History" onClick={() => setPanel(panel === 'closed' ? 'timeline' : 'closed')}>☰</button>
     </div>
 
-    <Narration model={model} mode={mode} nameOf={nameOf} failedRoot={failedRoot} />
+    <Narration model={model} mode={mode} nameOf={nameOf} failedRoot={failedRoot} raised={showTime && Boolean(history)} />
+    {showTime && history && <div className="overlay timebar">{history}</div>}
 
-    <div className="overlay legend">
+    <div className={`overlay legend ${showTime && history ? 'hidden' : ''}`}>
       <span><i className="sw solid" />builds</span><span><i className="sw dashed" />needs</span>
       <span><i className="dot-sw contradiction" />contradiction</span><span><i className="dot-sw redundancy" />redundancy</span><span><i className="dot-sw agreed" />agreed</span>
+      <span className="hint">drag to pan · scroll to zoom · double-click to reset{history ? ' · T for time' : ''}</span>
     </div>
 
     {panel !== 'closed' && <aside className="side-panel">
@@ -293,9 +334,10 @@ export function StoryView({ rows, mode, live, replayLabel, countdown, history }:
   </div>;
 }
 
-function FocusCard({ id, model, rows, pos, nameOf }: { id: string; model: Model; rows: DashboardRows; pos?: GNode; nameOf: (id: number) => string }) {
+function FocusCard({ id, model, rows, pos, view, nameOf }: { id: string; model: Model; rows: DashboardRows; pos?: GNode; view: View; nameOf: (id: number) => string }) {
   if (pos?.x === undefined || pos.y === undefined) return null;
-  const style = { left: Math.min(pos.x + 46, window.innerWidth - 360), top: Math.max(pos.y - 40, 70) };
+  const sx = pos.x * view.k + view.x; const sy = pos.y * view.k + view.y;
+  const style = { left: Math.min(sx + 60 * view.k, window.innerWidth - 360), top: Math.max(sy - 40, 70) };
   if (id.startsWith('a:')) {
     const pid = Number(id.slice(2));
     const plan = rows.plan.filter(p => num(p, 'participantId') === pid).sort((a, b) => num(b, 'revision') - num(a, 'revision'))[0];
@@ -315,7 +357,7 @@ function FocusCard({ id, model, rows, pos, nameOf }: { id: string; model: Model;
   </div>;
 }
 
-function Narration({ model, mode, nameOf, failedRoot }: { model: Model; mode: string; nameOf: (id: number) => string; failedRoot?: Row }) {
+function Narration({ model, mode, nameOf, failedRoot, raised }: { model: Model; mode: string; nameOf: (id: number) => string; failedRoot?: Row; raised?: boolean }) {
   const open = model.issues.find(i => ['proposed', 'escalated'].includes(i.state));
   let tone = 'idle'; let title = 'Waiting for agents to share their plans'; let detail = '';
   if (model.verification) {
@@ -329,12 +371,16 @@ function Narration({ model, mode, nameOf, failedRoot }: { model: Model; mode: st
     detail = `Voting on a fix: ${agreed} of ${open.parties.length} agreed · ${open.parties.map(p => `${nameOf(p)} ${open.votes.find(v => v.participantId === p) ? '✓' : '…'}`).join('  ')}`;
   } else if (model.analyzing) {
     tone = 'busy'; title = 'Comparing plans…';
-  } else if (model.issues.length) {
+  } else if (model.issues.some(i => i.state === 'rejected')) {
+    const pushed = model.issues.find(i => i.state === 'rejected')!;
+    const no = pushed.votes.find(v => v.decision === 'reject');
+    tone = pushed.kind; title = `${no ? nameOf(no.participantId) : 'An agent'} pushed back on the fix for ${pushed.label.toLowerCase()}`; detail = `${no?.reason ? `“${no.reason}” · ` : ''}dibs is revising the proposal`;
+  } else if (model.issues.length && model.issues.every(i => i.state === 'accepted')) {
     tone = 'good'; title = `Agreed: ${model.issues.map(i => i.label.toLowerCase()).join(', ')}`; detail = 'Everyone involved accepted the fix and is building to it.';
   } else if (model.items.length) {
     title = mode === 'dibs' ? 'Plans shared · no problems so far' : 'Each agent is building on its own guesses';
   }
-  return <div key={`${tone}-${title}`} className={`overlay narration ${tone}`}><b>{title}</b>{detail && <span>{detail}</span>}</div>;
+  return <div key={`${tone}-${title}`} className={`overlay narration ${tone} ${raised ? 'raised' : ''}`}><b>{title}</b>{detail && <span>{detail}</span>}</div>;
 }
 
 function Drawer({ issue, rows, nameOf, providerOf, close }: { issue: Issue; rows: DashboardRows; nameOf: (id: number) => string; providerOf: (id: number) => string; close: () => void }) {
