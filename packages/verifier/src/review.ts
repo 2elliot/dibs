@@ -29,6 +29,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
 import {
+  PROVIDERS,
   REVIEW_SCHEMA,
   type FixtureManifest,
   type Provider,
@@ -81,10 +82,33 @@ export function charterClauses(manifest: FixtureManifest): Clause[] {
   }));
 }
 
+/** Each agent's area, as the prompt describes it. */
+function describeAreas(manifest: FixtureManifest): string {
+  return PROVIDERS.map((p) => `${p}: ${manifest.areas[p].join(", ")}`).join(
+    "; ",
+  );
+}
+
+/**
+ * The scaffold rule (lobby 4): frozen files are the starting app, written by no agent and editable
+ * by none, so behaviour that comes only from them (e.g. src/server.js mounting cookie-parser) is
+ * never an agent's violation.
+ */
+export function scaffoldSection(frozen: string[]): string {
+  if (!frozen.length) return "";
+  return `
+## Frozen scaffold files
+${frozen.map((f) => `- ${f}`).join("\n")}
+
+These are the starting app's frozen files: no agent wrote them and no agent was allowed to edit them. Judge every clause only by the code inside the agents' areas. Behaviour that comes only from a frozen file (middleware it mounts, a dependency it loads, a route it serves) is never a violation by any agent: you may mention it in a note, but don't mark a clause "violates" because of it, and never name it as the rootCause.
+`;
+}
+
 export function reviewPrompt(
   clauses: Clause[],
   report: VerifyReport,
   diff: string,
+  manifest?: FixtureManifest,
 ): string {
   const checks = report.checks
     .map(
@@ -96,13 +120,16 @@ export function reviewPrompt(
     diff.length > MAX_DIFF_CHARS
       ? `${diff.slice(0, MAX_DIFF_CHARS)}\n… (diff truncated)`
       : diff;
-  return `You are reviewing code that three coding agents wrote together in this repository (claude: src/auth/**, codex: public/** except index.html, droid: src/events/**). This is a read-only review: do not edit, create or run anything.
+  const areas = manifest
+    ? describeAreas(manifest)
+    : "claude: src/auth/**; codex: public/** except index.html; droid: src/events/**";
+  return `You are reviewing code that three coding agents wrote together in this repository (${areas}). This is a read-only review: do not edit, create or run anything.
 
 For each clause below, decide whether the code conforms to it, violates it, or the clause doesn't apply. Give file:line evidence from the current files for every verdict that isn't not_applicable. If any oracle check failed, set rootCause to the clause key whose violation explains the failure, the provider whose area broke it (claude, codex or droid; "unknown" if you can't tell), and a short explanation. If every check passed, rootCause is null.
 
 ## Clauses
 ${clauses.map((c, i) => `${i + 1}. [${c.key}] (${c.source}) ${c.text}`).join("\n")}
-
+${scaffoldSection(manifest?.frozen ?? [])}
 ## Hidden oracle result: ${report.passed}/${report.total}
 ${checks}
 
@@ -347,7 +374,8 @@ export async function reviewLobby(options: {
     const contracts = await options.recorder.currentContracts(options.lobbyId);
     if (contracts?.length) clauses = contracts;
   }
-  clauses ??= charterClauses(options.manifest ?? loadManifest(fixtureDir));
+  const manifest = options.manifest ?? loadManifest(fixtureDir);
+  clauses ??= charterClauses(manifest);
   const kind: ReviewKind =
     options.kind ??
     (report.passed === report.total ? "conformance" : "diagnosis");
@@ -361,7 +389,7 @@ export async function reviewLobby(options: {
       report,
       diff,
       cwd,
-      prompt: reviewPrompt(clauses, report, diff),
+      prompt: reviewPrompt(clauses, report, diff, manifest),
     });
   } finally {
     rmSync(cwd, { recursive: true, force: true });
