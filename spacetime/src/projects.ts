@@ -288,8 +288,49 @@ export const closeProject = db.reducer({ lobbyId: t.u32() }, (ctx, args) => {
 // An escalated key (rejected twice) is frozen until the developers settle it. The creator picks
 // one of the proposals the agents rejected; it becomes the agreed contract and is delivered to
 // everyone on the key, so their agents resume against it.
+const SIDE_NAMES: Record<string, string> = {
+  claude: "Claude",
+  codex: "Codex",
+  droid: "Droid",
+};
+
+/** The current round's proposals for a key, and its sides: participants that produce the key
+ *  or rejected one of the round's proposals. Each side's design is its current plan items. */
+export function escalation(ctx: Ctx, lobbyId: number, key: string) {
+  const since = roundStartUs(ctx, lobbyId, key);
+  const round = [...ctx.db.proposal.lobbyId.filter(lobbyId)].filter(
+    (p) => p.key === key && p.createdAtUs >= since,
+  );
+  const rejecters = new Set(
+    [...ctx.db.response.lobbyId.filter(lobbyId)]
+      .filter(
+        (r) =>
+          r.decision === "reject" && round.some((p) => p.id === r.proposalId),
+      )
+      .map((r) => r.participantId),
+  );
+  const items = [...ctx.db.planItem.lobbyId.filter(lobbyId)].filter(
+    (i) => i.current && i.key === key,
+  );
+  const sides = [...new Set(items.map((i) => i.participantId))]
+    .filter(
+      (id) =>
+        rejecters.has(id) ||
+        items.some((i) => i.participantId === id && i.kind === "produces"),
+    )
+    .sort((a, b) => a - b);
+  return { round, items, sides };
+}
+
+// The creator settles a frozen key by choosing a side (that participant's stated design) or one
+// of the proposals the agents rejected. Exactly one of proposalId and sideParticipantId is set.
 export const decideProject = db.reducer(
-  { lobbyId: t.u32(), key: t.string(), proposalId: t.u32() },
+  {
+    lobbyId: t.u32(),
+    key: t.string(),
+    proposalId: t.u32(),
+    sideParticipantId: t.u32(),
+  },
   (ctx, args) => {
     const room = ctx.db.projectRoom.lobbyId.find(args.lobbyId);
     check(
@@ -301,35 +342,43 @@ export const decideProject = db.reducer(
       l?.state === "running" && l.endsAtUs > now(ctx),
       "Project is closed or expired.",
     );
-    const since = roundStartUs(ctx, l.id, args.key);
-    const round = [...ctx.db.proposal.lobbyId.filter(l.id)].filter(
-      (p) => p.key === args.key && p.createdAtUs >= since,
-    );
+    const { round, items, sides } = escalation(ctx, l.id, args.key);
+    const frozen = round.find((p) => p.state === "escalated");
+    check(frozen, "That interface is not waiting for a decision.");
     check(
-      round.some((p) => p.state === "escalated"),
-      "That interface is not waiting for a decision.",
+      (args.proposalId === 0) !== (args.sideParticipantId === 0),
+      "Choose either a side or a proposal.",
     );
-    const chosen = round.find((p) => p.id === args.proposalId);
-    check(
-      chosen && (chosen.state === "rejected" || chosen.state === "escalated"),
-      "Choose one of the proposals the agents rejected for this interface.",
-    );
-    writeContract(
-      ctx,
-      l.id,
-      args.key,
-      chosen.contractText,
-      "agreed",
-      [...chosen.citedItemIds],
-      chosen.id,
-    );
-    emit(ctx, l.id, "notice_sent", chosen.id, {
-      decision: {
+    let text: string;
+    let basis: number[];
+    let detail: Record<string, unknown>;
+    if (args.sideParticipantId) {
+      check(
+        sides.includes(args.sideParticipantId),
+        "Choose one of the sides of this interface.",
+      );
+      const p = ctx.db.participant.id.find(args.sideParticipantId)!;
+      const theirs = items.filter((i) => i.participantId === p.id);
+      const name = SIDE_NAMES[p.provider] ?? p.name;
+      text = `The developers chose ${name}'s design for ${args.key}. Every part follows it:\n${theirs.map((i) => `- ${i.text}`).join("\n")}`;
+      basis = theirs.map((i) => i.id);
+      detail = { key: args.key, side: name, participantId: p.id };
+    } else {
+      const chosen = round.find((p) => p.id === args.proposalId);
+      check(
+        chosen && (chosen.state === "rejected" || chosen.state === "escalated"),
+        "Choose one of the proposals the agents rejected for this interface.",
+      );
+      text = chosen.contractText;
+      basis = [...chosen.citedItemIds];
+      detail = {
         key: args.key,
         proposalId: chosen.id,
         revision: chosen.revision,
-      },
-    });
+      };
+    }
+    writeContract(ctx, l.id, args.key, text, "agreed", basis, frozen.id);
+    emit(ctx, l.id, "notice_sent", frozen.id, { decision: detail });
   },
 );
 

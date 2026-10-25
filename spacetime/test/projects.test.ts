@@ -313,32 +313,55 @@ describe("ordinary project rooms on a real database", () => {
           d.kind === "escalated" && /frozen for the developers/.test(d.summary),
       ),
     ).toBe(true);
-    await expect(
-      codex.reducers.decideProject({ lobbyId, key, proposalId: first.id }),
-    ).rejects.toThrow("Only the project creator");
-    await expect(
-      owner.reducers.decideProject({
+    const droidId = [...h.admin.db.participant.iter()].find((p) =>
+      p.identity.isEqual(droid.identity!),
+    )!.id;
+    const codexId = [...h.admin.db.participant.iter()].find((p) =>
+      p.identity.isEqual(codex.identity!),
+    )!.id;
+    const decide = (
+      member: typeof owner,
+      args: { key?: string; proposalId?: number; sideParticipantId?: number },
+    ) =>
+      member.reducers.decideProject({
         lobbyId,
-        key: "nope",
-        proposalId: first.id,
-      }),
+        key: args.key ?? key,
+        proposalId: args.proposalId ?? 0,
+        sideParticipantId: args.sideParticipantId ?? 0,
+      });
+    await expect(decide(codex, { proposalId: first.id })).rejects.toThrow(
+      "Only the project creator",
+    );
+    await expect(
+      decide(owner, { key: "nope", proposalId: first.id }),
     ).rejects.toThrow("not waiting for a decision");
-    await owner.reducers.decideProject({ lobbyId, key, proposalId: first.id });
+    await expect(
+      decide(owner, { proposalId: first.id, sideParticipantId: droidId }),
+    ).rejects.toThrow("either a side or a proposal");
+    // Codex only requires the key and accepted nothing it rejected: not a side.
+    await expect(decide(owner, { sideParticipantId: codexId })).rejects.toThrow(
+      "one of the sides",
+    );
+    // Droid rejected a proposal, so its stated design is a side the developers can pick.
+    await decide(owner, { sideParticipantId: droidId });
     const decided = await waitFor(() =>
       [...h.admin.db.contract.iter()].find(
         (c) => c.lobbyId === lobbyId && c.key === key && c.current,
       ),
     );
     expect(decided.source).toBe("agreed");
-    expect(decided.text).toBe("Option A: minimal cards");
+    expect(decided.text).toContain("The developers chose Droid's design");
+    expect(decided.text).toContain(
+      "The store persists description and assignee",
+    );
     expect(
       [...h.admin.db.delivery.iter()].filter(
         (d) => d.kind === "contract" && d.refId === decided.id,
       ),
     ).toHaveLength(3);
-    await expect(
-      owner.reducers.decideProject({ lobbyId, key, proposalId: second.id }),
-    ).rejects.toThrow("not waiting for a decision");
+    await expect(decide(owner, { proposalId: second.id })).rejects.toThrow(
+      "not waiting for a decision",
+    );
     // A decided key reopens: a later plan change can be analyzed into a fresh proposal.
     await publish(codex, "Cards now also need labels", "requires");
     const reopened = await analyze("Option C: labels");

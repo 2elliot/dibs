@@ -617,7 +617,13 @@ async function runCommand(
   }
 }
 
-/** Escalated interfaces (rejected twice this round) and the rejected proposals to choose from. */
+type DecisionOption =
+  | { kind: "side"; participantId: number; texts: string[] }
+  | { kind: "proposal"; id: number; revision: number; text: string };
+
+/** Escalated interfaces (rejected twice this round) and what the developers can choose: first each
+ *  side's own design (participants that produce the key or rejected a proposal), then the
+ *  proposals the agents rejected. Mirrors escalation() in spacetime/src/projects.ts. */
 function frozenOptions(conn: DbConnection, lobbyId: number) {
   const proposals = [...conn.db.proposal.iter()].filter(
     (p) => p.lobbyId === lobbyId,
@@ -625,7 +631,7 @@ function frozenOptions(conn: DbConnection, lobbyId: number) {
   const contracts = [...conn.db.contract.iter()].filter(
     (c) => c.lobbyId === lobbyId,
   );
-  const frozen = new Map<string, typeof proposals>();
+  const frozen = new Map<string, DecisionOption[]>();
   for (const key of new Set(proposals.map((p) => p.key))) {
     const since = contracts
       .filter((c) => c.key === key)
@@ -633,11 +639,40 @@ function frozenOptions(conn: DbConnection, lobbyId: number) {
     const round = proposals
       .filter((p) => p.key === key && p.createdAtUs >= since)
       .sort((a, b) => a.revision - b.revision);
-    if (round.some((p) => p.state === "escalated"))
-      frozen.set(
-        key,
-        round.filter((p) => p.state === "rejected" || p.state === "escalated"),
-      );
+    if (!round.some((p) => p.state === "escalated")) continue;
+    const rejecters = new Set(
+      [...conn.db.response.iter()]
+        .filter(
+          (r) =>
+            r.decision === "reject" && round.some((p) => p.id === r.proposalId),
+        )
+        .map((r) => r.participantId),
+    );
+    const items = [...conn.db.planItem.iter()].filter(
+      (i) => i.lobbyId === lobbyId && i.current && i.key === key,
+    );
+    const sides = [...new Set(items.map((i) => i.participantId))]
+      .filter(
+        (id) =>
+          rejecters.has(id) ||
+          items.some((i) => i.participantId === id && i.kind === "produces"),
+      )
+      .sort((a, b) => a - b);
+    frozen.set(key, [
+      ...sides.map((id) => ({
+        kind: "side" as const,
+        participantId: id,
+        texts: items.filter((i) => i.participantId === id).map((i) => i.text),
+      })),
+      ...round
+        .filter((p) => p.state === "rejected" || p.state === "escalated")
+        .map((p) => ({
+          kind: "proposal" as const,
+          id: p.id,
+          revision: p.revision,
+          text: p.contractText,
+        })),
+    ]);
   }
   return frozen;
 }
@@ -680,18 +715,30 @@ async function decide(state: State, [key, choice]: string[]) {
       console.log(
         `${key} is frozen: the agents rejected it twice. Choose one option.\n`,
       );
-      options.forEach((p, i) => {
-        const rejections = [...conn.db.response.iter()].filter(
-          (r) => r.proposalId === p.id && r.decision === "reject",
-        );
-        console.log(
-          `Option ${letter(i)} (proposal P${p.id}, revision ${p.revision})`,
-        );
-        console.log(p.contractText.replace(/^/gm, "    "));
-        for (const r of rejections)
-          console.log(
-            `  Rejected by ${who(r.participantId)}: ${r.reason || "(no reason given)"}`,
+      options.forEach((o, i) => {
+        if (o.kind === "side") {
+          console.log(`Option ${letter(i)}: ${who(o.participantId)}'s design`);
+          for (const t of o.texts) console.log(`    - ${t}`);
+          const reasons = [...conn.db.response.iter()].filter(
+            (r) =>
+              r.participantId === o.participantId &&
+              r.decision === "reject" &&
+              conn.db.proposal.id.find(r.proposalId)?.key === key,
           );
+          for (const r of reasons)
+            console.log(`  ${who(o.participantId)} rejected dibs: ${r.reason}`);
+        } else {
+          console.log(
+            `Option ${letter(i)}: dibs proposal revision ${o.revision} (P${o.id})`,
+          );
+          console.log(o.text.replace(/^/gm, "    "));
+          for (const r of [...conn.db.response.iter()].filter(
+            (r) => r.proposalId === o.id && r.decision === "reject",
+          ))
+            console.log(
+              `  Rejected by ${who(r.participantId)}: ${r.reason || "(no reason given)"}`,
+            );
+        }
         console.log("");
       });
       console.log(
@@ -708,10 +755,15 @@ async function decide(state: State, [key, choice]: string[]) {
     await conn.reducers.decideProject({
       lobbyId: state.lobbyId!,
       key,
-      proposalId: chosen.id,
+      proposalId: chosen.kind === "proposal" ? chosen.id : 0,
+      sideParticipantId: chosen.kind === "side" ? chosen.participantId : 0,
     });
+    const what =
+      chosen.kind === "side"
+        ? `${who(chosen.participantId)}'s design`
+        : `dibs proposal revision ${chosen.revision}`;
     console.log(
-      `Decided ${key}: option ${letter(index)} (revision ${chosen.revision}) is now the agreed contract. Every agent on ${key} receives it and resumes.`,
+      `Decided ${key}: option ${letter(index)}, ${what}, is now the agreed contract. Every agent on ${key} receives it and resumes.`,
     );
   } finally {
     session.conn.disconnect();

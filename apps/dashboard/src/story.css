@@ -276,3 +276,4 @@ button.chip{cursor:pointer}button.chip:hover{border-color:var(--faint)}
 .decision .why b{font-weight:700}
 .decision footer{padding:10px 16px;font-size:12px;color:var(--muted)}
 .decision footer code{font:600 12px 'DM Mono',monospace;color:var(--text);background:var(--raised);padding:2px 6px;border-radius:4px}
+.decision section.alt{opacity:.8}.decision section.alt pre{max-height:80px}

@@ -200,6 +200,7 @@ function useForceGraph(nodeIds: { id: string; type: 'agent' | 'topic'; parent?: 
 // ---- View -------------------------------------------------------------------------------------
 
 const RECORDINGS = [
+  { url: '/replays/exp-live-rehearsal.json', label: 'Live demo rehearsal · judges decide sign-in' },
   { url: '/replays/exp-board-demo-3min.json', label: 'Task board · demo (3 min)' },
   { url: '/replays/exp-board-full-demo.json', label: 'Task board · full demo (3 waves)' },
   { url: '/replays/t1-lobby5.json', label: 'T1 · without dibs' },
@@ -640,21 +641,30 @@ function IndexCard({ id, model, rows, nameOf, failedRoot, verification, close }:
 function DecisionPanel({ model, rows, nameOf }: { model: Model; rows: DashboardRows; nameOf: (id: number) => string }) {
   const frozen = model.issues.find(i => i.state === 'escalated' && !i.settled);
   if (!frozen) return null;
-  // This round's options: the proposals rejected since the key's last contract.
+  // This round (since the key's last contract): the sides first, each in its own words, then the
+  // proposals the agents rejected. Mirrors escalation() in spacetime/src/projects.ts and `dibs decide`.
   const since = rows.contract.filter(c => str(c, 'key') === frozen.key).reduce((m, c) => Math.max(m, num(c, 'createdAtUs')), 0);
-  const options = frozen.revisions.filter(p => num(p, 'createdAtUs') >= since && ['rejected', 'escalated'].includes(str(p, 'state')));
+  const round = frozen.revisions.filter(p => num(p, 'createdAtUs') >= since);
+  const rejections = rows.response.filter(r => str(r, 'decision') === 'reject' && round.some(p => num(p, 'id') === num(r, 'proposalId')));
+  const items = rows.plan_item.filter(i => i.current !== false && str(i, 'key') === frozen.key);
+  const sides = [...new Set(items.map(i => num(i, 'participantId')))]
+    .filter(id => rejections.some(r => num(r, 'participantId') === id) || items.some(i => num(i, 'participantId') === id && str(i, 'kind') === 'produces'))
+    .sort((a, b) => a - b);
+  const proposals = round.filter(p => ['rejected', 'escalated'].includes(str(p, 'state')));
+  const letter = (i: number) => String.fromCharCode(65 + i);
   return <aside className="overlay decision" aria-label={`Decision needed: ${frozen.label}`}>
     <header><em><i />FROZEN</em><b>{frozen.label}</b><span>The agents rejected this twice. The developers choose:</span></header>
-    {options.map((p, i) => {
-      const letter = String.fromCharCode(65 + i);
-      const rejections = rows.response.filter(r => num(r, 'proposalId') === num(p, 'id') && str(r, 'decision') === 'reject');
-      return <section key={num(p, 'id')}>
-        <h3><kbd>{letter}</kbd> Proposal revision {num(p, 'revision')}</h3>
-        <pre>{str(p, 'contractText')}</pre>
-        {rejections.map((r, j) => <p key={j} className="why"><b>{nameOf(num(r, 'participantId'))} rejected:</b> {str(r, 'reason') || 'no reason given'}</p>)}
-      </section>;
-    })}
-    <footer>Decide with <code>dibs decide {frozen.key} {options.map((_, i) => String.fromCharCode(65 + i)).join('|')}</code></footer>
+    {sides.map((id, i) => <section key={`s${id}`}>
+      <h3><kbd>{letter(i)}</kbd> {nameOf(id)}’s design</h3>
+      <pre>{items.filter(it => num(it, 'participantId') === id).map(it => `• ${str(it, 'text')}`).join('\n')}</pre>
+      {rejections.filter(r => num(r, 'participantId') === id).slice(0, 1).map((r, j) => <p key={j} className="why"><b>Why {nameOf(id)} won’t budge:</b> {str(r, 'reason') || 'no reason given'}</p>)}
+    </section>)}
+    {proposals.map((p, i) => <section key={`p${num(p, 'id')}`} className="alt">
+      <h3><kbd>{letter(sides.length + i)}</kbd> dibs proposal, revision {num(p, 'revision')}</h3>
+      <pre>{str(p, 'contractText')}</pre>
+      {rejections.filter(r => num(r, 'proposalId') === num(p, 'id')).map((r, j) => <p key={j} className="why"><b>{nameOf(num(r, 'participantId'))} rejected:</b> {str(r, 'reason') || 'no reason given'}</p>)}
+    </section>)}
+    <footer>Decide with <code>dibs decide {frozen.key} {[...sides, ...proposals].map((_, i) => letter(i)).join('|')}</code></footer>
   </aside>;
 }
 

@@ -14,4 +14,5 @@ export default {
   lobbyId: __t.u32(),
   key: __t.string(),
   proposalId: __t.u32(),
+  sideParticipantId: __t.u32(),
 };
