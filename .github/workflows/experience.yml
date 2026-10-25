@@ -116,7 +116,8 @@ jobs:
       group: dibs-real-exp-deployment
       cancel-in-progress: false
     permissions:
-      contents: read
+      # write: only to replace the real-exp-latest prerelease after verification.
+      contents: write
       id-token: write
     timeout-minutes: 25
     env:
@@ -217,3 +218,23 @@ jobs:
           path: |
             release/*.tgz
             release/deployment.json
+      - name: Publish the verified package as the real-exp-latest prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag=real-exp-latest
+          short=${GITHUB_SHA::7}
+          cat > release/notes.md <<NOTES
+          Verified deployment of \`$short\` to $DIBS_DEPLOY_URL (database \`$SPACETIME_DB\`).
+
+          \`\`\`sh
+          gh release download $tag --repo $GITHUB_REPOSITORY --pattern '*.tgz' --clobber
+          npm install --global ./dibs-experience-0.1.0.tgz
+          \`\`\`
+
+          Then follow \`packages/experience/README.md\`. **Every push to \`real_exp\` wipes the experiment database**, including open rooms.
+          NOTES
+          gh release delete "$tag" --cleanup-tag --yes || true
+          gh release create "$tag" release/*.tgz release/deployment.json \
+            --target "$GITHUB_SHA" --prerelease \
+            --title "real_exp latest ($short)" --notes-file release/notes.md

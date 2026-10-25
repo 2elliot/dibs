@@ -14,12 +14,19 @@ required. Each agent edits its own files; dibs exchanges plans and agreements.
 ## Install and join
 
 Requires Node 22 or newer, plus your installed and signed-in coding agent.
-Install the tarball from a successful experiment deployment's GitHub Actions
-artifact on each laptop:
+Every verified deployment replaces the
+[`real-exp-latest`](https://github.com/2elliot/dibs/releases/tag/real-exp-latest)
+prerelease. On each laptop (needs read access to `2elliot/dibs` and a signed-in
+`gh`):
 
 ```sh
+gh release download real-exp-latest --repo 2elliot/dibs --pattern '*.tgz' --clobber
 npm install --global ./dibs-experience-0.1.0.tgz
 ```
+
+Rerun both commands to update after a new deployment. For a shared repository to
+test in, with a branch per agent, see
+[SmartOinker/dibs-playground](https://github.com/SmartOinker/dibs-playground).
 
 In the first developer's project directory:
 
