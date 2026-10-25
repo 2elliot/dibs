@@ -6,6 +6,7 @@ import dibsFixture from '../fixtures/s2-dibs.json';
 import noneFixture from '../fixtures/s2-none.json';
 import './style.css';
 import './evidence.css';
+import { StoryView } from './story';
 
 const providers = PROVIDERS;
 const providerNames: Record<Provider,string> = { claude: 'Claude', codex: 'Codex', droid: 'Droid' };
@@ -59,7 +60,7 @@ function App() {
       try {
         if (replayUrl) {
           const loaded = await loadReplay(replayUrl);
-          if (active) { setSource(loaded); setClock(loaded.endUs); }
+          if (active) { setSource(loaded); if (params.get('view') === 'story') { setClock(loaded.startUs); setPlaying(true); } else setClock(loaded.endUs); }
           return;
         }
         const config = await fetch('/config.json').then(response => response.ok ? response.json() : {}) as Partial<DibsConfig> & { uri?: string; db?: string; lobby?: string | number };
@@ -75,7 +76,7 @@ function App() {
           if (requestedLive) throw new Error('Set uri and db to connect to live lobbies.');
           const fixture = location.hash === '#none' ? noneFixture : dibsFixture;
           const local = new ReplayLobbySource(fixture as EventsExport);
-          if (active) { setSource(local); setClock(local.endUs); }
+          if (active) { setSource(local); if (params.get('view') === 'story') { setClock(local.startUs); setPlaying(true); } else setClock(local.endUs); }
           return;
         }
         const live = await createLiveSource(uri, db, lobbyId);
@@ -105,6 +106,17 @@ function App() {
   const endAt = num(lobby, 'endsAtUs') / 1000;
   const displayedNow = replay ? (clock || replay.endUs) / 1000 : now;
   const countdown = endAt ? Math.max(0, Math.ceil((endAt - displayedNow) / 1000)) : 0;
+
+  // The whole run's events and proposals, for the story view's keyframes (the snapshot only has the past).
+  const fullRun = useMemo(() => replay ? replay.getSnapshot(replay.endUs) : null, [replay]);
+
+  if (params.get('view') === 'story') {
+    return <main className={`dashboard story-page ${params.get('theme') === 'dark' ? 'theme-dark' : ''}`}>
+      <StoryView rows={snapshot} mode={str(lobby, 'mode', 'none')} live={source?.mode === 'live'} replayLabel={source?.mode === 'replay' ? source.label : undefined} countdown={countdown}
+        timeline={replay && fullRun ? { start: replay.startUs, end: replay.endUs, time: clock || replay.startUs, playing, setPlaying, setClock, speed, setSpeed, events: fullRun.event, proposals: fullRun.proposal, verifications: fullRun.verification, heads: fullRun.head } : undefined} />
+      {error && <div className="overlay" style={{ left: 20, top: 64, color: '#ffb3ad', font: '12px DM Mono, monospace' }}>{error}</div>}
+    </main>;
+  }
 
   return <main className="dashboard">
     {source?.mode === 'replay' && <div className="replay-ribbon"><span>REPLAY</span><b>{source.label}</b></div>}

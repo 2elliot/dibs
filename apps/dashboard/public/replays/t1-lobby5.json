@@ -1,0 +1,483 @@
+{
+  "protocolVersion": 1,
+  "label": "T1 · without dibs (lobby 5)",
+  "lobbyId": 5,
+  "exportedAtUs": 1792910332044000,
+  "tables": {
+    "lobby": [
+      {
+        "id": 5,
+        "scenario": "s2",
+        "mode": "none",
+        "baseSha": "f4001dc2ace49b3f671521eca59b955625127bef",
+        "vocabulary": [
+          "auth.session",
+          "auth.server",
+          "events.registration"
+        ],
+        "vocabularyJson": "[{\"description\":\"Client session transport and GET /api/me: exactly one of an httpOnly cookie, or a bearer token returned by POST /api/login as {token} and sent as Authorization: Bearer <token>.\",\"key\":\"auth.session\"},{\"description\":\"The helper exported from src/auth/index.js that other server routes use to get the current user (name and signature chosen by the team).\",\"key\":\"auth.server\"},{\"description\":\"POST /api/events/:eventId/registrations: request, 201 {id,eventId,userId}, 409 on a repeat, 401 unauthenticated, 404 unknown event; what the UI relies on.\",\"key\":\"events.registration\"}]",
+        "charter": "Implement `POST /api/login` (`{email,password}` → 200; bad credentials → 401), `GET /api/me` (→ 200 `{id,email}`; unauthenticated → 401), `POST /api/events/:eventId/registrations` (→ 201 `{id,eventId,userId}`; same user again → 409; unauthenticated → 401; unknown event → 404). Use **exactly one** session transport: an httpOnly cookie, **or** a bearer token returned by login as `{token}` and sent as `Authorization: Bearer <token>`. Other server routes get the current user through a helper exported from `src/auth/index.js`; its name and signature are up to the team. After Log in, Register must register the logged-in user and the status element must show \"Registered\" (or \"Already registered\" on 409). Your code must work together with the other two agents' code. The shared interfaces are `auth.session` (client transport + `/api/me`), `auth.server` (the helper), and `events.registration` (request/response/errors the UI relies on). Only edit files in your area. Don't add dependencies. Don't commit; your work is collected automatically. Call `dibs_plan` once before editing code, with concrete details for each key you produce or require.\n",
+        "buildHash": "ac6cda3a3028cc4baae437efad2ade42f0a08d0113b752db479cbef22792cbc6",
+        "state": "verified",
+        "analyzeAnywayFired": true,
+        "createdAtUs": 1792893846396948,
+        "startedAtUs": 1792894309232579,
+        "fallbackAtUs": 1792894669232579,
+        "endsAtUs": 1792895209232579
+      }
+    ],
+    "participant": [
+      {
+        "id": 1,
+        "identity": "c200ae4621f2a2f986d41dadc245278e45678cb95631cf8c64704a9eee7f425d",
+        "name": "worker",
+        "provider": "claude",
+        "role": "worker",
+        "online": true,
+        "buildHash": "",
+        "currentLobbyId": null
+      },
+      {
+        "id": 2,
+        "identity": "c2008c33523c39de98cbcb2c8d45cb60bbec94a757377f982a6d516e0274de2e",
+        "name": "admin",
+        "provider": "claude",
+        "role": "admin",
+        "online": false,
+        "buildHash": "",
+        "currentLobbyId": null
+      },
+      {
+        "id": 3,
+        "identity": "c200027ed06c50be8b44cf92cd5e486b9cb5d14658eb0359846f744dc4a91357",
+        "name": "claude",
+        "provider": "claude",
+        "role": "agent",
+        "online": false,
+        "buildHash": "ac6cda3a3028cc4baae437efad2ade42f0a08d0113b752db479cbef22792cbc6",
+        "currentLobbyId": 7
+      },
+      {
+        "id": 4,
+        "identity": "c200cd2b9c87df5d0d450db65930a998324ef2f9b2499f790bc5de039e3539de",
+        "name": "admin-460c0e",
+        "provider": "claude",
+        "role": "admin",
+        "online": false,
+        "buildHash": "",
+        "currentLobbyId": null
+      },
+      {
+        "id": 5,
+        "identity": "c200b3f405265f99e6985c8dec362b25a79db3752b7cb89ba4d5925e1cf4353e",
+        "name": "claude-460c0e",
+        "provider": "claude",
+        "role": "agent",
+        "online": false,
+        "buildHash": "ac6cda3a3028cc4baae437efad2ade42f0a08d0113b752db479cbef22792cbc6",
+        "currentLobbyId": 2
+      },
+      {
+        "id": 6,
+        "identity": "c2001793642549786400038bcf8f5b42f494978ac76ca70827956d3429f313d2",
+        "name": "codex-460c0e",
+        "provider": "codex",
+        "role": "agent",
+        "online": false,
+        "buildHash": "ac6cda3a3028cc4baae437efad2ade42f0a08d0113b752db479cbef22792cbc6",
+        "currentLobbyId": 2
+      },
+      {
+        "id": 7,
+        "identity": "c200722175019ab823d2c59bfdb1ef92fad0ef30aa47fa32fea1ad134d86aae1",
+        "name": "droid-460c0e",
+        "provider": "droid",
+        "role": "agent",
+        "online": false,
+        "buildHash": "ac6cda3a3028cc4baae437efad2ade42f0a08d0113b752db479cbef22792cbc6",
+        "currentLobbyId": 2
+      },
+      {
+        "id": 8,
+        "identity": "c200c62028b3ef2fedfe734b749dbf3b03d2970459aafa340f7f83d7dbb27568",
+        "name": "codex",
+        "provider": "codex",
+        "role": "agent",
+        "online": false,
+        "buildHash": "ac6cda3a3028cc4baae437efad2ade42f0a08d0113b752db479cbef22792cbc6",
+        "currentLobbyId": 7
+      },
+      {
+        "id": 9,
+        "identity": "c2009a4e406e351e1d3b93867e39c553ff04a5de18e23803963a0a5ea8a0d1dc",
+        "name": "verifier",
+        "provider": "codex",
+        "role": "verifier",
+        "online": false,
+        "buildHash": "",
+        "currentLobbyId": null
+      },
+      {
+        "id": 10,
+        "identity": "c200a97e771e176d2f8affd832100f5103d6e8427db1d6adfc7255720efc8080",
+        "name": "droid",
+        "provider": "droid",
+        "role": "agent",
+        "online": false,
+        "buildHash": "ac6cda3a3028cc4baae437efad2ade42f0a08d0113b752db479cbef22792cbc6",
+        "currentLobbyId": 7
+      }
+    ],
+    "plan": [
+      {
+        "id": 10,
+        "lobbyId": 5,
+        "participantId": 3,
+        "revision": 1,
+        "goal": "Implement POST /api/login, GET /api/me and the current-user helper in src/auth/index.js, with tests in test/auth/.",
+        "notes": "",
+        "requestId": "46d853cf-4b70-4abf-9db9-b21de03f54ff",
+        "current": true,
+        "createdAtUs": 1792894348754059
+      },
+      {
+        "id": 11,
+        "lobbyId": 5,
+        "participantId": 10,
+        "revision": 1,
+        "goal": "Implement authenticated registration and tests; edit only src/events/** and test/events/**.",
+        "notes": "No dependencies or commits. Implement only my owned event files. Auth and UI agents own their respective implementations.",
+        "requestId": "cada0158-e6e8-4b92-b162-84d9e837e5f4",
+        "current": true,
+        "createdAtUs": 1792894383692484
+      },
+      {
+        "id": 12,
+        "lobbyId": 5,
+        "participantId": 8,
+        "revision": 1,
+        "goal": "Implement browser login and event registration with UI tests, editing only public/app.js and test/ui/**.",
+        "notes": "Frontend scope does not consume auth.server directly; auth and events owners coordinate helper export. No dependencies; node:test VM browser stubs.",
+        "requestId": "7cc8a9f1-8588-4799-9ea1-0e2b6cad3f8d",
+        "current": true,
+        "createdAtUs": 1792894386873013
+      }
+    ],
+    "plan_item": [
+      {
+        "id": 22,
+        "planId": 10,
+        "lobbyId": 5,
+        "participantId": 3,
+        "kind": "produces",
+        "key": "auth.session",
+        "text": "Bearer token. POST /api/login with JSON {email,password}: 200 {token} (an opaque random string), or 401 {error:\"Invalid email or password\"} (400 if a field is missing). The client stores the token and sends `Authorization: Bearer <token>` on every API call, including fetch to POST /api/events/:eventId/registrations. GET /api/me: 200 {id,email}, or 401 {error} when the header is missing or the token is invalid. No cookies are used.",
+        "current": true
+      },
+      {
+        "id": 23,
+        "planId": 10,
+        "lobbyId": 5,
+        "participantId": 3,
+        "kind": "produces",
+        "key": "auth.server",
+        "text": "src/auth/index.js exports `getCurrentUser(req)`, which returns {id,email} or null and reads Authorization: Bearer <token> from store.sessions. It also exports `requireUser(req,res,next)`, Express middleware that sets req.user = {id,email} or replies 401 {error:\"Unauthorized\"}. Usage: `import { requireUser } from \"../auth/index.js\"; router.post(path, requireUser, (req,res)=>{ req.user.id ... })`.",
+        "current": true
+      },
+      {
+        "id": 24,
+        "planId": 10,
+        "lobbyId": 5,
+        "participantId": 3,
+        "kind": "requires",
+        "key": "events.registration",
+        "text": "The events route authenticates with requireUser or getCurrentUser from src/auth/index.js (401 when no user is logged in). It needs no request body. It returns 201 {id,eventId,userId}, 409 when the same user registers again, and 404 for an unknown event.",
+        "current": true
+      },
+      {
+        "id": 25,
+        "planId": 11,
+        "lobbyId": 5,
+        "participantId": 10,
+        "kind": "produces",
+        "key": "events.registration",
+        "text": "src/events/routes.js default router: POST /api/events/:eventId/registrations, no body. getCurrentUser(req) supplies userId; ignore client userId. Authenticate first: 401 {error:\"Unauthorized\"}; unknown event: 404 {error:\"Event not found\"}; duplicate (eventId,userId): 409 {error:\"Already registered\"}; success: 201 {id,eventId,userId}, id=randomUUID(), saved in store.registrations. UI shows Registered on 201, Already registered on 409. Tests in test/events/.",
+        "current": true
+      },
+      {
+        "id": 26,
+        "planId": 11,
+        "lobbyId": 5,
+        "participantId": 10,
+        "kind": "requires",
+        "key": "auth.server",
+        "text": "src/auth/index.js exports synchronous getCurrentUser(req): seeded user object with id,email or null if unauthenticated. Registration imports and calls this helper. Auth agent owns helper and login/me routes; I will follow its agreed export.",
+        "current": true
+      },
+      {
+        "id": 27,
+        "planId": 11,
+        "lobbyId": 5,
+        "participantId": 10,
+        "kind": "requires",
+        "key": "auth.session",
+        "text": "Propose one httpOnly cookie named session: POST /api/login {email,password} -> 200 with Set-Cookie session=<opaque id>, invalid credentials ->401. GET /api/me ->200 {id,email} or 401. Same-origin browser sends cookie. If auth agent already chose bearer, events stays transport-agnostic via helper and tests follow that choice.",
+        "current": true
+      },
+      {
+        "id": 28,
+        "planId": 12,
+        "lobbyId": 5,
+        "participantId": 8,
+        "kind": "produces",
+        "key": "auth.session",
+        "text": "UI submits POST /api/login JSON {email,password}; default cookie transport via same-origin fetch (no Authorization). GET /api/me expected 200 {id,email}, 401 unauthenticated. Will use the agreed single transport if coordination changes default.",
+        "current": true
+      },
+      {
+        "id": 29,
+        "planId": 12,
+        "lobbyId": 5,
+        "participantId": 8,
+        "kind": "produces",
+        "key": "events.registration",
+        "text": "Register reads #register-button.dataset.eventId and POSTs /api/events/:eventId/registrations with no userId/body; agreed session authenticates user. #status displays Registered on 201, Already registered on 409, login prompt on 401, event not found on 404.",
+        "current": true
+      },
+      {
+        "id": 30,
+        "planId": 12,
+        "lobbyId": 5,
+        "participantId": 8,
+        "kind": "requires",
+        "key": "auth.session",
+        "text": "Auth supplies POST /api/login: JSON {email,password}, 200 success /401 bad credentials; default httpOnly cookie automatically sent by same-origin fetch, GET /api/me 200 {id,email}/401. Please coordinate any bearer change before UI finalization.",
+        "current": true
+      },
+      {
+        "id": 31,
+        "planId": 12,
+        "lobbyId": 5,
+        "participantId": 8,
+        "kind": "requires",
+        "key": "events.registration",
+        "text": "Events supplies POST /api/events/:eventId/registrations: no userId needed, current session identifies user; 201 {id,eventId,userId}, 409 repeat, 401 unauthenticated, 404 unknown event.",
+        "current": true
+      }
+    ],
+    "message": [],
+    "job": [],
+    "proposal": [],
+    "response": [],
+    "contract": [],
+    "delivery": [],
+    "event": [
+      {
+        "id": 197,
+        "lobbyId": 5,
+        "atUs": 1792893846396948,
+        "actor": "admin",
+        "type": "lobby_created",
+        "subjectId": 5,
+        "detail": "{\"mode\":\"none\",\"scenario\":\"s2\"}"
+      },
+      {
+        "id": 198,
+        "lobbyId": 5,
+        "atUs": 1792894309232579,
+        "actor": "admin",
+        "type": "lobby_started",
+        "subjectId": 5,
+        "detail": "{}"
+      },
+      {
+        "id": 199,
+        "lobbyId": 5,
+        "atUs": 1792894324842863,
+        "actor": "claude",
+        "type": "joined_lobby",
+        "subjectId": 3,
+        "detail": "{}"
+      },
+      {
+        "id": 201,
+        "lobbyId": 5,
+        "atUs": 1792894348754059,
+        "actor": "claude",
+        "type": "plan_published",
+        "subjectId": 10,
+        "detail": "{\"participantId\":3,\"revision\":1}"
+      },
+      {
+        "id": 202,
+        "lobbyId": 5,
+        "atUs": 1792894356261724,
+        "actor": "droid",
+        "type": "joined_lobby",
+        "subjectId": 10,
+        "detail": "{}"
+      },
+      {
+        "id": 203,
+        "lobbyId": 5,
+        "atUs": 1792894371643464,
+        "actor": "codex",
+        "type": "joined_lobby",
+        "subjectId": 8,
+        "detail": "{}"
+      },
+      {
+        "id": 204,
+        "lobbyId": 5,
+        "atUs": 1792894383692484,
+        "actor": "droid",
+        "type": "plan_published",
+        "subjectId": 11,
+        "detail": "{\"participantId\":10,\"revision\":1}"
+      },
+      {
+        "id": 205,
+        "lobbyId": 5,
+        "atUs": 1792894385969156,
+        "actor": "claude",
+        "type": "head_reported",
+        "subjectId": 9,
+        "detail": "{}"
+      },
+      {
+        "id": 206,
+        "lobbyId": 5,
+        "atUs": 1792894386873013,
+        "actor": "codex",
+        "type": "plan_published",
+        "subjectId": 12,
+        "detail": "{\"participantId\":8,\"revision\":1}"
+      },
+      {
+        "id": 207,
+        "lobbyId": 5,
+        "atUs": 1792894489905198,
+        "actor": "droid",
+        "type": "head_reported",
+        "subjectId": 10,
+        "detail": "{}"
+      },
+      {
+        "id": 208,
+        "lobbyId": 5,
+        "atUs": 1792894669234242,
+        "actor": "system",
+        "type": "fallback_reached",
+        "subjectId": 5,
+        "detail": "{}"
+      },
+      {
+        "id": 209,
+        "lobbyId": 5,
+        "atUs": 1792895209234369,
+        "actor": "system",
+        "type": "lobby_stopped",
+        "subjectId": 5,
+        "detail": "{}"
+      },
+      {
+        "id": 210,
+        "lobbyId": 5,
+        "atUs": 1792895210250687,
+        "actor": "codex",
+        "type": "head_reported",
+        "subjectId": 11,
+        "detail": "{}"
+      },
+      {
+        "id": 249,
+        "lobbyId": 5,
+        "atUs": 1792895884655677,
+        "actor": "verifier",
+        "type": "verification_recorded",
+        "subjectId": 3,
+        "detail": "{}"
+      },
+      {
+        "id": 250,
+        "lobbyId": 5,
+        "atUs": 1792895884729256,
+        "actor": "verifier",
+        "type": "verification_recorded",
+        "subjectId": 5,
+        "detail": "{\"state\":\"verified\"}"
+      },
+      {
+        "id": 252,
+        "lobbyId": 5,
+        "atUs": 1792895919080082,
+        "actor": "verifier",
+        "type": "review_recorded",
+        "subjectId": 4,
+        "detail": "{}"
+      }
+    ],
+    "head": [
+      {
+        "id": 9,
+        "lobbyId": 5,
+        "participantId": 3,
+        "sha": "4f8e33ad9a88a15e53997507cca1c735b47c373c",
+        "outOfAreaFiles": [],
+        "createdAtUs": 1792894385969156
+      },
+      {
+        "id": 10,
+        "lobbyId": 5,
+        "participantId": 10,
+        "sha": "5c2031440db63513333c371c7d6a84176f11640d",
+        "outOfAreaFiles": [],
+        "createdAtUs": 1792894489905198
+      },
+      {
+        "id": 11,
+        "lobbyId": 5,
+        "participantId": 8,
+        "sha": "7508f45507450387d3fa1778da8dc273b353ed19",
+        "outOfAreaFiles": [],
+        "createdAtUs": 1792895210250687
+      }
+    ],
+    "verification": [
+      {
+        "id": 3,
+        "lobbyId": 5,
+        "assembledFrom": "{\"claude\":\"4f8e33ad9a88a15e53997507cca1c735b47c373c\",\"codex\":\"7508f45507450387d3fa1778da8dc273b353ed19\",\"droid\":\"5c2031440db63513333c371c7d6a84176f11640d\"}",
+        "treeHash": "5613baf1ccc0c5fa142049257c9a908e94c47914",
+        "mergeTreeClean": true,
+        "oracleHash": "0e51eb5a91d872a5a3acf81d5b425e72d97bc059564ca77f5b4973992f4f803f",
+        "exitCode": 1,
+        "passed": 5,
+        "total": 6,
+        "reportHash": "ab6b29c47cb923140adef8f923a11ed87cb6dd2d424f44357ed294dc1f3b6e90",
+        "verifierId": 9,
+        "createdAtUs": 1792895884655677
+      }
+    ],
+    "review": [
+      {
+        "id": 4,
+        "lobbyId": 5,
+        "verificationId": 3,
+        "kind": "diagnosis",
+        "summary": "The UI violates the session transport contract by assuming cookies while authentication uses bearer tokens. The server helper and registration endpoint conform; no code or tests were run.",
+        "findings": "{\"clauses\":[{\"clause\":\"Client session transport and GET /api/me\",\"evidence\":[{\"file\":\"src/auth/routes.js\",\"line\":17,\"note\":\"Login returns {token}; /api/me uses requireUser at line 20.\"},{\"file\":\"src/auth/index.js\",\"line\":14,\"note\":\"Authentication reads the Authorization header and requires a Bearer token.\"},{\"file\":\"public/app.js\",\"line\":37,\"note\":\"Successful login neither parses nor retains the returned token.\"},{\"file\":\"public/app.js\",\"line\":51,\"note\":\"Registration sends credentials: same-origin but no Authorization header, so it cannot use the bearer session.\"}],\"key\":\"auth.session\",\"verdict\":\"violates\"},{\"clause\":\"Exported server helper for retrieving the current user\",\"evidence\":[{\"file\":\"src/auth/index.js\",\"line\":20,\"note\":\"Exports getCurrentUser(req), returning the authenticated user's id and email, or null.\"},{\"file\":\"src/events/routes.js\",\"line\":4,\"note\":\"Imports the shared helper and calls it at line 10.\"}],\"key\":\"auth.server\",\"verdict\":\"conforms\"},{\"clause\":\"POST /api/events/:eventId/registrations contract\",\"evidence\":[{\"file\":\"src/events/routes.js\",\"line\":9,\"note\":\"Implements the specified POST route without requiring a body; unauthenticated requests receive 401 at line 12.\"},{\"file\":\"src/events/routes.js\",\"line\":15,\"note\":\"Looks up the requested event and returns 404 when unknown.\"},{\"file\":\"src/events/routes.js\",\"line\":20,\"note\":\"Checks duplicates by eventId and userId, returning 409 for repeats.\"},{\"file\":\"src/events/routes.js\",\"line\":28,\"note\":\"Creates {id,eventId,userId}, stores it, and returns 201 at line 34.\"}],\"key\":\"events.registration\",\"verdict\":\"conforms\"}],\"rootCause\":{\"explanation\":\"The UI discards the login token and omits Authorization on registration. The server therefore treats registration as unauthenticated, preventing the expected Registered outcome. Registering… is the UI's pre-response status.\",\"key\":\"auth.session\",\"violator\":\"codex\"},\"summary\":\"The UI violates the session transport contract by assuming cookies while authentication uses bearer tokens. The server helper and registration endpoint conform; no code or tests were run.\"}",
+        "model": "droid",
+        "sessionId": "88b97db9-72fb-45f6-beaa-6446419ae621",
+        "createdAtUs": 1792895919080082
+      }
+    ],
+    "service": [
+      {
+        "name": "worker",
+        "lastBeatUs": 1792910331627043,
+        "detail": "{\"anthropicErrors\":0,\"db\":\"connected\",\"lastAnalysisLatencyMs\":21349,\"queueAgeSec\":null,\"uptimeSec\":21586}"
+      }
+    ]
+  }
+}
