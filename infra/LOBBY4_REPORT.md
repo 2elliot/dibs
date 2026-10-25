@@ -4,8 +4,9 @@
 and Droid (M2, Windows) planned in one `dibs`-mode S2 lobby on `dibs-ch13-dev`. The Azure worker
 found a conflict on `auth.session` and a dependency on `events.registration`. Both required parties
 accepted both proposals within about 3 seconds (**HANDSHAKE 2/2** on each key). Codex and Droid wrote
-their shared-key code only after the contracts were agreed, and the three branches combined pass every
-server-side check of both contracts. Unscored dev lobby, Saturday 2026-10-24, times in PDT. Droid's
+their shared-key code only after the contracts were agreed. **Official verification: 6/6, merge-tree
+clean**, including the browser check (Log in → Register → "Registered"). Dev lobby, Saturday
+2026-10-24, times in PDT. Droid's
 first launch failed and was relaunched by hand; Codex's first launch failed its hook check and was
 relaunched (see "Issues").
 
@@ -16,7 +17,8 @@ relaunched (see "Issues").
 | Participants | `claude` (3, M1), `codex` (8, M3), `droid` (10, M2), `worker` (Azure, image `real-e7806ad8f05c`) |
 | Heads        | claude `cb0a467` · codex `5519e64` · droid `4530e74` (first launch: empty `435ba56`, its parent) |
 | Out of area  | none on any head                                                                                 |
-| Branches     | `lobby/4/codex`, `lobby/4/droid` on GitHub; `lobby-4-claude.bundle` sent to Chris                |
+| Branches     | `lobby/4/claude`, `lobby/4/codex`, `lobby/4/droid` on GitHub                                     |
+| Verification | **6/6**, merge-tree clean, exit 0 (verification 2, by `verifier` on M3); lobby state `verified`  |
 
 ## Timeline
 
@@ -92,10 +94,25 @@ The three heads merged on `f4001dc` with no conflicts (each agent touched only i
 | Unauthenticated registration / unknown event | 401 / 404 "Event not found"                                       |
 | Cookie only (no bearer)                      | 401                                                               |
 
-These match the oracle's server-side checks 1–5. **Not run on M1:** check 6 (Playwright: Log in →
-Register → "Registered"), because no Chromium is installed here; Codex's own UI tests cover the same
-logic in a simulated page. `dibs verify` / `dibs review` on M3 give the official score; no
-`verification` row exists for lobby 4 yet.
+These match the oracle's server-side checks 1–5. Check 6 (Playwright: Log in → Register →
+"Registered") couldn't run on M1, which has no Chromium; the official run below covers it.
+
+## Official verification and review (M3)
+
+`dibs verify` and `dibs review` on M3, recorded on `dibs-ch13-dev` by the `verifier` participant:
+
+- **Hidden oracle: 6/6**, merge-tree clean, exit 0 (verification 2; oracle hash `0e51eb5a…`). All six
+  checks pass, including check 6, the real-browser UI flow. Lobby 4 is now `verified`.
+- The verifier assembled tree `b9ee88ad860a7f14997612d7b78d6de54bd1727f` from heads `cb0a467`,
+  `5519e64` and `4530e74` on `f4001dc`. That's the same tree as the M1 merge above, so both machines
+  checked identical code.
+- **Droid SDK review:** "Two clauses conform; auth.session violates the literal prohibition on reading
+  cookies through pre-existing server middleware." That flag is a **false positive**: the cookie
+  parsing is `app.use(cookieParser())` in the frozen `src/server.js`, which no agent wrote or could
+  edit. All three agents' code is bearer-only (see the cookie-only 401 above). Chris is changing the
+  review prompt (issue 4) so frozen scaffold files are never attributed to an agent.
+- Revision timing (bench measure): Codex built after the contract (contract shown 18:07:41,
+  `public/app.js` written 18:08:00), confirmed by the bench.
 
 ## Issues found
 
@@ -127,8 +144,9 @@ without the Stop hook fix; message and contract delivery to all three agents.
 - Database rows for lobby 4 (lobby, participants, plans, items, job, proposals with full contract
   text, responses, contracts, deliveries, messages, heads, events): dumped on M1 to
   `~/.dibs/operator/lobby4-evidence.txt`; Claude's diff `f4001dc..cb0a467` next to it.
-- Code: `lobby/4/codex` (`5519e64`) and `lobby/4/droid` (`4530e74`) on GitHub;
-  `lobby-4-claude.bundle` (`lobby/4/claude` at `cb0a467`) sent to Chris; backup bundles on M2 and M3.
+- Code: `lobby/4/claude` (`cb0a467`), `lobby/4/codex` (`5519e64`) and `lobby/4/droid` (`4530e74`) on
+  GitHub; backup bundles on all three machines.
+- Verification 2 and review 2 rows on `dibs-ch13-dev`.
 - Transcripts: Claude on M1
   (`~/.claude/projects/C--Users-lib-laptop-dibs-clones-claude-fixture/8071049c-20b5-4c43-842f-e0a2a30ed684.jsonl`);
   Codex rollout on M3 (`rollout-2026-10-24T18-06-39-…`); Droid session logs on M2
