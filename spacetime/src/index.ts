@@ -40,6 +40,16 @@ import {
   type Ctx,
 } from "./helpers.ts";
 import { timing } from "./timing.ts";
+import { reserveProjectLease } from "./projects.ts";
+export {
+  configureProjects,
+  createProject,
+  joinProject,
+  resumeProject,
+  leaveProject,
+  closeProject,
+  decideProject,
+} from "./projects.ts";
 export default db;
 
 export const init = db.init((ctx) => {
@@ -256,8 +266,16 @@ export const joinLobby = db.reducer(
     const p = role(ctx, "agent");
     const l = ctx.db.lobby.id.find(a.lobbyId);
     check(
+      !ctx.db.projectMember.identity.find(ctx.sender),
+      "Project identities cannot join benchmark lobbies.",
+    );
+    check(
       l && (l.state === "setup" || l.state === "running"),
       "lobby not active",
+    );
+    check(
+      !ctx.db.projectRoom.lobbyId.find(a.lobbyId),
+      "Use project membership to join this lobby.",
     );
     check(a.buildHash === l.buildHash, "build mismatch");
     const old =
@@ -491,7 +509,10 @@ export const respond = db.reducer(
             id,
             "escalated",
             proposal.id,
-            `dibs: proposal P${proposal.id} for ${proposal.key} was rejected twice and needs the developers.`,
+            // Project rooms pause the key for a developer decision (dibs decide); benchmark text is unchanged.
+            ctx.db.projectRoom.lobbyId.find(l.id)
+              ? `dibs: proposal P${proposal.id} for ${proposal.key} was rejected twice and is frozen for the developers. Stop work on ${proposal.key} until their decision arrives as its agreed contract (check dibs_status); keep building parts that do not depend on it.`
+              : `dibs: proposal P${proposal.id} for ${proposal.key} was rejected twice and needs the developers.`,
           );
         const job = ctx.db.job.slot.find(String(l.id));
         // Another key can already be under analysis. Its snapshot changed too;
@@ -613,6 +634,11 @@ function leased(ctx: Ctx, jobId: number, leaseToken: string) {
     ctx.db.lobby.id.find(j.lobbyId)?.state === "running",
     "lobby not running",
   );
+  if (ctx.db.projectRoom.lobbyId.find(j.lobbyId))
+    check(
+      ctx.db.lobby.id.find(j.lobbyId)!.endsAtUs > now(ctx),
+      "Project is closed or expired.",
+    );
   return j;
 }
 export const leaseJob = db.reducer(
@@ -631,6 +657,7 @@ export const leaseJob = db.reducer(
       ctx.db.lobby.id.find(j.lobbyId)?.state === "running",
       "lobby not running",
     );
+    if (!reserveProjectLease(ctx, j.lobbyId, j.id)) return;
     check(
       j.calls < LIMITS.analysisCallsPerLobby,
       "analysis call limit reached",
@@ -759,7 +786,12 @@ export const submitAnalysis = db.reducer(
         const history = [...ctx.db.proposal.lobbyId.filter(l.id)].filter(
           (p) => p.key === f.key,
         );
-        if (history.some((p) => p.state === "escalated")) continue;
+        // Frozen for the developers this round; a decided key reopens with a fresh round.
+        const since = roundStartUs(ctx, l.id, f.key);
+        if (
+          history.some((p) => p.state === "escalated" && p.createdAtUs >= since)
+        )
+          continue;
         const p = ctx.db.proposal.insert({
           id: 0,
           slot: `${l.id}/${f.key}`,

@@ -135,18 +135,24 @@ function maintain(
         const token = readToken(tokenPath(options.dir));
         if (!config?.dbUri || !config.dbName || !token)
           throw new Error("config.json or token is missing");
-        if (!options.session) throw new Error("session.json is missing");
-        const session = options.session;
+        const saved = readJson(path.join(options.dir, DIBS_FILES.session)) as
+          SessionFile | undefined;
+        const session = options.session?.project ? saved : options.session;
+        if (!session)
+          throw new Error(
+            "session.json is missing; this directory is detached",
+          );
         const remote = new RemoteStore(
           await connectSession({
             builder: await loadDbBuilder(),
             uri: config.dbUri,
             database: config.dbName,
             token,
-            participant: options.participant,
+            participant: session.remoteParticipant ?? options.participant,
             provider: options.provider,
             lobbyId: session.lobbyId,
             buildHash: localBuildHash(),
+            project: session.project === true,
             log,
           }),
         );
@@ -158,7 +164,21 @@ function maintain(
         delay = 500;
         announced = false;
         log(`connected to ${config.dbName}`);
-        await remote.closed;
+        const watcher = session.project
+          ? setInterval(() => {
+              const current = readJson(
+                path.join(options.dir, DIBS_FILES.session),
+              ) as SessionFile | undefined;
+              if (!current?.project || current.lobbyId !== session.lobbyId)
+                remote.close();
+            }, 500)
+          : undefined;
+        watcher?.unref();
+        try {
+          await remote.closed;
+        } finally {
+          if (watcher) clearInterval(watcher);
+        }
       } catch (error) {
         if (!announced) {
           log(error instanceof Error ? error.message : String(error));

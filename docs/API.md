@@ -1,5 +1,9 @@
 # dibs module API v1
 
+The `real_exp` branch adds [ordinary project sessions](PROJECT_SESSIONS.md)
+alongside this benchmark API. That explicitly authorized extension preserves the
+existing public row shapes and benchmark commands.
+
 The contract between the SpacetimeDB module (issue 1) and everything that talks to it: the bridge (issue 2), the worker (issue 3), the verifier (issue 4) and the dashboard (issue 5). `docs/plan.md` §4 is the design; this file is the frozen interface, including five fixes from the design review (marked **[fix]**). Payload types and enums are in `packages/protocol`.
 
 **Frozen.** Issues 2–5 code against this. If you need a change, put it under "Needs" in your PR; don't edit `spacetime/`, `packages/bindings/` or `packages/protocol/`.

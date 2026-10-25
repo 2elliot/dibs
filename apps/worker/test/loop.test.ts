@@ -53,6 +53,34 @@ function gatedModel(findings: Findings) {
 const settle = () => vi.advanceTimersByTimeAsync(0);
 
 describe("WorkerLoop.tick", () => {
+  it("backs off a refused lease instead of immediately retrying it through the capacity scan", async () => {
+    vi.useFakeTimers();
+    const input = loadFixture("compatible");
+    const db = new FakeDb();
+    db.stage(jobFor(input), input, futureFallbackUs);
+    db.unleasable.add(input.jobId);
+    vi.spyOn(db, "nextLeasableJob").mockImplementation(async (excluded) =>
+      excluded?.has(input.lobbyId) ? null : jobFor(input),
+    );
+    const loop = new WorkerLoop({
+      db,
+      model: new FakeModelClient(),
+      health: new HealthState(),
+      pollMs: 60_000,
+      log: () => {},
+    });
+    try {
+      loop.start();
+      await vi.advanceTimersByTimeAsync(100);
+      expect(db.leaseCalls).toHaveLength(1);
+      expect(db.submitCalls).toHaveLength(0);
+      await vi.advanceTimersByTimeAsync(60_000);
+      expect(db.leaseCalls).toHaveLength(2);
+    } finally {
+      loop.stop();
+      vi.useRealTimers();
+    }
+  });
   it("leases a queued job and submits the validated findings", async () => {
     const input = loadFixture("bearer-vs-cookie");
     const db = new FakeDb();

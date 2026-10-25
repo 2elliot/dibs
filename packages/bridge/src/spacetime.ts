@@ -89,6 +89,7 @@ export interface ConnectOptions {
   lobbyId: number;
   buildHash: string;
   join?: boolean;
+  project?: boolean;
   log?: (message: string) => void;
   nowUs?: () => number;
   /** How long a disconnect may last before the connection is rebuilt. */
@@ -195,7 +196,19 @@ export function connectSession(
       watch(conn, () => session?.refresh());
       session.refresh();
       applied = true;
-      if (options.join !== false && first.meId !== null) {
+      if (options.project) {
+        // Membership is bound to the saved identity. Never use the public
+        // benchmark build-hash join path for ordinary project sessions.
+        try {
+          await conn.reducers.resumeProject({
+            lobbyId: options.lobbyId,
+            protocol: "project-v1",
+          });
+        } catch (error) {
+          conn.disconnect?.();
+          throw error;
+        }
+      } else if (options.join !== false && first.meId !== null) {
         try {
           await conn.reducers.joinLobby({
             lobbyId: options.lobbyId,

@@ -29,11 +29,16 @@ describe.skipIf(!uri)("live SpacetimeDB worker", () => {
       (process.env.LOCALAPPDATA
         ? join(process.env.LOCALAPPDATA, "SpacetimeDB", "spacetime.exe")
         : "spacetime");
-    return execFileSync(executable, args, {
-      encoding: "utf8",
-      timeout: 120_000,
-      stdio: ["ignore", "pipe", "pipe"],
-    });
+    const isolatedConfig = process.env.SPACETIME_CLI_CONFIG;
+    return execFileSync(
+      executable,
+      isolatedConfig ? ["--config-path", isolatedConfig, ...args] : args,
+      {
+        encoding: "utf8",
+        timeout: 120_000,
+        stdio: ["ignore", "pipe", "pipe"],
+      },
+    );
   }
   async function claim(code: string) {
     const session = await connect({ uri: uri!, dbName });

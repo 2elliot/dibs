@@ -20,6 +20,7 @@ export interface LoopOptions {
   health: HealthState;
   /** How often to rescan for a leasable job (ms). Default TIMING.leaseRescanSec. */
   pollMs?: number;
+  maxConcurrent?: number;
   /** How often to heartbeat (ms). Default 15 s. */
   heartbeatMs?: number;
   /** Clock injection for tests. */
@@ -33,12 +34,15 @@ export class WorkerLoop {
   private readonly model: ModelClient;
   private readonly health: HealthState;
   private readonly pollMs: number;
+  private readonly maxConcurrent: number;
   private readonly heartbeatMs: number;
   private readonly now: () => number;
   private readonly log: (msg: string, extra?: Record<string, unknown>) => void;
 
   private running = false;
   private readonly inFlight = new Set<number>();
+  /** Failed/no-op leases must wait for the normal poll, not spin via kick(). */
+  private readonly retryAfter = new Map<number, number>();
   /** Lobbies whose job was re-queued while their analysis was in flight; rescanned when it ends. */
   private readonly requeued = new Set<number>();
   private scanning?: Promise<Promise<void>[]>;
@@ -53,6 +57,9 @@ export class WorkerLoop {
     this.model = opts.model;
     this.health = opts.health;
     this.pollMs = opts.pollMs ?? TIMING.leaseRescanSec * 1000;
+    this.maxConcurrent = opts.maxConcurrent ?? 2;
+    if (!Number.isSafeInteger(this.maxConcurrent) || this.maxConcurrent < 1)
+      throw new Error("maxConcurrent must be a positive integer");
     this.heartbeatMs = opts.heartbeatMs ?? 15_000;
     this.now = opts.now ?? Date.now;
     this.log =
@@ -114,8 +121,13 @@ export class WorkerLoop {
     // Lobbies in flight or already picked this pass: one call per lobby, and a job whose lease
     // fails fast is not picked again until the next pass.
     const seen = new Set(this.inFlight);
+    for (const [lobbyId, until] of this.retryAfter) {
+      if (until > this.now()) seen.add(lobbyId);
+      else this.retryAfter.delete(lobbyId);
+    }
     try {
       for (;;) {
+        if (this.inFlight.size >= this.maxConcurrent) break;
         const job = await this.db.nextLeasableJob(seen);
         if (!job || seen.has(job.lobbyId)) break;
         seen.add(job.lobbyId);
@@ -135,10 +147,12 @@ export class WorkerLoop {
     try {
       await this.process(job.jobId, job.lobbyId);
     } catch (e) {
+      this.retryAfter.set(job.lobbyId, this.now() + this.pollMs);
       this.log("job processing failed", { jobId: job.jobId, error: String(e) });
     } finally {
       this.inFlight.delete(job.lobbyId);
-      if (this.requeued.delete(job.lobbyId)) this.kick();
+      this.requeued.delete(job.lobbyId);
+      this.kick();
     }
   }
 
@@ -146,7 +160,10 @@ export class WorkerLoop {
     // The module can re-queue a lobby's job while we hold its lease (it replaces a stale lease).
     // Scans skip that lobby until our call ends, so rescan then rather than at the next timer.
     if (this.inFlight.has(job.lobbyId)) this.requeued.add(job.lobbyId);
-    else this.kick();
+    else {
+      this.retryAfter.delete(job.lobbyId);
+      this.kick();
+    }
   }
 
   /** Scan on the next microtask, so the row callbacks of one transaction start one scan. */
@@ -164,9 +181,11 @@ export class WorkerLoop {
     const deadlineMs = this.now() + TIMING.leaseSec * 1000 - LEASE_RESERVE_MS;
     const leased = await this.db.leaseJob(jobId, leaseToken);
     if (!leased) {
+      this.retryAfter.set(lobbyId, this.now() + this.pollMs);
       this.log("job no longer leasable", { jobId });
       return;
     }
+    this.retryAfter.delete(lobbyId);
 
     const input = await this.db.buildAnalysisInput(jobId);
     const fallbackAtUs = await this.db.lobbyFallbackAtUs(lobbyId);

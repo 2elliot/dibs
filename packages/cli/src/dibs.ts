@@ -17,10 +17,25 @@ const COMMANDS: Record<string, string> = {
   session: "../../bridge/src/session.ts",
   verify: "../../verifier/src/verify.ts",
   review: "../../verifier/src/review.ts",
+  create: "../../experience/src/main.ts",
+  status: "../../experience/src/main.ts",
+  doctor: "../../experience/src/main.ts",
+  leave: "../../experience/src/main.ts",
+  close: "../../experience/src/main.ts",
+  decide: "../../experience/src/main.ts",
 };
 
 const [name, ...args] = process.argv.slice(2);
-const target = name ? COMMANDS[name] : undefined;
+const projectCommand =
+  ["create", "status", "doctor", "leave", "close", "decide"].includes(
+    name ?? "",
+  ) ||
+  (name === "join" && args[0]?.startsWith("dibs1_"));
+const target = projectCommand
+  ? "../../experience/src/main.ts"
+  : name
+    ? COMMANDS[name]
+    : undefined;
 
 if (!target) {
   console.error(`usage: dibs <${Object.keys(COMMANDS).join("|")}> [args]`);
@@ -40,7 +55,7 @@ if (typeof command.main !== "function") {
   process.exit(1);
 }
 try {
-  await command.main(args);
+  await command.main(projectCommand ? [name!, ...args] : args);
 } catch (error) {
   console.error(
     `dibs ${name}: ${error instanceof Error ? error.message : String(error)}`,

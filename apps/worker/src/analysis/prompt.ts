@@ -19,7 +19,7 @@ import type {
 import type { AnalysisRequest } from "../model/types.ts";
 
 /** ~4000 output tokens per the plan; one place to tune. */
-export const MAX_OUTPUT_TOKENS = 4000;
+export const MAX_OUTPUT_TOKENS = 8000;
 
 const SYSTEM = `You are the analysis service for "dibs", a tool that coordinates a team whose developers each run a different coding agent on their own machine. Each agent has published a short plan of what it will PRODUCE and what it REQUIRES, keyed by a fixed shared vocabulary. Your job is to compare these plans and, for every SHARED key, decide how the plans relate and write the single contract the affected developers should build against.
 
@@ -31,6 +31,11 @@ For each shared key, choose exactly one relation:
 - "duplicate": two sides plan to build the same thing; the contract says who owns it and the exact interface.
 - "compatible": the plans already agree. contractText states the agreed interface; no one has to change.
 - "unowned": something is required but no participant produces it. contractText is "".
+
+Pick the relation by the main problem, in this order, even when details also differ:
+1. "duplicate" whenever two or more participants PRODUCE the same key: they each plan to build it. The contract names one owner, gives the exact interface, and says the others import it instead of writing their own.
+2. "dependency" when a participant builds on another participant's module or library (exported functions, signatures, file paths, module format, events). The contract pins that interface down so both can build in parallel, even if their current assumptions differ.
+3. "conflict" when the plans contradict each other on externally observable behavior: values, routes, methods, transports, or data shapes over the wire.
 
 Rules you must follow:
 - contractText must be precise enough to write code against: exact routes and methods, request and response JSON shapes, header or cookie names, status codes, exported function names with signatures, and file paths. No vague language.

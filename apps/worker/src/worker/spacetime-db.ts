@@ -163,7 +163,11 @@ export class SpacetimeDibsDb implements DibsDb {
         `[worker] leaseJob ${jobId} -> ${res.status}: ${res.error ?? ""}`,
       );
     }
-    return res.status === "ok";
+    if (res.status !== "ok") return false;
+    // A project budget refusal commits a terminal failed job. Successful reducer
+    // execution alone does not prove this caller received a lease.
+    const job = this.conn.db.job.id.find(jobId);
+    return job?.state === "leased" && job.leaseToken === leaseToken;
   }
 
   async submitAnalysis(

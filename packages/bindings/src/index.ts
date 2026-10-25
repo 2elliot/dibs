@@ -35,13 +35,19 @@ import {
 
 // Import all reducer arg schemas
 import ClaimInviteReducer from "./claim_invite_reducer";
+import CloseProjectReducer from "./close_project_reducer";
+import ConfigureProjectsReducer from "./configure_projects_reducer";
 import CreateInviteReducer from "./create_invite_reducer";
 import CreateLobbyReducer from "./create_lobby_reducer";
+import CreateProjectReducer from "./create_project_reducer";
 import DebugDeliverReducer from "./debug_deliver_reducer";
+import DecideProjectReducer from "./decide_project_reducer";
 import FailJobReducer from "./fail_job_reducer";
 import HeartbeatReducer from "./heartbeat_reducer";
 import JoinLobbyReducer from "./join_lobby_reducer";
+import JoinProjectReducer from "./join_project_reducer";
 import LeaseJobReducer from "./lease_job_reducer";
+import LeaveProjectReducer from "./leave_project_reducer";
 import MarkDeliveryReducer from "./mark_delivery_reducer";
 import MarkVerifiedReducer from "./mark_verified_reducer";
 import PublishPlanReducer from "./publish_plan_reducer";
@@ -49,6 +55,7 @@ import RecordReviewReducer from "./record_review_reducer";
 import RecordVerificationReducer from "./record_verification_reducer";
 import ReportHeadReducer from "./report_head_reducer";
 import RespondReducer from "./respond_reducer";
+import ResumeProjectReducer from "./resume_project_reducer";
 import SendMessageReducer from "./send_message_reducer";
 import StartLobbyReducer from "./start_lobby_reducer";
 import StopLobbyReducer from "./stop_lobby_reducer";
@@ -326,13 +333,19 @@ const tablesSchema = __schema({
 /** The schema information for all reducers in this module. This is defined the same way as the reducers would have been defined in the server, except the body of the reducer is omitted in code generation. */
 const reducersSchema = __reducers(
   __reducerSchema("claim_invite", ClaimInviteReducer),
+  __reducerSchema("close_project", CloseProjectReducer),
+  __reducerSchema("configure_projects", ConfigureProjectsReducer),
   __reducerSchema("create_invite", CreateInviteReducer),
   __reducerSchema("create_lobby", CreateLobbyReducer),
+  __reducerSchema("create_project", CreateProjectReducer),
   __reducerSchema("debug_deliver", DebugDeliverReducer),
+  __reducerSchema("decide_project", DecideProjectReducer),
   __reducerSchema("fail_job", FailJobReducer),
   __reducerSchema("heartbeat", HeartbeatReducer),
   __reducerSchema("join_lobby", JoinLobbyReducer),
+  __reducerSchema("join_project", JoinProjectReducer),
   __reducerSchema("lease_job", LeaseJobReducer),
+  __reducerSchema("leave_project", LeaveProjectReducer),
   __reducerSchema("mark_delivery", MarkDeliveryReducer),
   __reducerSchema("mark_verified", MarkVerifiedReducer),
   __reducerSchema("publish_plan", PublishPlanReducer),
@@ -340,6 +353,7 @@ const reducersSchema = __reducers(
   __reducerSchema("record_verification", RecordVerificationReducer),
   __reducerSchema("report_head", ReportHeadReducer),
   __reducerSchema("respond", RespondReducer),
+  __reducerSchema("resume_project", ResumeProjectReducer),
   __reducerSchema("send_message", SendMessageReducer),
   __reducerSchema("start_lobby", StartLobbyReducer),
   __reducerSchema("stop_lobby", StopLobbyReducer),

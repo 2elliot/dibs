@@ -19,7 +19,18 @@ const ids = (value: unknown): number[] => {
   return [];
 };
 const parse = (value: unknown): Row => { if (typeof value !== 'string') return (value as Row) ?? {}; try { return JSON.parse(value) as Row; } catch { return {}; } };
-const display = (name: string) => /^[a-z]/.test(name) ? name.charAt(0).toUpperCase() + name.slice(1) : name;
+// Project-room seats are named `project-<room>-<provider>`; show just the agent.
+const display = (name: string) => {
+  const seat = /^project-\d+-(claude|codex|droid)$/.exec(name);
+  if (seat) return PROVIDER_LABEL[seat[1]!]!;
+  return /^[a-z]/.test(name) ? name.charAt(0).toUpperCase() + name.slice(1) : name;
+};
+/** Graph labels stay short; the full description is in the hover title and the detail card. */
+const short = (text: string, max = 34) => {
+  if (text.length <= max) return text;
+  const cut = text.slice(0, max);
+  return `${cut.slice(0, Math.max(cut.lastIndexOf(' '), max - 8)).replace(/[\s:,;·-]+$/, '')}…`;
+};
 const clock = (us: number) => us ? new Date(us / 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }) : '';
 
 const PROVIDER_LABEL: Record<string, string> = { claude: 'Claude Code', codex: 'Codex', droid: 'Droid' };
@@ -46,6 +57,9 @@ interface Issue {
   key: string;
   label: string;
   kind: Kind;
+  /** A contract (agreed or aligned) was written for the key after its latest proposal, e.g. once
+   *  the developers settled an escalation and the plans came to agree. */
+  settled: boolean;
   revisions: Row[];
   latest: Row;
   state: string;
@@ -74,7 +88,8 @@ function useModel(rows: DashboardRows) {
       const latest = revisions.at(-1)!;
       const cited = ids(latest.citedItemIds).map(id => rows.plan_item.find(i => num(i, 'id') === id)).filter(Boolean) as Row[];
       const votes = rows.response.filter(r => num(r, 'proposalId') === num(latest, 'id')).map(r => ({ participantId: num(r, 'participantId'), decision: str(r, 'decision'), reason: str(r, 'reason') }));
-      return { key, label: describe(key), kind: KIND_OF[str(latest, 'relation')]!, revisions, latest, state: str(latest, 'state'), parties: ids(latest.requiredPartyIds), cited, votes };
+      const settled = rows.contract.some(c => str(c, 'key') === key && num(c, 'createdAtUs') >= num(latest, 'createdAtUs'));
+      return { key, label: describe(key), kind: KIND_OF[str(latest, 'relation')]!, settled, revisions, latest, state: str(latest, 'state'), parties: ids(latest.requiredPartyIds), cited, votes };
     }).sort((a, b) => num(a.latest, 'createdAtUs') - num(b.latest, 'createdAtUs'));
     const contracts = rows.contract.filter(c => c.current !== false);
     // A check that ran before every agent's work was in (lobby 7's early 0/6) isn't the result.
@@ -185,10 +200,16 @@ function useForceGraph(nodeIds: { id: string; type: 'agent' | 'topic'; parent?: 
 // ---- View -------------------------------------------------------------------------------------
 
 const RECORDINGS = [
+  { url: '/replays/exp-live-rehearsal.json', label: 'Live demo rehearsal · judges decide sign-in' },
+  { url: '/replays/exp-board-demo-3min.json', label: 'Task board · demo (3 min)' },
+  { url: '/replays/exp-board-full-demo.json', label: 'Task board · full demo (3 waves)' },
   { url: '/replays/t1-lobby5.json', label: 'T1 · without dibs' },
   { url: '/replays/t3-lobby7.json', label: 'T3 · with dibs' },
   { url: '/sim/team.json', label: 'Simulated team' },
   { url: '/sim/chaos.json', label: 'Chaos (simulated)' },
+  { url: '/replays/exp-room2.json', label: 'Playground · Claude + Codex' },
+  { url: '/replays/exp-board-dibs.json', label: 'Task board · 3 agents (dibs)' },
+  { url: '/replays/exp-board-dibs-v2.json', label: 'Task board · 3 agents (dibs, v2)' },
 ];
 
 /** LIVE only while a lobby is actually running; otherwise say we're connected and what we're waiting for. */
@@ -284,7 +305,7 @@ export function StoryView({ rows, mode, live, replayLabel, countdown, timeline }
   const topicKeys = [...new Set(model.items.map(i => str(i, 'key')))];
   const toneOf = (key: string): Tone => {
     const issue = model.issues.find(i => i.key === key);
-    if (issue && ['proposed', 'escalated', 'rejected'].includes(issue.state)) return issue.kind;
+    if (issue && !issue.settled && ['proposed', 'escalated', 'rejected'].includes(issue.state)) return issue.kind;
     if (failedRoot && mode !== 'dibs' && str(failedRoot, 'key') === key) return 'broken';
     const contract = model.contracts.find(c => str(c, 'key') === key);
     if (contract) return str(contract, 'source') === 'agreed' ? 'agreed' : 'aligned';
@@ -310,7 +331,7 @@ export function StoryView({ rows, mode, live, replayLabel, countdown, timeline }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, []);
-  const resolved = model.issues.filter(i => i.state === 'accepted').length;
+  const resolved = model.issues.filter(i => i.state === 'accepted' || i.settled).length;
   // Proposals being voted on right now. The simulation ticks continuously, so `now` animates the pulses.
   const polls = model.issues.filter(i => i.state === 'proposed');
   const now = performance.now();
@@ -380,7 +401,7 @@ export function StoryView({ rows, mode, live, replayLabel, countdown, timeline }
             {(tone === 'agreed' || tone === 'aligned') && <path className="tick" d="M-7 0 L-2 5.5 L7.5 -5.5" />}
             {(tone === 'contradiction' || tone === 'broken') && <text className="mark" dy="6">!</text>}
             {tone === 'redundancy' && <text className="mark" dy="6">=</text>}
-            <text className="label" x={lx} dy="5" textAnchor={anchor}>{label}</text>
+            <text className="label" x={lx} dy="5" textAnchor={anchor}><title>{label}</title>{short(label)}</text>
             {tone !== 'neutral' && <text className="sublabel" x={lx} dy="25" textAnchor={anchor}>{poll ? `poll · ${poll.votes.filter(v => v.decision === 'accept').length} of ${poll.parties.length} agreed` : tone === 'contradiction' ? 'contradiction' : tone === 'redundancy' ? 'redundancy' : tone === 'dependency' ? 'depends on' : tone === 'broken' ? "didn't fit · found only by testing" : tone === 'agreed' ? 'agreed by everyone' : 'already compatible'}</text>}
           </g></g>
         </g>;
@@ -388,7 +409,7 @@ export function StoryView({ rows, mode, live, replayLabel, countdown, timeline }
       {model.agents.map(agent => {
         const id = num(agent, 'id'); const p = graph.pos(`a:${id}`); if (p?.x === undefined || p.y === undefined) return null;
         const status = agentStatus(model, rows, agent); const provider = str(agent, 'provider');
-        const hot = model.issues.find(i => i.parties.includes(id) && ['proposed', 'escalated', 'rejected'].includes(i.state));
+        const hot = model.issues.find(i => i.parties.includes(id) && !i.settled && ['proposed', 'escalated', 'rejected'].includes(i.state));
         const polled = polls.some(q => q.parties.includes(id) && !q.votes.some(v => v.participantId === id));
         return <g key={id} className={`node agent ${provider} ${status.tone} ${hot ? `hot-${hot.kind}` : ''} ${polled ? 'polled' : ''}`} transform={`translate(${p.x},${p.y})`} onPointerDown={dragNode(`a:${id}`)} onClick={e => { e.stopPropagation(); setFocus(`a:${id}`); }}>
           <g className="grow"><g className="hoverable">
@@ -415,14 +436,15 @@ export function StoryView({ rows, mode, live, replayLabel, countdown, timeline }
     <div className="overlay hint">drag to pan · scroll to zoom · double-click to fit{history ? ' · T for time' : ''}</div>
 
     <div className="overlay top-right">
-      {model.issues.length > 0 && <button className="chip issues" onClick={() => setFocus(`k:${model.issues.find(i => i.state !== 'accepted')?.key ?? model.issues[0]!.key}`)}>{model.issues.length} issue{model.issues.length > 1 ? 's' : ''} · {resolved} resolved</button>}
-      {history ? <button className={`chip replay ${showTime ? 'active' : ''}`} onClick={() => setShowTime(v => !v)} title="Show or hide the time controls (T)"><i />REPLAY{replayLabel ? ` · ${replayLabel}` : ''} <kbd>T</kbd></button>
+      {model.issues.length > 0 && <button className="chip issues" onClick={() => setFocus(`k:${model.issues.find(i => i.state !== 'accepted' && !i.settled)?.key ?? model.issues[0]!.key}`)}>{model.issues.length} issue{model.issues.length > 1 ? 's' : ''} · {resolved} resolved</button>}
+      {history ? <button className={`chip replay ${showTime ? 'active' : ''}`} onClick={() => setShowTime(v => !v)} title="Show or hide the time controls (T)"><i /><span className="chip-text">REPLAY{replayLabel ? ` · ${replayLabel}` : ''}</span> <kbd>T</kbd></button>
         : <LiveChip live={live} lobby={model.lobby} />}
       {countdown > 0 && <span className="chip time">{String(Math.floor(countdown / 60)).padStart(2, '0')}:{String(countdown % 60).padStart(2, '0')}</span>}
       <button className="chip menu" aria-label="History" onClick={() => setPanel(panel === 'closed' ? 'timeline' : 'closed')}>☰</button>
     </div>
 
     <Narration model={model} mode={mode} nameOf={nameOf} failedRoot={failedRoot} />
+    <DecisionPanel model={model} rows={rows} nameOf={nameOf} />
     {showTime && timeline && <TimeBar tl={timeline} describe={model.describe} />}
 
     <div className="overlay legend">
@@ -445,7 +467,8 @@ export function StoryView({ rows, mode, live, replayLabel, countdown, timeline }
       </div>
       <div className="recordings"><span>Recordings</span>
         {RECORDINGS.map(r => <a key={r.url} href={`?view=story&replay=${r.url}`} className={location.search.includes(r.url) ? 'selected' : ''}>{r.label}</a>)}
-        <a href="?view=story&uri=https://maincloud.spacetimedb.com&db=dibs-ch13-dev">Live</a>
+        {/* No uri/db: the serving deployment's /config.json picks its own database. */}
+        <a href="?view=story">Live</a>
       </div>
       <Timeline rows={rows} model={model} filter={filter} setFilter={setFilter} nameOf={nameOf} providerOf={providerOf} onJump={timeline ? jump : undefined} />
     </aside>}
@@ -571,8 +594,8 @@ function IndexCard({ id, model, rows, nameOf, failedRoot, verification, close }:
         if (str(rev, 'state') === 'accepted' && closed) lines.push({ at: closed, label: 'Agreed', text: 'everyone involved accepted the fix', tone: 'good' });
         if (str(rev, 'state') === 'rejected' && closed) lines.push({ at: closed, label: 'Revising', text: 'dibs is rewriting the fix', tone: 'bad' });
       }
-      tag = `${KIND_LABEL[issue.kind]} · ${issue.state === 'accepted' ? 'resolved' : issue.state === 'proposed' ? 'voting' : issue.state === 'rejected' ? 'revising' : issue.state}`;
-      tagTone = issue.state === 'accepted' ? 'good' : issue.kind;
+      tag = `${KIND_LABEL[issue.kind]} · ${issue.state === 'accepted' || issue.settled ? 'resolved' : issue.state === 'proposed' ? 'voting' : issue.state === 'rejected' ? 'revising' : issue.state}`;
+      tagTone = issue.state === 'accepted' || issue.settled ? 'good' : issue.kind;
     } else if (contract) {
       lines.push({ at: num(contract, 'createdAtUs'), label: str(contract, 'source') === 'agreed' ? 'Agreed' : 'Compatible', text: str(contract, 'text'), tone: 'good' });
       tag = str(contract, 'source') === 'agreed' ? 'Agreed' : 'Already compatible'; tagTone = 'good';
@@ -613,13 +636,48 @@ function IndexCard({ id, model, rows, nameOf, failedRoot, verification, close }:
   </div>;
 }
 
+/** While an interface is frozen (rejected twice), show the options the developers choose between and
+ *  why each was rejected, beside the graph so the agents stay in view. */
+function DecisionPanel({ model, rows, nameOf }: { model: Model; rows: DashboardRows; nameOf: (id: number) => string }) {
+  const frozen = model.issues.find(i => i.state === 'escalated' && !i.settled);
+  if (!frozen) return null;
+  // This round (since the key's last contract): the sides first, each in its own words, then the
+  // proposals the agents rejected. Mirrors escalation() in spacetime/src/projects.ts and `dibs decide`.
+  const since = rows.contract.filter(c => str(c, 'key') === frozen.key).reduce((m, c) => Math.max(m, num(c, 'createdAtUs')), 0);
+  const round = frozen.revisions.filter(p => num(p, 'createdAtUs') >= since);
+  const rejections = rows.response.filter(r => str(r, 'decision') === 'reject' && round.some(p => num(p, 'id') === num(r, 'proposalId')));
+  const items = rows.plan_item.filter(i => i.current !== false && str(i, 'key') === frozen.key);
+  const sides = [...new Set(items.map(i => num(i, 'participantId')))]
+    .filter(id => rejections.some(r => num(r, 'participantId') === id) || items.some(i => num(i, 'participantId') === id && str(i, 'kind') === 'produces'))
+    .sort((a, b) => a - b);
+  const proposals = round.filter(p => ['rejected', 'escalated'].includes(str(p, 'state')));
+  const letter = (i: number) => String.fromCharCode(65 + i);
+  return <aside className="overlay decision" aria-label={`Decision needed: ${frozen.label}`}>
+    <header><em><i />FROZEN</em><b>{frozen.label}</b><span>The agents rejected this twice. The developers choose:</span></header>
+    {sides.map((id, i) => <section key={`s${id}`}>
+      <h3><kbd>{letter(i)}</kbd> {nameOf(id)}’s design</h3>
+      <pre>{items.filter(it => num(it, 'participantId') === id).map(it => `• ${str(it, 'text')}`).join('\n')}</pre>
+      {rejections.filter(r => num(r, 'participantId') === id).slice(0, 1).map((r, j) => <p key={j} className="why"><b>Why {nameOf(id)} won’t budge:</b> {str(r, 'reason') || 'no reason given'}</p>)}
+    </section>)}
+    {proposals.map((p, i) => <section key={`p${num(p, 'id')}`} className="alt">
+      <h3><kbd>{letter(sides.length + i)}</kbd> dibs proposal, revision {num(p, 'revision')}</h3>
+      <pre>{str(p, 'contractText')}</pre>
+      {rejections.filter(r => num(r, 'proposalId') === num(p, 'id')).map((r, j) => <p key={j} className="why"><b>{nameOf(num(r, 'participantId'))} rejected:</b> {str(r, 'reason') || 'no reason given'}</p>)}
+    </section>)}
+    <footer>Decide with <code>dibs decide {frozen.key} {[...sides, ...proposals].map((_, i) => letter(i)).join('|')}</code></footer>
+  </aside>;
+}
+
 function Narration({ model, mode, nameOf, failedRoot }: { model: Model; mode: string; nameOf: (id: number) => string; failedRoot?: Row }) {
-  const open = model.issues.find(i => ['proposed', 'escalated'].includes(i.state));
+  const open = model.issues.find(i => !i.settled && ['proposed', 'escalated'].includes(i.state));
   let tone = 'idle'; let title = 'Waiting for agents to share their plans'; let detail = '';
   if (model.verification) {
     const passed = num(model.verification, 'passed'); const total = num(model.verification, 'total');
     if (passed === total) { tone = 'good'; title = `Works together ✓  all ${total} real-user checks passed`; }
     else { tone = 'bad'; title = `Broken ✗  ${passed} of ${total} checks passed`; detail = str(failedRoot, 'explanation') || str(model.review, 'summary') || 'The AI reviewer is looking into why…'; }
+  } else if (open?.state === 'escalated') {
+    tone = 'bad'; title = `Frozen: ${open.label.toLowerCase()}`;
+    detail = 'Rejected twice. The agents are waiting for the developers to choose.';
   } else if (open) {
     tone = open.kind;
     const agreed = open.votes.filter(v => v.decision === 'accept').length;
@@ -627,11 +685,11 @@ function Narration({ model, mode, nameOf, failedRoot }: { model: Model; mode: st
     detail = `Voting on a fix: ${agreed} of ${open.parties.length} agreed · ${open.parties.map(p => `${nameOf(p)} ${open.votes.find(v => v.participantId === p) ? '✓' : '…'}`).join('  ')}`;
   } else if (model.analyzing) {
     tone = 'busy'; title = 'Comparing plans…';
-  } else if (model.issues.some(i => i.state === 'rejected')) {
-    const pushed = model.issues.find(i => i.state === 'rejected')!;
+  } else if (model.issues.some(i => !i.settled && i.state === 'rejected')) {
+    const pushed = model.issues.find(i => !i.settled && i.state === 'rejected')!;
     const no = pushed.votes.find(v => v.decision === 'reject');
     tone = pushed.kind; title = `${no ? nameOf(no.participantId) : 'An agent'} pushed back on the fix for ${pushed.label.toLowerCase()}`; detail = `${no?.reason ? `“${no.reason}” · ` : ''}dibs is revising the proposal`;
-  } else if (model.issues.length && model.issues.every(i => i.state === 'accepted')) {
+  } else if (model.issues.length && model.issues.every(i => i.state === 'accepted' || i.settled)) {
     tone = 'good'; title = `Agreed: ${model.issues.map(i => i.label.toLowerCase()).join(', ')}`; detail = 'Everyone involved accepted the fix and is building to it.';
   } else if (model.items.length) {
     title = mode === 'dibs' ? 'Plans shared · no problems so far' : 'Each agent is building on its own guesses';

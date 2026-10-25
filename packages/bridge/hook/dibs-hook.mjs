@@ -420,8 +420,8 @@ export function systemLine(printed, offline) {
 // The hook
 
 /**
- * @typedef {{ participant: string, provider: string, lobbyId: number, mode: string, clonePath: string, fallbackAtUs: number }} Session
- * @typedef {{ lobbyId: number, online: boolean, offlineSinceUs?: number, phase?: string, pendingKeys?: string[], awaiting?: { proposalId: number, revision: number, key: string }[], fallbackAtUs?: number }} HookStatus
+ * @typedef {{ participant: string, provider: string, lobbyId: number, mode: string, clonePath: string, fallbackAtUs: number, project?: boolean, endsAtUs?: number }} Session
+ * @typedef {{ lobbyId: number, online: boolean, offlineSinceUs?: number, phase?: string, pendingKeys?: string[], awaiting?: { proposalId: number, revision: number, key: string }[], fallbackAtUs?: number, project?: {expiresAtUs: number, unavailable?: string} }} HookStatus
  */
 
 /**
@@ -533,13 +533,22 @@ async function contextEvent({
   }
 
   const claimed = orderItems(inbox.claimAll(session.lobbyId));
-  if (claimed.length === 0 && !showOffline) return "";
+  let startup = "";
+  if (event === "SessionStart") {
+    try {
+      startup = fs
+        .readFileSync(path.join(dir, "project-context.txt"), "utf8")
+        .slice(0, 1250);
+    } catch {
+      /* benchmark session */
+    }
+  }
+  if (claimed.length === 0 && !showOffline && !startup) return "";
 
-  const { text, printed, kept } = pack(
-    claimed,
-    HOOK_CONTEXT_CHARS,
-    showOffline ? [OFFLINE_NOTICE] : [],
-  );
+  const { text, printed, kept } = pack(claimed, HOOK_CONTEXT_CHARS, [
+    ...(startup ? [startup] : []),
+    ...(showOffline ? [OFFLINE_NOTICE] : []),
+  ]);
   if (!text.trim()) {
     inbox.release(claimed);
     return "";
@@ -570,6 +579,7 @@ async function contextEvent({
  * @param {{ dir: string, session: Session, inbox: Inbox, now: number }} o
  */
 async function stopEvent({ dir, session, inbox, now }) {
+  if (session.project && session.endsAtUs && session.endsAtUs <= now) return "";
   const blocksPath = path.join(dir, FILES.stopBlocks);
   let blocks = readJson(blocksPath);
   if (
@@ -591,6 +601,12 @@ async function stopEvent({ dir, session, inbox, now }) {
     !pidAlive(lock.pid)
   )
     status = undefined;
+
+  if (
+    status?.project &&
+    (status.project.unavailable || status.project.expiresAtUs <= now)
+  )
+    return "";
 
   const claimed = orderItems(inbox.claimAll(session.lobbyId));
   /** @type {Map<number, string>} proposal id → line for the reason */

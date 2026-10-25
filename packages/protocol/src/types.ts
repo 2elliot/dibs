@@ -169,9 +169,9 @@ export const TIMING = {
   analyzeAnywaySec: 120,
   fallbackSec: 360,
   endSec: 900,
-  leaseSec: 60,
+  leaseSec: 150,
   leaseRescanSec: 15,
-  analysisTimeoutSec: 90,
+  analysisTimeoutSec: 120,
   bridgeCallTimeoutSec: 5,
   claimedSweepSec: 60,
   hookAliveTimeoutSec: 30,
@@ -300,6 +300,11 @@ export interface DibsConfig {
 }
 
 export interface SessionFile {
+  /** Ordinary attachment: no benchmark runner or Git lifecycle. */
+  project?: boolean;
+  remoteParticipant?: string;
+  brief?: string;
+  vocabulary?: VocabularyEntry[];
   participant: string;
   provider: Provider;
   lobbyId: number;
@@ -396,6 +401,12 @@ export interface AwaitingProposal {
 }
 
 export interface StatusResult {
+  /** Present for ordinary project sessions; no implication of a verified test. */
+  project?: {
+    expiresAtUs: number;
+    remainingLeases: number;
+    unavailable?: string;
+  };
   status: ToolStatus;
   lobbyId: number;
   mode: Mode;

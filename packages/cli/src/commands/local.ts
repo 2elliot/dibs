@@ -21,12 +21,17 @@ export function spacetime(args: string[], cwd?: string) {
   const executable =
     process.env.SPACETIME_BIN ||
     (installed && existsSync(installed) ? installed : "spacetime");
-  return execFileSync(executable, args, {
-    cwd,
-    encoding: "utf8",
-    timeout: 120000,
-    stdio: ["ignore", "pipe", "pipe"],
-  });
+  const isolatedConfig = process.env.SPACETIME_CLI_CONFIG;
+  return execFileSync(
+    executable,
+    isolatedConfig ? ["--config-path", isolatedConfig, ...args] : args,
+    {
+      cwd,
+      encoding: "utf8",
+      timeout: 120000,
+      stdio: ["ignore", "pipe", "pipe"],
+    },
+  );
 }
 export function publishLocal(
   uri: string,

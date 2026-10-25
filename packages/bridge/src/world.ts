@@ -69,6 +69,7 @@ export interface JobRow {
   lobbyId: number;
   state: JobState;
   kind: JobKind;
+  calls?: number;
 }
 
 export interface ProposalRow {
@@ -141,6 +142,7 @@ export interface World {
 }
 
 export interface HookStatusFile {
+  project?: StatusResult["project"];
   lobbyId: number;
   online: boolean;
   offlineSinceUs?: number;
@@ -365,6 +367,7 @@ export function normalizeWorld(
           lobbyId: asNumber(field(row, "lobbyId")),
           state: oneOf(field(row, "state"), JOB_STATES, "done"),
           kind: oneOf(field(row, "kind"), JOB_KINDS, "analyze"),
+          calls: asNumber(field(row, "calls")),
         }))
         .filter((row) => inLobby(row.lobbyId))
         .sort((a, b) => b.id - a.id)[0] ?? null,
@@ -594,6 +597,22 @@ export function computeStatus(
 
   return {
     status: world.online ? "ok" : "offline",
+    ...(lobby?.buildHash === "project-v1"
+      ? {
+          project: {
+            expiresAtUs: lobby.endsAtUs,
+            remainingLeases: Math.max(0, 30 - (world.job?.calls ?? 0)),
+            ...(lobby.state !== "running" || lobby.endsAtUs <= nowUs
+              ? { unavailable: "Project is closed or expired." }
+              : world.job?.state === "failed"
+                ? {
+                    unavailable:
+                      "Analysis failed or its usage budget is exhausted. Read the delivered notice; no agreement is implied.",
+                  }
+                : {}),
+          },
+        }
+      : {}),
     lobbyId: lobby?.id ?? 0,
     mode: lobby?.mode ?? "none",
     phase,
@@ -616,6 +635,7 @@ export function toHookStatus(
       ? {}
       : { offlineSinceUs: world.offlineSinceUs ?? Date.now() * 1000 }),
     phase: status.phase,
+    ...(status.project ? { project: status.project } : {}),
     pendingKeys: status.keys
       .filter((key) => key.status === "pending")
       .map((key) => key.key),

@@ -20,6 +20,46 @@ import {
 } from "../hook/dibs-hook.mjs";
 
 const exec = promisify(execFile);
+
+describe("ordinary project lifecycle", () => {
+  it.each(["expired", "unavailable"])(
+    "does not block Stop for an %s project even with a pending proposal",
+    async (state) => {
+      const home = temp("dibs-project-hook-");
+      const clone = temp("dibs-project-clone-");
+      const dir = path.join(home, "claude");
+      session(dir, clone, {
+        project: true,
+        endsAtUs: state === "expired" ? 1 : Date.now() * 1000 + 1_000_000,
+      });
+      fs.writeFileSync(
+        path.join(dir, "bridge.lock"),
+        JSON.stringify({ pid: process.pid }),
+      );
+      fs.writeFileSync(
+        path.join(dir, "hook-status.json"),
+        JSON.stringify({
+          lobbyId: 4,
+          online: true,
+          pendingKeys: ["project.interface"],
+          awaiting: [{ proposalId: 1, revision: 1, key: "project.interface" }],
+          project: {
+            expiresAtUs: Date.now() * 1000 + 1_000_000,
+            unavailable:
+              state === "unavailable" ? "Analysis budget exhausted" : undefined,
+          },
+        }),
+      );
+      item(dir, 1, { kind: "proposal", refId: 1 });
+      expect(
+        await runHook({
+          argv: ["--provider", "claude", "--home", home],
+          input: { hook_event_name: "Stop", cwd: clone },
+        }),
+      ).toBe("");
+    },
+  );
+});
 const hookPath = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "../hook/dibs-hook.mjs",

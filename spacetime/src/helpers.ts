@@ -61,6 +61,11 @@ export function agentLobby(ctx: Ctx, running = true) {
   check(p.currentLobbyId !== undefined, "not in a lobby");
   const l = ctx.db.lobby.id.find(p.currentLobbyId);
   check(l && (!running || l.state === "running"), "lobby not running");
+  if (ctx.db.projectRoom.lobbyId.find(l.id))
+    check(
+      l.state === "running" && l.endsAtUs > now(ctx),
+      "Project is closed or expired.",
+    );
   return { p, l };
 }
 export function emit(
