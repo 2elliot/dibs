@@ -77,6 +77,11 @@ export interface VerifyOptions {
   recorder?: Recorder;
   timeoutMs?: number;
   log?: (line: string) => void;
+  /**
+   * Verify even when a provider has no lobby branch (lobby 3 had no Droid). Off by default: a
+   * verify run before every head is pushed records a misleading row that can't be deleted (lobby 7).
+   */
+  allowMissing?: boolean;
 }
 
 /** The assembled tree stays here after a verify, for `dibs review`. */
@@ -117,6 +122,11 @@ export async function verifyLobby(options: VerifyOptions): Promise<{
     const missingProviders = (
       ["claude", "codex", "droid"] as Provider[]
     ).filter((p) => !heads[p]);
+    if (missingProviders.length && !options.allowMissing) {
+      throw new Error(
+        `no lobby/${options.lobbyId}/<provider> branch for ${missingProviders.join(", ")} in ${options.remote}. Fetch every head first, or pass --allow-missing if that agent wasn't in the lobby. Nothing was recorded.`,
+      );
+    }
     if (missingProviders.length) {
       log(`warning: no head for ${missingProviders.join(", ")}`);
     }
@@ -229,13 +239,14 @@ async function run(args: string[]): Promise<void> {
       json: { type: "boolean", default: false },
       local: { type: "boolean", default: false },
       review: { type: "string" },
+      "allow-missing": { type: "boolean", default: false },
     },
   });
   const lobbyId = Number(positionals[0]);
   const remote = values.remote ?? process.env.DIBS_LOBBIES_REMOTE;
   if (!Number.isInteger(lobbyId) || lobbyId <= 0 || !remote) {
     console.error(
-      "usage: dibs verify <lobbyId> --remote <lobbies repo URL or path> [--base <sha>] [--expect-hash <sha256>] [--json]",
+      "usage: dibs verify <lobbyId> --remote <lobbies repo URL or path> [--base <sha>] [--expect-hash <sha256>] [--allow-missing] [--review <runner>] [--json]",
     );
     process.exitCode = 2;
     return;
@@ -252,6 +263,7 @@ async function run(args: string[]): Promise<void> {
         : resolve(remote),
     baseSha: values.base,
     expectHash: values["expect-hash"],
+    allowMissing: values["allow-missing"],
   });
   if (values.json) {
     console.log(JSON.stringify(report, null, 2));
