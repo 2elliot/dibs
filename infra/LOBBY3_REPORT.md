@@ -47,10 +47,13 @@ rerun, not a clean trial.
    alone, Claude's keys read `clear`, so its Stop hook had nothing to block on. It finished at +4 min
    while its peer had no plan, and again 40 s after the relaunch. A proposal that arrives later has
    no one to answer it.
-3. **Claude implemented before analysis (prompt/agent behaviour).** It wrote `auth.session` code
-   after one 45 s wait, while the phase was `waiting_for_peers`. The mode text says to implement a
-   shared key only when it is `clear`, `aligned`, `agreed`, or at fallback. Its own choice
-   (bearer) matched its plan, so nothing broke here, but a contract change would have meant rework.
+3. **Claude implemented before analysis (agent behaviour; allowed).** It wrote `auth.session` code
+   after one 45 s wait, while the phase was `waiting_for_peers`. Chris's decision: early
+   implementation stays allowed, and the frozen, hashed prompts don't change, because telling agents
+   to wait would tune the bench to flatter dibs. Instead the bench records, per agent, whether its
+   last edit to a shared-key file came after the contract delivery. Coding early and revising after
+   the contract is dibs working; never revising is a real failure that the verify score shows. In
+   lobby 3 no contract was ever delivered, so there was nothing to revise against.
 4. **One bad citation failed the whole analysis (worker).** The model cited item 10 (`auth.server`)
    under another key, almost certainly while explaining the unowned `events.registration`
    requirement. The worker's same-key rule rejected the entire result on both attempts, and the job
@@ -68,15 +71,15 @@ the dashboard feed.
 
 ## Fixes before lobby 4
 
-| #   | Fix                                                                                                                                                                                                                       | Owner             |
-| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- |
-| 1   | Pick one Codex launch path and test it before the lobby: either a launch that runs hooks without a TTY, or tool-only mode for Codex with the hook-alive check skipped (plan §5.5 fallback). Always launch from the clone. | Chris + Ren Jie   |
-| 2   | Before any relaunch, kill leftover `bridge.mjs` processes for the participant (or check `bridge.lock`'s pid). Spawn agents with `detached: true` on POSIX so `killTree` takes the whole group.                            | Ren Jie (issue 2) |
-| 3   | Keep the Stop hook blocking while any agent in the lobby has no current plan and `fallbackInSec > 0`, so an early finisher stays to answer a proposal.                                                                    | Ren Jie (issue 2) |
-| 4   | Worker: drop findings or citations that fail validation and submit the rest; fail the job only if nothing valid is left. Don't count validation failures as Anthropic errors.                                             | Elliot (issue 3)  |
-| 5   | Redeploy the Azure worker from `real` (lease on sight).                                                                                                                                                                   | Elliot (issue 3)  |
-| 6   | Runbook: start both `session start` commands within 2 minutes of `lobby start`, and note the 30 s hook-alive kill.                                                                                                        | Elliot (issue 3)  |
-| 7   | Decide whether early implementation (finding 3) matters for the bench, and tighten the mode text if it does.                                                                                                              | Chris (issue 4)   |
+| #   | Fix                                                                                                                                                                                                                               | Owner             |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- |
+| 1   | Pick one Codex launch path and test it before the lobby: either a launch that runs hooks without a TTY, or tool-only mode for Codex with the hook-alive check skipped (plan §5.5 fallback). Always launch from the clone.         | Chris + Ren Jie   |
+| 2   | Before any relaunch, kill leftover `bridge.mjs` processes for the participant (or check `bridge.lock`'s pid). Spawn agents with `detached: true` on POSIX so `killTree` takes the whole group.                                    | Ren Jie (issue 2) |
+| 3   | Keep the Stop hook blocking while any agent in the lobby has no current plan and `fallbackInSec > 0`, so an early finisher stays to answer a proposal and to revise after the contract (what the bench now measures, see 7).      | Ren Jie (issue 2) |
+| 4   | Worker: drop findings or citations that fail validation and submit the rest; fail the job only if nothing valid is left. Don't count validation failures as Anthropic errors.                                                     | Elliot (issue 3)  |
+| 5   | Redeploy the Azure worker from `real` (lease on sight).                                                                                                                                                                           | Elliot (issue 3)  |
+| 6   | Runbook: start both `session start` commands within 2 minutes of `lobby start`, and note the 30 s hook-alive kill.                                                                                                                | Elliot (issue 3)  |
+| 7   | **Decided:** early implementation stays allowed; no prompt change. The bench records per agent whether its last edit to a shared-key file came after the contract delivery, and the verify score shows agents that never revised. | Chris (issue 4)   |
 
 ## Evidence
 
