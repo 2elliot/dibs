@@ -83,7 +83,7 @@ identity has no access outside it.
 
 ```sh
 REPO=2elliot/dibs
-LOCATION=westus2
+LOCATION=westus2                         # Azure for Students allows only a few regions; westus2 is one
 RG=dibs-exp-rg
 ENV_NAME=dibs-exp-env
 APP=dibs-exp
@@ -109,7 +109,10 @@ az provider register --namespace Microsoft.ContainerRegistry --wait
 
 az group create --name $RG --location $LOCATION
 az acr create --name $ACR --resource-group $RG --sku Basic --admin-enabled false
-az containerapp env create --name $ENV_NAME --resource-group $RG --location $LOCATION
+# Recent CLIs default to an Express environment, which can't pull from a registry
+# with a managed identity (ExpressEnvironmentFeatureNotSupported).
+az containerapp env create --name $ENV_NAME --resource-group $RG --location $LOCATION \
+  --environment-mode WorkloadProfiles
 
 # The workflow only updates an existing app, so create it with a placeholder image.
 az containerapp create --name $APP --resource-group $RG --environment $ENV_NAME \
