@@ -33,7 +33,7 @@ deployment in `infra/AGENT_HANDOFF.md` (`dibs-rg`, `dibs-env`, registry
 | ----------------- | ------------------------------------------- | -------------------------------------------------------------------- |
 | Git               | only `real_exp` deploys                     | job `if:` on the ref, plus the environment's branch policy           |
 | GitHub            | environment `real-exp` holds every secret   | other branches' jobs can't read environment secrets                  |
-| Azure login       | its own managed identity                    | federated subject `repo:2elliot/dibs:environment:real-exp`           |
+| Azure login       | its own managed identity                    | federated subject `repo:2elliot@…/dibs@…:environment:real-exp`       |
 | Azure permissions | `Contributor` on `dibs-exp-rg` only         | the identity can't see or change `dibs-rg`                           |
 | Azure resources   | own resource group, registry, env and app   | `deploy-preflight.mjs` refuses shared names and requires `exp` names |
 | SpacetimeDB       | own `dibs-ch13-exp` database and identities | preflight requires `-exp`; only this database is ever wiped          |
@@ -141,12 +141,21 @@ If the subscription refuses the role assignment, the account lacks `Owner` or
 A user-assigned managed identity with a federated credential. No password or
 client secret exists anywhere, and only the `real-exp` environment can use it.
 
+GitHub may put owner and repository IDs into the token subject
+(`repo:2elliot@<id>/dibs@<id>:…`), so ask GitHub for the prefix it actually sends.
+A mismatch fails `azure/login` with `AADSTS700213: No matching federated identity
+record`.
+
 ```sh
+SUB_PREFIX=$(gh api repos/$REPO/actions/oidc/customization/sub --jq .sub_claim_prefix)
+SUB_PREFIX=${SUB_PREFIX:-repo:$REPO}
+echo "subject: $SUB_PREFIX:environment:real-exp"
+
 az identity create --name $IDENTITY --resource-group $RG --location $LOCATION
 az identity federated-credential create --name github-real-exp \
   --identity-name $IDENTITY --resource-group $RG \
   --issuer https://token.actions.githubusercontent.com \
-  --subject repo:$REPO:environment:real-exp \
+  --subject "$SUB_PREFIX:environment:real-exp" \
   --audiences api://AzureADTokenExchange
 
 CLIENT_ID=$(az identity show --name $IDENTITY --resource-group $RG --query clientId -o tsv)
