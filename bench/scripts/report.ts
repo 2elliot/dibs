@@ -229,10 +229,15 @@ const template = readFileSync(
   join(benchDir, "report", "template.html"),
   "utf8",
 );
-const html = template.replace(
-  "/*__REPORT_DATA__*/null",
-  JSON.stringify(data).replace(/</g, "\\u003c"),
-);
+// Whitespace-tolerant: a formatter once turned "/*__REPORT_DATA__*/null" into "... */ null" and the
+// page silently rendered empty. A missing placeholder now stops the build instead.
+const PLACEHOLDER = /\/\*__REPORT_DATA__\*\/\s*null/;
+if (!PLACEHOLDER.test(template))
+  throw new Error(
+    "bench/report/template.html has no /*__REPORT_DATA__*/ null placeholder",
+  );
+const json = JSON.stringify(data).replace(/</g, "\\u003c");
+const html = template.replace(PLACEHOLDER, () => json);
 writeFileSync(join(outDir, "report.html"), html);
 console.log(
   `report: ${join(outDir, "report.html")}\ndata:   ${join(outDir, "data")} (${readdirSync(join(outDir, "data")).length} files)`,
