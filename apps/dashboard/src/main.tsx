@@ -60,7 +60,7 @@ function App() {
       try {
         if (replayUrl) {
           const loaded = await loadReplay(replayUrl);
-          if (active) { setSource(loaded); setClock(loaded.endUs); }
+          if (active) { setSource(loaded); if (params.get('view') === 'story') { setClock(loaded.startUs); setPlaying(true); } else setClock(loaded.endUs); }
           return;
         }
         const config = await fetch('/config.json').then(response => response.ok ? response.json() : {}) as Partial<DibsConfig> & { uri?: string; db?: string; lobby?: string | number };
@@ -76,7 +76,7 @@ function App() {
           if (requestedLive) throw new Error('Set uri and db to connect to live lobbies.');
           const fixture = location.hash === '#none' ? noneFixture : dibsFixture;
           const local = new ReplayLobbySource(fixture as EventsExport);
-          if (active) { setSource(local); setClock(local.endUs); }
+          if (active) { setSource(local); if (params.get('view') === 'story') { setClock(local.startUs); setPlaying(true); } else setClock(local.endUs); }
           return;
         }
         const live = await createLiveSource(uri, db, lobbyId);
@@ -109,12 +109,9 @@ function App() {
 
   if (params.get('view') === 'story') {
     return <main className="dashboard story-page">
-      <header className="lobby-header">
-        <div className="brand-lockup"><div className="brand-mark">d</div><div><div className="eyebrow">LET YOUR AI AGENTS CALL DIBS BEFORE THEY BUILD</div><h1>dibs · lobby {str(lobby, 'id', '–')}</h1></div></div>
-        <div className="header-right">{error ? <div className="mode-chip">{error}</div> : null}<div className="countdown"><span>TIME REMAINING</span><strong>{String(Math.floor(countdown/60)).padStart(2,'0')}:{String(countdown%60).padStart(2,'0')}</strong></div></div>
-      </header>
-      <StoryView rows={snapshot} mode={str(lobby, 'mode', 'none')} replayLabel={source?.mode === 'replay' ? source.label : undefined} />
-      {replay && <ReplayControls replay={replay} time={clock || replay.startUs} playing={playing} setPlaying={setPlaying} setClock={setClock} speed={speed} setSpeed={setSpeed}/>}
+      <StoryView rows={snapshot} mode={str(lobby, 'mode', 'none')} live={source?.mode === 'live'} replayLabel={source?.mode === 'replay' ? source.label : undefined} countdown={countdown}
+        history={replay ? <ReplayControls replay={replay} time={clock || replay.startUs} playing={playing} setPlaying={setPlaying} setClock={setClock} speed={speed} setSpeed={setSpeed}/> : undefined} />
+      {error && <div className="overlay" style={{ left: 20, top: 64, color: '#ffb3ad', font: '12px DM Mono, monospace' }}>{error}</div>}
     </main>;
   }
 
