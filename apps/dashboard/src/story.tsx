@@ -118,7 +118,7 @@ function useForceGraph(nodeIds: { id: string; type: 'agent' | 'topic'; parent?: 
   useEffect(() => {
     // Light forces and heavy damping: nodes glide into place slowly rather than snapping.
     const s = forceSimulation<GNode, GLink>().velocityDecay(0.6).alphaDecay(0.008).alphaTarget(0.003)
-      .force('collide', forceCollide<GNode>(n => n.type === 'agent' ? 120 : 100).strength(0.7))
+      .force('collide', forceCollide<GNode>(n => n.type === 'agent' ? 130 : 115).strength(0.9))
       // A slow, per-node drift so the graph keeps gently floating instead of freezing.
       .force('float', () => {
         const t = performance.now() / 4000;
@@ -150,8 +150,10 @@ function useForceGraph(nodeIds: { id: string; type: 'agent' | 'topic'; parent?: 
     nodes.current = next;
     s.nodes([...next.values()]);
     const k = Math.max(0.6, Math.min(w, h) / 1080);
-    s.force('charge', forceManyBody<GNode>().strength(n => (n.type === 'agent' ? -1800 : -700) * k).distanceMax(1000 * k));
-    s.force('link', forceLink<GNode, GLink>(links.map(l => ({ ...l }))).id(n => n.id).distance(l => (l.kind === 'produces' ? 250 : 310) * k).strength(0.22));
+    // Stronger repulsion between agents plus a firmer pull along each line: topics settle near
+    // the agents that use them and lines spread apart, so fewer of them cross.
+    s.force('charge', forceManyBody<GNode>().strength(n => (n.type === 'agent' ? -3200 : -1300) * k).distanceMax(1400 * k));
+    s.force('link', forceLink<GNode, GLink>(links.map(l => ({ ...l }))).id(n => n.id).distance(l => (l.kind === 'produces' ? 220 : 280) * k).strength(0.5));
     s.force('x', forceX<GNode>(w / 2).strength(0.018));
     s.force('y', forceY<GNode>(h / 2).strength(0.028));
     s.alpha(0.5).restart();
@@ -181,6 +183,8 @@ export function StoryView({ rows, mode, live, replayLabel, countdown, history }:
   // Until someone pans or zooms, the camera follows the graph so every node stays on screen.
   const [autoFit, setAutoFit] = useState(true);
   const fitRef = useRef<View>({ x: 0, y: 0, k: 1 });
+  /** The default zoom: comfortably zoomed out. The camera only goes further out when the graph needs it. */
+  const BASE_ZOOM = 0.72;
   const viewRef = useRef(view);
   const svgRef = useRef<SVGSVGElement>(null);
   // Scroll to zoom around the pointer.
@@ -260,13 +264,18 @@ export function StoryView({ rows, mode, live, replayLabel, countdown, history }:
       const xs = pts.map(p => p.x!); const ys = pts.map(p => p.y!);
       const minX = Math.min(...xs) - 260, maxX = Math.max(...xs) + 260, minY = Math.min(...ys) - 90, maxY = Math.max(...ys) + 130;
       const top = 80, bottom = 120;
-      const k = Math.min(1.15, (w - 60) / (maxX - minX), (h - top - bottom) / (maxY - minY));
+      const k = Math.min(BASE_ZOOM, (w - 60) / (maxX - minX), (h - top - bottom) / (maxY - minY));
       const target = { k, x: w / 2 - ((minX + maxX) / 2) * k, y: top + (h - top - bottom) / 2 - ((minY + maxY) / 2) * k };
       const f = fitRef.current; const ease = f.k === 1 && f.x === 0 && f.y === 0 ? 1 : 0.08;
       fitRef.current = { k: f.k + (target.k - f.k) * ease, x: f.x + (target.x - f.x) * ease, y: f.y + (target.y - f.y) * ease };
     }
   }
   const shown = autoFit ? fitRef.current : view;
+  // Dragging a node takes the camera off auto-fit, freezing it where it is.
+  const dragNode = (id: string) => (event: React.PointerEvent) => {
+    if (autoFit) { setView({ ...viewRef.current }); setAutoFit(false); }
+    graph.drag(id)(event);
+  };
   viewRef.current = shown;
 
   return <div className="story">
@@ -302,7 +311,7 @@ export function StoryView({ rows, mode, live, replayLabel, countdown, history }:
         const poll = polls.find(q => q.key === key);
         // Labels sit on the outside of the graph, so they don't run under the agents.
         const left = p.x < w / 2; const lx = left ? -28 : 28; const anchor = left ? 'end' : 'start';
-        return <g key={key} className={`node topic tone-${tone}`} transform={`translate(${p.x},${p.y})`} onPointerDown={graph.drag(`k:${key}`)} onClick={e => { e.stopPropagation(); clickTopic(key); }}>
+        return <g key={key} className={`node topic tone-${tone}`} transform={`translate(${p.x},${p.y})`} onPointerDown={dragNode(`k:${key}`)} onClick={e => { e.stopPropagation(); clickTopic(key); }}>
           <g className="grow">
             {['contradiction', 'redundancy', 'broken'].includes(tone) && <circle className="halo" r={30} />}
             {poll && [0, 1, 2].map(i => <circle key={i} className={`poll-wave ${poll.kind}`} r={26} style={{ animationDelay: `${i * 0.6}s` }} />)}
@@ -321,7 +330,7 @@ export function StoryView({ rows, mode, live, replayLabel, countdown, history }:
         const status = agentStatus(model, rows, agent); const provider = str(agent, 'provider');
         const hot = model.issues.find(i => i.parties.includes(id) && ['proposed', 'escalated', 'rejected'].includes(i.state));
         const polled = polls.some(q => q.parties.includes(id) && !q.votes.some(v => v.participantId === id));
-        return <g key={id} className={`node agent ${provider} ${status.tone} ${hot ? `hot-${hot.kind}` : ''} ${polled ? 'polled' : ''}`} transform={`translate(${p.x},${p.y})`} onPointerDown={graph.drag(`a:${id}`)} onClick={e => { e.stopPropagation(); setFocus(focus === `a:${id}` ? null : `a:${id}`); }}>
+        return <g key={id} className={`node agent ${provider} ${status.tone} ${hot ? `hot-${hot.kind}` : ''} ${polled ? 'polled' : ''}`} transform={`translate(${p.x},${p.y})`} onPointerDown={dragNode(`a:${id}`)} onClick={e => { e.stopPropagation(); setFocus(focus === `a:${id}` ? null : `a:${id}`); }}>
           <g className="grow">
             <circle className="ring" r={52} />
             <circle className="body" r={42} />
