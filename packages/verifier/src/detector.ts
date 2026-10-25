@@ -187,13 +187,38 @@ export interface SplitReport {
   latencyMs: Summary;
   outputTokens: Summary;
   counts: Record<KeyOutcome, number>;
+  /**
+   * Breakdown by the relation the detector chose (added after the first real run; the strict
+   * rates above stay the headline). A proposal can be:
+   *   conflict   "these plans won't work together"
+   *   dependency "pin these details down" (a confirmation request)
+   *   duplicate  "two of you are building this"
+   */
+  byRelation: {
+    /** Proposals on mismatched keys, by relation. */
+    catches: Record<string, number>;
+    /** Proposals on consistent keys, by relation. */
+    falseAlarms: Record<string, number>;
+  };
+  /** Mismatched keys called a conflict: recognised as a clash, not just pinned down. */
+  clashRecognized: Rate;
+  /** Consistent keys called a conflict: the damaging false alarm ("won't work" when it would). */
+  wrongClash: Rate;
+  /** Consistent keys given a dependency or duplicate proposal: an unneeded confirmation request. */
+  confirmRequests: Rate;
 }
 
 export interface CaseReport {
   id: string;
   split: string;
   note?: string;
-  keys: { key: string; label: string; raised: Rate }[];
+  /** relations: how often each relation was chosen for this key across runs (including compatible). */
+  keys: {
+    key: string;
+    label: string;
+    raised: Rate;
+    relations: Record<string, number>;
+  }[];
   correct: Rate;
 }
 
@@ -208,6 +233,12 @@ export interface DetectorReport {
   cases: CaseReport[];
   notes: string[];
 }
+
+const tally = (xs: string[]) =>
+  xs.reduce<Record<string, number>>(
+    (m, x) => ((m[x] = (m[x] ?? 0) + 1), m),
+    {},
+  );
 
 export function splitReport(runs: RunResult[]): SplitReport {
   const ok = runs.filter((r) => r.ok);
@@ -234,6 +265,26 @@ export function splitReport(runs: RunResult[]): SplitReport {
     latencyMs: summarize(ok.map((r) => r.latencyMs)),
     outputTokens: summarize(ok.map((r) => r.outputTokens)),
     counts,
+    byRelation: {
+      catches: tally(tps.map((k) => k.relation ?? "unknown")),
+      falseAlarms: tally(
+        all
+          .filter((k) => k.outcome === "FP")
+          .map((k) => k.relation ?? "unknown"),
+      ),
+    },
+    clashRecognized: wilson(
+      tps.filter((k) => k.relation === "conflict").length,
+      counts.TP + counts.FN,
+    ),
+    wrongClash: wilson(
+      all.filter((k) => k.outcome === "FP" && k.relation === "conflict").length,
+      counts.FP + counts.TN,
+    ),
+    confirmRequests: wilson(
+      all.filter((k) => k.outcome === "FP" && k.relation !== "conflict").length,
+      counts.FP + counts.TN,
+    ),
   };
 }
 
@@ -274,7 +325,16 @@ export function detectorReport(
                   k.key === key && (k.outcome === "TP" || k.outcome === "FP"),
               ),
             ).length;
-            return { key, label, raised: wilson(raised, mine.length) };
+            return {
+              key,
+              label,
+              raised: wilson(raised, mine.length),
+              relations: tally(
+                mine.map(
+                  (r) => r.keys.find((k) => k.key === key)?.relation ?? "none",
+                ),
+              ),
+            };
           }),
           correct: wilson(
             mine.filter((r) =>

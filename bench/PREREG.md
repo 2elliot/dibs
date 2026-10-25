@@ -92,3 +92,12 @@ These rules carry over the T2 decision.
 - The held-out detector cases were written by the same team (with AI help) that built dibs. For an independent check, have someone outside the team write 5 more and add them as split `external`.
 - One task family (a login and registration app). The results say nothing yet about other codebases.
 - The oracle is ours. Its sensitivity is checked by mutation testing (`bench/scripts/oracle-mutants.ts`), and it will be published with `oracle.hash` so anyone can re-run it.
+
+## Amendments
+
+**2026-10-25 01:50 PT, after the first detector run (`--runs 10`, held-out recall 80/80, false alarms 52/260).** Added a secondary breakdown of H5 by the relation the detector chose:
+
+- **Catches** split into mismatches called a `conflict` (recognised as a clash) and those given a `dependency` (contract forced, but the clash not named).
+- **False alarms** split into consistent keys called a `conflict` (the damaging kind: "these won't work together" when they would) and those given a `dependency` or `duplicate` (an unneeded request to confirm).
+
+The strict definition above stays the headline: any proposal on a consistent key is a false alarm. The breakdown is computed from the same saved run (`detector.ts --from runs.jsonl`), with no new model calls, and the report labels it as added after the run.

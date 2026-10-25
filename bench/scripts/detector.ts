@@ -5,6 +5,8 @@
 //   ANTHROPIC_API_KEY=... npx tsx bench/scripts/detector.ts [--runs 10] [--split all|heldout|dev]
 //     [--concurrency 3] [--model claude-sonnet-4-6]
 //   npx tsx bench/scripts/detector.ts --self-test     # no key: a perfect fake, checks the pipeline
+//   npx tsx bench/scripts/detector.ts --from bench/results/detector/runs.jsonl
+//       # no key, no model calls: re-scores saved raw findings (after a scoring change)
 //
 // Writes bench/results/detector/detector.json (+ runs.jsonl with every raw finding, for audit).
 // --self-test writes detector-selftest.json instead and must never be reported as a result.
@@ -39,8 +41,10 @@ const { values } = parseArgs({
     concurrency: { type: "string", default: "3" },
     model: { type: "string" },
     "self-test": { type: "boolean", default: false },
+    from: { type: "string" },
   },
 });
+const rescoreFrom = values.from;
 const runsPerCase = Number(values.runs);
 const selfTest = values["self-test"];
 const casesPath = join(benchDir, "detector", "cases.json");
@@ -62,7 +66,7 @@ const vocabularies: Record<string, VocabularyEntry[]> = {
 };
 
 const apiKey = process.env.ANTHROPIC_API_KEY;
-if (!selfTest && !apiKey) {
+if (!selfTest && !rescoreFrom && !apiKey) {
   console.error(
     "ANTHROPIC_API_KEY is not set. Set it, or pass --self-test to check the pipeline.",
   );
@@ -91,7 +95,11 @@ function perfectFake(c: DetectorCase, input: ReturnType<typeof buildInput>) {
 const outDir = join(benchDir, "results", "detector");
 mkdirSync(outDir, { recursive: true });
 const rawPath = join(outDir, selfTest ? "runs-selftest.jsonl" : "runs.jsonl");
-writeFileSync(rawPath, "");
+// Re-scoring reads the saved raw findings; it must never truncate them.
+const savedLines = rescoreFrom
+  ? readFileSync(rescoreFrom, "utf8").split(/\r?\n/).filter(Boolean)
+  : [];
+if (!rescoreFrom) writeFileSync(rawPath, "");
 
 const jobs = cases.flatMap((c) =>
   Array.from({ length: runsPerCase }, (_, run) => ({ c, run })),
@@ -137,7 +145,7 @@ async function worker() {
       };
       appendFileSync(
         rawPath,
-        `${JSON.stringify({ caseId: c.id, run, kept: outcome.kept, dropped: outcome.dropped })}\n`,
+        `${JSON.stringify({ caseId: c.id, run, kept: outcome.kept, dropped: outcome.dropped, latencyMs: outcome.latencyMs, inputTokens: outcome.usage.inputTokens, outputTokens: outcome.usage.outputTokens, model: outcome.model })}\n`,
       );
     } catch (error) {
       // An error counts as a run with no answer: reported, never silently retried.
@@ -165,21 +173,101 @@ async function worker() {
     process.stderr.write(`\r${done}/${jobs.length} runs`);
   }
 }
-await Promise.all(
-  Array.from({ length: Math.max(1, Number(values.concurrency)) }, worker),
-);
-process.stderr.write("\n");
+/** Re-scores one saved line exactly as a live run would be scored. */
+function rescore(line: string): RunResult | null {
+  const raw = JSON.parse(line) as {
+    caseId: string;
+    run: number;
+    kept?: Findings["findings"];
+    dropped?: { ignored?: boolean }[];
+    error?: string;
+    latencyMs?: number;
+    inputTokens?: number;
+    outputTokens?: number;
+    model?: string;
+  };
+  const c = cases.find((x) => x.id === raw.caseId);
+  if (!c) return null;
+  const base = {
+    caseId: c.id,
+    split: c.split,
+    run: raw.run,
+    latencyMs: raw.latencyMs ?? null,
+    inputTokens: raw.inputTokens ?? null,
+    outputTokens: raw.outputTokens ?? null,
+    model: raw.model ?? null,
+  };
+  if (raw.error || !raw.kept)
+    return {
+      ...base,
+      ok: false,
+      error: raw.error ?? "no findings saved",
+      keys: [],
+      strayProposals: 0,
+      droppedFindings: 0,
+    };
+  const input = buildInput(c, charters[c.scenario], vocabularies[c.scenario]!);
+  return {
+    ...base,
+    ok: true,
+    ...scoreRun(c, input, raw.kept),
+    droppedFindings: (raw.dropped ?? []).filter((d) => !d.ignored).length,
+  };
+}
+
+if (rescoreFrom) {
+  for (const line of savedLines) {
+    const r = rescore(line);
+    if (r) results.push(r);
+  }
+} else {
+  await Promise.all(
+    Array.from({ length: Math.max(1, Number(values.concurrency)) }, worker),
+  );
+  process.stderr.write("\n");
+}
+
+// Older raw files carry no timing or model: keep those from the detector.json being replaced.
+const previous = rescoreFrom
+  ? (() => {
+      try {
+        return JSON.parse(
+          readFileSync(join(outDir, "detector.json"), "utf8"),
+        ) as ReturnType<typeof detectorReport>;
+      } catch {
+        return null;
+      }
+    })()
+  : null;
 
 const report = detectorReport(cases, results, {
-  runsPerCase,
+  runsPerCase: rescoreFrom
+    ? Math.max(
+        0,
+        ...cases.map((c) => results.filter((r) => r.caseId === c.id).length),
+      )
+    : runsPerCase,
   casesHash: createHash("sha256").update(casesText).digest("hex").slice(0, 12),
   promptHash,
   notes: selfTest
     ? [
         "SELF-TEST: a fake built from the labels. Checks the pipeline only; not a result.",
       ]
-    : [],
+    : rescoreFrom
+      ? [
+          `Re-scored from saved raw findings (${rescoreFrom}); no model calls were made.${previous ? ` Original run: ${previous.createdAt}.` : ""}`,
+        ]
+      : [],
 });
+if (previous) {
+  report.model ??= previous.model;
+  report.promptHash = previous.promptHash ?? report.promptHash;
+  for (const [split, s] of Object.entries(report.splits)) {
+    const old = previous.splits?.[split];
+    if (old && s.latencyMs.n === 0) s.latencyMs = old.latencyMs;
+    if (old && s.outputTokens.n === 0) s.outputTokens = old.outputTokens;
+  }
+}
 const out = join(outDir, selfTest ? "detector-selftest.json" : "detector.json");
 writeFileSync(out, `${JSON.stringify(report, null, 2)}\n`);
 const pct = (r: {
@@ -201,5 +289,17 @@ for (const [split, s] of Object.entries(report.splits)) {
   console.log(
     `  latency median                 ${s.latencyMs.median ?? "–"} ms`,
   );
+  const list = (m: Record<string, number>) =>
+    Object.entries(m)
+      .map(([k, v]) => `${k} ${v}`)
+      .join(", ") || "none";
+  console.log(`  breakdown by relation (secondary)`);
+  console.log(`    catches                      ${list(s.byRelation.catches)}`);
+  console.log(
+    `    false alarms                 ${list(s.byRelation.falseAlarms)}`,
+  );
+  console.log(`    mismatch called a clash      ${pct(s.clashRecognized)}`);
+  console.log(`    clean key called a clash     ${pct(s.wrongClash)}`);
+  console.log(`    clean key asked to confirm   ${pct(s.confirmRequests)}`);
 }
 console.log(`written: ${out}`);

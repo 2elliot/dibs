@@ -183,3 +183,54 @@ describe("oracle mutants", () => {
       expect(x.mustFail.some((n) => x.mustPass.includes(n))).toBe(false);
   });
 });
+
+describe("detector breakdown by relation", () => {
+  it("separates clashes from confirmation requests on both sides", () => {
+    const mk = (
+      n: number,
+      findings: Parameters<typeof scoreRun>[2],
+    ): RunResult => ({
+      caseId: "t",
+      split: "heldout",
+      run: n,
+      ok: true,
+      ...scoreRun(c, input, findings),
+      latencyMs: 1,
+      inputTokens: 1,
+      outputTokens: 1,
+      droppedFindings: 0,
+      model: "m",
+    });
+    const report = detectorReport(
+      [c],
+      [
+        mk(0, [
+          finding("auth.session", "conflict", [1, 3]),
+          finding("auth.server", "compatible", [2, 4]),
+        ]),
+        mk(1, [
+          finding("auth.session", "dependency", [1, 3]),
+          finding("auth.server", "dependency", [2, 4]),
+        ]),
+        mk(2, [
+          finding("auth.session", "conflict", [1, 3]),
+          finding("auth.server", "conflict", [2, 4]),
+        ]),
+      ],
+      { runsPerCase: 3, casesHash: "h", promptHash: null },
+    );
+    const s = report.splits.heldout!;
+    expect(s.byRelation).toEqual({
+      catches: { conflict: 2, dependency: 1 },
+      falseAlarms: { dependency: 1, conflict: 1 },
+    });
+    expect(s.clashRecognized).toMatchObject({ k: 2, n: 3 });
+    expect(s.wrongClash).toMatchObject({ k: 1, n: 3 });
+    expect(s.confirmRequests).toMatchObject({ k: 1, n: 3 });
+    // The strict headline is unchanged by the breakdown.
+    expect(s.falseAlarmRate).toMatchObject({ k: 2, n: 3 });
+    expect(
+      report.cases[0]!.keys.find((k) => k.key === "auth.server")!.relations,
+    ).toEqual({ compatible: 1, dependency: 1, conflict: 1 });
+  });
+});
