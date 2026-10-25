@@ -56,6 +56,8 @@ describe.skipIf(!hasPlaintextOracle)(
             droid: "mismatch",
           },
         },
+        // Lobby 7's mistake: verify ran before two heads were pushed.
+        4: { reference: { codex: "bearer" } },
       }));
     });
 
@@ -196,6 +198,28 @@ describe.skipIf(!hasPlaintextOracle)(
       };
       await expect(review(2, bad)).rejects.toThrow(/REVIEW_SCHEMA/);
       expect(existsSync(seen)).toBe(false);
+    });
+
+    it("refuses to verify, and records nothing, when a provider's head is missing", async () => {
+      await expect(run(4, base)).rejects.toThrow(
+        /no lobby\/4\/<provider> branch for claude, droid.*--allow-missing.*Nothing was recorded/,
+      );
+      expect(
+        existsSync(join(scratch, "results", "4", "verification.json")),
+      ).toBe(false);
+      const { report } = await verifyLobby({
+        lobbyId: 4,
+        remote: repo,
+        baseSha: base,
+        oracleEnc,
+        expectHash: oracleHash,
+        key,
+        work: join(scratch, "work"),
+        results: join(scratch, "results", "4"),
+        log: () => {},
+        allowMissing: true,
+      });
+      expect(report.missingProviders).toEqual(["claude", "droid"]);
     });
 
     it("refuses an oracle with the wrong hash", async () => {
