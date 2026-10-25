@@ -124,6 +124,13 @@ function useForceGraph(nodeIds: { id: string; type: 'agent' | 'topic'; parent?: 
         const t = performance.now() / 4000;
         s.nodes().forEach((n, i) => { if (n.fx != null) return; n.vx = (n.vx ?? 0) + Math.sin(t + i * 1.7) * 0.006; n.vy = (n.vy ?? 0) + Math.cos(t * 0.8 + i * 2.3) * 0.006; });
       });
+    // Cap speed per tick so new links ease nodes into place instead of yanking them.
+    s.force('glide', () => {
+      for (const n of s.nodes()) {
+        const v = Math.hypot(n.vx ?? 0, n.vy ?? 0); const max = 2.2;
+        if (v > max) { n.vx = (n.vx! / v) * max; n.vy = (n.vy! / v) * max; }
+      }
+    });
     let frame = 0;
     s.on('tick', () => { cancelAnimationFrame(frame); frame = requestAnimationFrame(() => setTick(t => t + 1)); });
     sim.current = s;
@@ -156,7 +163,7 @@ function useForceGraph(nodeIds: { id: string; type: 'agent' | 'topic'; parent?: 
     s.force('link', forceLink<GNode, GLink>(links.map(l => ({ ...l }))).id(n => n.id).distance(l => (l.kind === 'produces' ? 220 : 280) * k).strength(0.5));
     s.force('x', forceX<GNode>(w / 2).strength(0.018));
     s.force('y', forceY<GNode>(h / 2).strength(0.028));
-    s.alpha(0.5).restart();
+    s.alpha(Math.max(s.alpha(), 0.35)).restart();
   }, [signature, w, h]); // eslint-disable-line react-hooks/exhaustive-deps
   const drag = (id: string) => (event: React.PointerEvent) => {
     const node = nodes.current.get(id); const s = sim.current; if (!node || !s) return;
@@ -171,7 +178,17 @@ function useForceGraph(nodeIds: { id: string; type: 'agent' | 'topic'; parent?: 
 
 // ---- View -------------------------------------------------------------------------------------
 
-export function StoryView({ rows, mode, live, replayLabel, countdown, history }: { rows: DashboardRows; mode: string; live: boolean; replayLabel?: string; countdown: number; history?: React.ReactNode }) {
+export interface StoryTimeline {
+  start: number; end: number; time: number;
+  playing: boolean; setPlaying: (v: boolean) => void; setClock: (v: number) => void;
+  speed: number; setSpeed: (v: number) => void;
+  /** The whole run, not just the past, so keyframes can show what's coming. */
+  events: Row[]; proposals: Row[];
+}
+
+export function StoryView({ rows, mode, live, replayLabel, countdown, timeline }: { rows: DashboardRows; mode: string; live: boolean; replayLabel?: string; countdown: number; timeline?: StoryTimeline }) {
+  const history = timeline;
+  const jump = (atUs: number) => { if (!timeline) return; timeline.setPlaying(false); timeline.setClock(Math.min(timeline.end, atUs + 1_500_000)); };
   const model = useModel(rows);
   const { w, h } = useSize();
   const [openIssue, setOpenIssue] = useState<string | null>(null);
@@ -360,25 +377,72 @@ export function StoryView({ rows, mode, live, replayLabel, countdown, history }:
       <button className="chip menu" aria-label="History" onClick={() => setPanel(panel === 'closed' ? 'timeline' : 'closed')}>☰</button>
     </div>
 
-    <Narration model={model} mode={mode} nameOf={nameOf} failedRoot={failedRoot} raised={showTime && Boolean(history)} />
-    {showTime && history && <div className="overlay timebar">{history}</div>}
+    <Narration model={model} mode={mode} nameOf={nameOf} failedRoot={failedRoot} />
+    {showTime && timeline && <TimeBar tl={timeline} describe={model.describe} />}
 
-    <div className={`overlay legend ${showTime && history ? 'hidden' : ''}`}>
-      <span><i className="sw solid" />builds</span><span><i className="sw dashed" />needs</span>
-      <span><i className="dot-sw contradiction" />contradiction</span><span><i className="dot-sw redundancy" />redundancy</span><span><i className="dot-sw agreed" />agreed</span>
+    <div className="overlay legend">
+      <b>Key</b>
+      <span><i className="sw solid" />builds</span>
+      <span><i className="sw dashed" />needs</span>
+      <span><i className="dot-sw contradiction" />contradiction</span>
+      <span><i className="dot-sw redundancy" />redundancy</span>
+      <span><i className="dot-sw dependency" />depends on</span>
+      <span><i className="dot-sw poll" />poll · voting now</span>
+      <span><i className="dot-sw agreed" />agreed</span>
+      <span><i className="dot-sw aligned" />already compatible</span>
     </div>
 
     {panel !== 'closed' && <aside className="side-panel">
       <div className="side-tabs">
         <button className={panel === 'timeline' ? 'selected' : ''} onClick={() => setPanel('timeline')}>Timeline</button>
-        {history && <button className={panel === 'replay' ? 'selected' : ''} onClick={() => setPanel('replay')}>Replay</button>}
         <a href={location.search.replace(/([?&])view=story&?/, '$1') || '?'} className="side-link">Evidence view</a>
         <button className="close" onClick={() => setPanel('closed')} aria-label="Close">×</button>
       </div>
-      {panel === 'timeline' ? <Timeline rows={rows} model={model} filter={filter} setFilter={setFilter} nameOf={nameOf} providerOf={providerOf} /> : <div className="side-replay">{history}</div>}
+      <Timeline rows={rows} model={model} filter={filter} setFilter={setFilter} nameOf={nameOf} providerOf={providerOf} onJump={timeline ? jump : undefined} />
     </aside>}
 
     {issue && <Drawer issue={issue} rows={rows} nameOf={nameOf} providerOf={providerOf} close={() => setOpenIssue(null)} />}
+  </div>;
+}
+
+const KEYFRAME: Record<string, { tone: string; label: (subject: string, detail: Row) => string }> = {
+  lobby_started: { tone: 'start', label: () => 'Lobby started' },
+  proposal_created: { tone: 'issue', label: s => `Problem found${s ? `: ${s}` : ''}` },
+  proposal_rejected: { tone: 'pushback', label: (s, d) => `Pushed back${str(d, 'reason') ? `: “${str(d, 'reason')}”` : ''}` },
+  proposal_accepted: { tone: 'agreed', label: s => `Agreed${s ? `: ${s}` : ''}` },
+  fallback_reached: { tone: 'start', label: () => 'Fallback: talking time is up' },
+  verification_recorded: { tone: 'tested', label: () => 'Combined app tested' },
+};
+
+/** Play, scrub and jump between the moments that matter (problems found, pushback, agreement, test). */
+function TimeBar({ tl, describe }: { tl: StoryTimeline; describe: (key: string) => string }) {
+  const span = Math.max(1, tl.end - tl.start);
+  const pct = (t: number) => ((t - tl.start) / span) * 100;
+  const proposalKey = (id: number) => str(tl.proposals.find(p => num(p, 'id') === id), 'key');
+  const relationOf = (id: number) => str(tl.proposals.find(p => num(p, 'id') === id), 'relation');
+  const frames = tl.events.filter(e => KEYFRAME[str(e, 'type')] && !(str(e, 'type') === 'verification_recorded' && str(parse(e.detail), 'state') === 'verified'))
+    .map(e => {
+      const type = str(e, 'type'); const detail = parse(e.detail);
+      const key = str(detail, 'key') || (type.startsWith('proposal') ? proposalKey(num(e, 'subjectId')) : '');
+      const relation = type === 'proposal_created' ? relationOf(num(e, 'subjectId')) : '';
+      const tone = relation === 'duplicate' ? 'redundancy' : relation === 'dependency' ? 'dependency' : KEYFRAME[type]!.tone;
+      return { at: num(e, 'atUs'), tone, label: `${clock(num(e, 'atUs'))} · ${KEYFRAME[type]!.label(key ? describe(key).toLowerCase() : '', detail)}` };
+    }).sort((a, b) => a.at - b.at);
+  const go = (at: number) => { tl.setPlaying(false); tl.setClock(Math.min(tl.end, at + 1_500_000)); };
+  const prev = [...frames].reverse().find(f => f.at + 1_500_000 < tl.time - 500_000);
+  const next = frames.find(f => f.at + 1_500_000 > tl.time + 500_000);
+  return <div className="overlay timebar">
+    <button className="tb-btn" onClick={() => prev ? go(prev.at) : tl.setClock(tl.start)} title="Previous key moment">⏮</button>
+    <button className="tb-btn play" onClick={() => tl.setPlaying(!tl.playing)} aria-label={tl.playing ? 'Pause' : 'Play'}>{tl.playing ? '❚❚' : '▶'}</button>
+    <button className="tb-btn" onClick={() => next && go(next.at)} disabled={!next} title="Next key moment">⏭</button>
+    <span className="tb-time">{clock(tl.time)}</span>
+    <div className="tb-track">
+      <div className="tb-fill" style={{ width: `${pct(tl.time)}%` }} />
+      <input type="range" aria-label="Replay timeline" min={tl.start} max={tl.end} value={tl.time} onChange={e => { tl.setPlaying(false); tl.setClock(Number(e.target.value)); }} />
+      {frames.map((f, i) => <button key={i} className={`kf ${f.tone} ${f.at <= tl.time ? 'past' : ''}`} style={{ left: `${pct(f.at)}%` }} title={f.label} aria-label={f.label} onClick={() => go(f.at)} />)}
+    </div>
+    <span className="tb-time">{clock(tl.end)}</span>
+    <select className="tb-speed" value={tl.speed} onChange={e => tl.setSpeed(Number(e.target.value))} aria-label="Speed">{[0.25, 0.5, 1, 2, 4].map(v => <option key={v} value={v}>{v}×</option>)}</select>
   </div>;
 }
 
@@ -417,7 +481,7 @@ function FocusCard({ id, model, rows, pos, view, nameOf }: { id: string; model: 
   </div>;
 }
 
-function Narration({ model, mode, nameOf, failedRoot, raised }: { model: Model; mode: string; nameOf: (id: number) => string; failedRoot?: Row; raised?: boolean }) {
+function Narration({ model, mode, nameOf, failedRoot }: { model: Model; mode: string; nameOf: (id: number) => string; failedRoot?: Row }) {
   const open = model.issues.find(i => ['proposed', 'escalated'].includes(i.state));
   let tone = 'idle'; let title = 'Waiting for agents to share their plans'; let detail = '';
   if (model.verification) {
@@ -440,7 +504,7 @@ function Narration({ model, mode, nameOf, failedRoot, raised }: { model: Model; 
   } else if (model.items.length) {
     title = mode === 'dibs' ? 'Plans shared · no problems so far' : 'Each agent is building on its own guesses';
   }
-  return <div key={`${tone}-${title}`} className={`overlay narration ${tone} ${raised ? 'raised' : ''}`}><b>{title}</b>{detail && <span>{detail}</span>}</div>;
+  return <div key={`${tone}-${title}`} className={`overlay narration ${tone}`}><em><i />NOW</em><div><b>{title}</b>{detail && <span>{detail}</span>}</div></div>;
 }
 
 function Drawer({ issue, rows, nameOf, providerOf, close }: { issue: Issue; rows: DashboardRows; nameOf: (id: number) => string; providerOf: (id: number) => string; close: () => void }) {
@@ -493,7 +557,7 @@ const EVENT_TEXT: Record<string, (actor: string, detail: Row, subject: string) =
   lobby_stopped: () => 'The lobby stopped.',
 };
 
-function Timeline({ rows, model, filter, setFilter, nameOf, providerOf }: { rows: DashboardRows; model: Model; filter: number | 'all'; setFilter: (f: number | 'all') => void; nameOf: (id: number) => string; providerOf: (id: number) => string }) {
+function Timeline({ rows, model, filter, setFilter, nameOf, providerOf, onJump }: { rows: DashboardRows; model: Model; filter: number | 'all'; setFilter: (f: number | 'all') => void; nameOf: (id: number) => string; providerOf: (id: number) => string; onJump?: (atUs: number) => void }) {
   const byName = new Map(rows.participant.map(p => [str(p, 'name').toLowerCase(), num(p, 'id')]));
   const subjectKey = (event: Row) => {
     const detailKey = str(parse(event.detail), 'key');
@@ -527,7 +591,7 @@ function Timeline({ rows, model, filter, setFilter, nameOf, providerOf }: { rows
       <button className={filter === 'all' ? 'selected' : ''} onClick={() => setFilter('all')}>Everyone</button>
       {model.agents.map(a => <button key={str(a, 'id')} className={filter === num(a, 'id') ? 'selected' : ''} onClick={() => setFilter(num(a, 'id'))}><span className={`avatar tiny ${str(a, 'provider')}`}>{PROVIDER_MARK[str(a, 'provider')]}</span>{str(a, 'name')}</button>)}
     </div>
-    <ol>{shown.map(({ event, actorId, text }) => <li key={str(event, 'id')} className={str(event, 'type')}>
+    <ol>{shown.map(({ event, actorId, text }) => <li key={str(event, 'id')} className={`${str(event, 'type')} ${onJump ? 'jumpable' : ''}`} onClick={() => onJump?.(num(event, 'atUs'))} title={onJump ? 'Go to this moment' : undefined}>
       <time>{clock(num(event, 'atUs'))}</time>
       {actorId !== undefined ? <span className={`avatar tiny ${providerOf(actorId)}`}>{PROVIDER_MARK[providerOf(actorId)]}</span> : <span className="avatar tiny lobby">d</span>}
       <p>{text}</p>

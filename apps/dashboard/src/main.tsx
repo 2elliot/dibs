@@ -107,10 +107,13 @@ function App() {
   const displayedNow = replay ? (clock || replay.endUs) / 1000 : now;
   const countdown = endAt ? Math.max(0, Math.ceil((endAt - displayedNow) / 1000)) : 0;
 
+  // The whole run's events and proposals, for the story view's keyframes (the snapshot only has the past).
+  const fullRun = useMemo(() => replay ? replay.getSnapshot(replay.endUs) : null, [replay]);
+
   if (params.get('view') === 'story') {
     return <main className={`dashboard story-page ${params.get('theme') === 'dark' ? 'theme-dark' : ''}`}>
       <StoryView rows={snapshot} mode={str(lobby, 'mode', 'none')} live={source?.mode === 'live'} replayLabel={source?.mode === 'replay' ? source.label : undefined} countdown={countdown}
-        history={replay ? <ReplayControls replay={replay} time={clock || replay.startUs} playing={playing} setPlaying={setPlaying} setClock={setClock} speed={speed} setSpeed={setSpeed}/> : undefined} />
+        timeline={replay && fullRun ? { start: replay.startUs, end: replay.endUs, time: clock || replay.startUs, playing, setPlaying, setClock, speed, setSpeed, events: fullRun.event, proposals: fullRun.proposal } : undefined} />
       {error && <div className="overlay" style={{ left: 20, top: 64, color: '#ffb3ad', font: '12px DM Mono, monospace' }}>{error}</div>}
     </main>;
   }
