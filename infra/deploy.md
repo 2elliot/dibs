@@ -7,6 +7,9 @@ Write/run them yourself; the agent does not run them.
 Plan references: `docs/plan.md` §8. Image must be **linux/amd64**. Secret names ≤ 20 chars. Point at
 the **dev** DB until the 16:00 cutover, then flip `SPACETIME_DB`.
 
+The app now exists. To ship a new build without ACR Tasks or Docker, use the crane-based scripts in
+`infra/azure/` as described in `AGENT_HANDOFF.md` ("Updating the deployed image").
+
 ## 0. Build the image
 
 ```bash
