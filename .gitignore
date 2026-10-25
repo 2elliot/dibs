@@ -24,5 +24,10 @@ CLAUDE.local.md
 AGENTMESH_TEAM_PLAN*.md
 
 .DS_Store
+.exp-data/
+packages/experience/release/
+spacetime/.project-legacy-module/
+spacetime/.project-expiry-module/
+release/
 Thumbs.db
 .idea/

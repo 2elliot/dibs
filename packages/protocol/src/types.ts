@@ -300,6 +300,11 @@ export interface DibsConfig {
 }
 
 export interface SessionFile {
+  /** Ordinary attachment: no benchmark runner or Git lifecycle. */
+  project?: boolean;
+  remoteParticipant?: string;
+  brief?: string;
+  vocabulary?: VocabularyEntry[];
   participant: string;
   provider: Provider;
   lobbyId: number;
@@ -396,6 +401,12 @@ export interface AwaitingProposal {
 }
 
 export interface StatusResult {
+  /** Present for ordinary project sessions; no implication of a verified test. */
+  project?: {
+    expiresAtUs: number;
+    remainingLeases: number;
+    unavailable?: string;
+  };
   status: ToolStatus;
   lobbyId: number;
   mode: Mode;

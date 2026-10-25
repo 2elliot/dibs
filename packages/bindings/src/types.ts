@@ -184,6 +184,35 @@ export const PresenceConnection = __t.object("PresenceConnection", {
 });
 export type PresenceConnection = __Infer<typeof PresenceConnection>;
 
+export const ProjectMember = __t.object("ProjectMember", {
+  slot: __t.string(),
+  lobbyId: __t.u32(),
+  identity: __t.identity(),
+  participantId: __t.u32(),
+  provider: __t.string(),
+});
+export type ProjectMember = __Infer<typeof ProjectMember>;
+
+export const ProjectRoom = __t.object("ProjectRoom", {
+  lobbyId: __t.u32(),
+  code: __t.string(),
+  owner: __t.identity(),
+  creationPayload: __t.string(),
+});
+export type ProjectRoom = __Infer<typeof ProjectRoom>;
+
+export const ProjectSettings = __t.object("ProjectSettings", {
+  id: __t.u32(),
+  enabled: __t.bool(),
+  maxActiveRooms: __t.u32(),
+  maxRoomsPerDay: __t.u32(),
+  maxLeasesPerDay: __t.u32(),
+  day: __t.u64(),
+  roomsToday: __t.u32(),
+  leasesToday: __t.u32(),
+});
+export type ProjectSettings = __Infer<typeof ProjectSettings>;
+
 export const Proposal = __t.object("Proposal", {
   id: __t.u32(),
   slot: __t.string(),

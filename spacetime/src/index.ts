@@ -40,6 +40,15 @@ import {
   type Ctx,
 } from "./helpers.ts";
 import { timing } from "./timing.ts";
+import { reserveProjectLease } from "./projects.ts";
+export {
+  configureProjects,
+  createProject,
+  joinProject,
+  resumeProject,
+  leaveProject,
+  closeProject,
+} from "./projects.ts";
 export default db;
 
 export const init = db.init((ctx) => {
@@ -256,8 +265,16 @@ export const joinLobby = db.reducer(
     const p = role(ctx, "agent");
     const l = ctx.db.lobby.id.find(a.lobbyId);
     check(
+      !ctx.db.projectMember.identity.find(ctx.sender),
+      "Project identities cannot join benchmark lobbies.",
+    );
+    check(
       l && (l.state === "setup" || l.state === "running"),
       "lobby not active",
+    );
+    check(
+      !ctx.db.projectRoom.lobbyId.find(a.lobbyId),
+      "Use project membership to join this lobby.",
     );
     check(a.buildHash === l.buildHash, "build mismatch");
     const old =
@@ -613,6 +630,11 @@ function leased(ctx: Ctx, jobId: number, leaseToken: string) {
     ctx.db.lobby.id.find(j.lobbyId)?.state === "running",
     "lobby not running",
   );
+  if (ctx.db.projectRoom.lobbyId.find(j.lobbyId))
+    check(
+      ctx.db.lobby.id.find(j.lobbyId)!.endsAtUs > now(ctx),
+      "Project is closed or expired.",
+    );
   return j;
 }
 export const leaseJob = db.reducer(
@@ -631,6 +653,7 @@ export const leaseJob = db.reducer(
       ctx.db.lobby.id.find(j.lobbyId)?.state === "running",
       "lobby not running",
     );
+    if (!reserveProjectLease(ctx, j.lobbyId, j.id)) return;
     check(
       j.calls < LIMITS.analysisCallsPerLobby,
       "analysis call limit reached",

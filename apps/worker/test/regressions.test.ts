@@ -202,6 +202,7 @@ describe("worker regression coverage", () => {
       DIBS_LOBBY_ID: "7",
     });
     expect(publicConfig(config)).toEqual({
+      projectProtocol: "project-v1",
       dbUri: "https://example.com",
       dbName: "dibs-dev",
       uri: "https://example.com",

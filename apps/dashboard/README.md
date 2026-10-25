@@ -30,4 +30,4 @@ Build static files with `npm run build -w @dibs/dashboard`; output is `apps/dash
 
 ## Checks
 
-`npm run typecheck -w @dibs/dashboard` typechecks the app and fixture exports. `npm run test -w @dibs/dashboard` runs the Playwright replay checks and writes 1920×1080 screenshots to `apps/dashboard/screenshots/`.
+`npm run typecheck -w @dibs/dashboard` typechecks the app and fixture exports. `npm run test -w @dibs/dashboard` runs the Playwright replay checks and writes 1920×1080 screenshots to its per-test output directories under `apps/dashboard/test-results/`, using portable paths on Windows and Unix. The checked-in `screenshots/` remain the demo reference images.

@@ -13,3 +13,10 @@ bench/oracle*
 **/*.log
 **/.live-module
 **/.test-module
+.claude
+artifacts
+.exp-data
+release
+**/release
+**/.project-legacy-module
+**/.project-expiry-module

@@ -1,0 +1,30 @@
+{
+  "name": "@dibs/experience",
+  "version": "0.1.0",
+  "description": "Create and join dibs coordination rooms from any project directory",
+  "type": "module",
+  "bin": {
+    "dibs": "./dist/cli.mjs"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "node build.mjs",
+    "typecheck": "tsc --noEmit -p .",
+    "test": "vitest run",
+    "smoke:package": "node --import tsx ../../infra/ci/package-smoke.mjs",
+    "prepack": "node build.mjs"
+  },
+  "devDependencies": {
+    "@dibs/client": "*",
+    "@dibs/protocol": "*",
+    "smol-toml": "^1.9.1",
+    "spacetimedb": "^2.13.0",
+    "esbuild": "^0.28.2"
+  }
+}

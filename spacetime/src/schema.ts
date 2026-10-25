@@ -264,7 +264,44 @@ export const service = table(
     detail: t.string(),
   },
 );
+// Project capabilities and membership are intentionally private. Public lobby
+// rows never contain a join code, and project reducers never log their payloads.
+export const projectRoom = table(
+  { name: "project_room" },
+  {
+    lobbyId: t.u32().primaryKey(),
+    code: t.string().unique(),
+    owner: t.identity().index("btree"),
+    creationPayload: t.string(),
+  },
+);
+export const projectMember = table(
+  { name: "project_member" },
+  {
+    slot: t.string().primaryKey(),
+    lobbyId: idx(),
+    identity: t.identity().unique(),
+    participantId: t.u32().unique(),
+    provider: t.string(),
+  },
+);
+export const projectSettings = table(
+  { name: "project_settings" },
+  {
+    id: t.u32().primaryKey(),
+    enabled: t.bool(),
+    maxActiveRooms: t.u32(),
+    maxRoomsPerDay: t.u32(),
+    maxLeasesPerDay: t.u32(),
+    day: t.u64(),
+    roomsToday: t.u32(),
+    leasesToday: t.u32(),
+  },
+);
 export const db = schema({
+  projectRoom,
+  projectMember,
+  projectSettings,
   admin,
   presenceConnection,
   invite,

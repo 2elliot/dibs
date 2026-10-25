@@ -1,0 +1,203 @@
+name: Experience CI and deployment
+
+on:
+  push:
+    branches: [real_exp]
+  pull_request:
+    branches: [real, real_exp]
+  workflow_dispatch:
+    inputs:
+      deploy:
+        description: Deploy this tested real_exp revision to the configured experiment environment
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ github.token }}
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run build -w @dibs/experience
+      - run: npm run typecheck
+      - run: npx tsc --noEmit -p infra/ci
+      - run: npx playwright install --with-deps chromium
+      - run: ./infra/ci/install-spacetime.ps1
+      - run: ./infra/ci/local-server.ps1
+      - name: Generated bindings match the schema
+        run: |
+          & $env:SPACETIME_BIN generate --lang typescript --out-dir packages/bindings/src --module-path spacetime --yes
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          git diff --exit-code -- packages/bindings
+      - name: Workspace and real-database tests
+        run: |
+          npm test
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - run: npm run build -w @dibs/dashboard
+      - run: npm run smoke:package -w @dibs/experience
+      - name: Pack development installation (server selected explicitly)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          New-Item -ItemType Directory -Path release -Force | Out-Null
+          npm pack --workspace @dibs/experience --ignore-scripts --pack-destination release
+      - uses: actions/upload-artifact@v4
+        if: matrix.os == 'ubuntu-latest'
+        with:
+          name: dibs-development-${{ github.sha }}
+          path: release/*.tgz
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: diagnostics-${{ matrix.os }}
+          path: |
+            apps/dashboard/test-results
+            apps/dashboard/playwright-report
+            ${{ runner.temp }}/dibs-server*.log
+
+  container:
+    name: Build deployment image
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Validate container build on the GitHub runner
+        run: docker build --platform linux/amd64 -f infra/Dockerfile -t dibs-ci:${{ github.sha }} .
+      - name: Smoke-test the built container
+        run: |
+          docker run -d --name dibs-ci -p 18080:8080 dibs-ci:${{ github.sha }}
+          trap 'docker logs dibs-ci; docker rm -f dibs-ci' EXIT
+          for i in $(seq 1 30); do
+            if curl --fail --silent http://localhost:18080/health/live; then break; fi
+            sleep 1
+          done
+          curl --fail http://localhost:18080/config.json
+          curl --fail http://localhost:18080/
+
+  deploy:
+    name: Deploy experiment
+    needs: [validate, container]
+    if: >-
+      github.ref == 'refs/heads/real_exp' &&
+      (vars.DIBS_EXP_AUTO_DEPLOY == 'true' ||
+       (github.event_name == 'workflow_dispatch' && inputs.deploy))
+    runs-on: ubuntu-latest
+    environment: real-exp
+    concurrency:
+      group: dibs-real-exp-deployment
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      id-token: write
+    timeout-minutes: 25
+    env:
+      GH_TOKEN: ${{ github.token }}
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      SPACETIME_PUBLISH_TOKEN: ${{ secrets.SPACETIME_PUBLISH_TOKEN }}
+      SPACETIME_WORKER_TOKEN: ${{ secrets.SPACETIME_WORKER_TOKEN }}
+      SPACETIME_ADMIN_TOKEN: ${{ secrets.SPACETIME_ADMIN_TOKEN }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      SPACETIME_URI: ${{ vars.SPACETIME_URI }}
+      SPACETIME_DB: ${{ vars.SPACETIME_DB }}
+      AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+      AZURE_CONTAINER_APP: ${{ vars.AZURE_CONTAINER_APP }}
+      AZURE_ACR_NAME: ${{ vars.AZURE_ACR_NAME }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: node infra/ci/deploy-preflight.mjs
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      - run: npm ci
+      - shell: pwsh
+        run: ./infra/ci/install-spacetime.ps1
+      - name: Publish additive schema without deleting data
+        shell: pwsh
+        run: |
+          & $env:SPACETIME_BIN login --token $env:SPACETIME_PUBLISH_TOKEN
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & $env:SPACETIME_BIN publish --server $env:SPACETIME_URI --module-path spacetime --delete-data=never --yes=remote,skip-login $env:SPACETIME_DB
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Keep project onboarding disabled during rollout
+        env:
+          DIBS_ENABLE_PROJECTS: "false"
+        run: node --import tsx infra/ci/configure-projects.ts
+      - uses: docker/setup-buildx-action@v3
+      - name: Push immutable image from the runner (no ACR Tasks)
+        run: |
+          az acr login --name "$AZURE_ACR_NAME"
+          registry=$(az acr show --name "$AZURE_ACR_NAME" --query loginServer -o tsv)
+          image="$registry/dibs:${GITHUB_SHA}"
+          docker build --platform linux/amd64 -f infra/Dockerfile -t "$image" .
+          docker push "$image"
+          digest=$(docker inspect --format='{{index .RepoDigests 0}}' "$image")
+          test -n "$digest"
+          echo "DIBS_IMAGE=$digest" >> "$GITHUB_ENV"
+          echo "DIBS_IMAGE_TAG=$image" >> "$GITHUB_ENV"
+      - name: Update the configured existing experiment app
+        run: |
+          az containerapp revision set-mode --resource-group "$AZURE_RESOURCE_GROUP" --name "$AZURE_CONTAINER_APP" --mode single --output none
+          az containerapp secret set --resource-group "$AZURE_RESOURCE_GROUP" --name "$AZURE_CONTAINER_APP" --secrets "spacetime-worker=$SPACETIME_WORKER_TOKEN" "anthropic-key=$ANTHROPIC_API_KEY" --output none
+          az containerapp update --resource-group "$AZURE_RESOURCE_GROUP" --name "$AZURE_CONTAINER_APP" --image "$DIBS_IMAGE" --min-replicas 1 --max-replicas 1 --set-env-vars "SPACETIME_URI=$SPACETIME_URI" "SPACETIME_DB=$SPACETIME_DB" "SPACETIME_TOKEN=secretref:spacetime-worker" "ANTHROPIC_API_KEY=secretref:anthropic-key" "DIBS_BUILD_SHA=$GITHUB_SHA" --output none
+          fqdn=$(az containerapp show --resource-group "$AZURE_RESOURCE_GROUP" --name "$AZURE_CONTAINER_APP" --query properties.configuration.ingress.fqdn -o tsv)
+          echo "DIBS_DEPLOY_URL=https://$fqdn" >> "$GITHUB_ENV"
+      - name: Wait for the new worker before enabling onboarding
+        run: |
+          node infra/ci/wait-for-deployment.mjs
+          latest=$(az containerapp show --resource-group "$AZURE_RESOURCE_GROUP" --name "$AZURE_CONTAINER_APP" --query properties.latestRevisionName -o tsv)
+          for i in $(seq 1 30); do
+            active=$(az containerapp revision list --resource-group "$AZURE_RESOURCE_GROUP" --name "$AZURE_CONTAINER_APP" --query '[?properties.active].name' -o tsv)
+            if [ "$active" = "$latest" ]; then exit 0; fi
+            sleep 2
+          done
+          echo 'Previous worker revision remains active; onboarding stays disabled.' >&2
+          exit 1
+      - name: Enable experiment onboarding budgets on the verified worker
+        env:
+          DIBS_ENABLE_PROJECTS: "true"
+        run: node --import tsx infra/ci/configure-projects.ts
+      - name: Verify deployed service, database and real analysis job
+        run: node --import tsx infra/ci/verify-deployment.ts
+      - name: Build the installable package with this verified service as its default
+        env:
+          DIBS_DEFAULT_SERVER: ${{ env.DIBS_DEPLOY_URL }}
+        run: |
+          npm run build -w @dibs/experience
+          npm run smoke:package -w @dibs/experience
+          mkdir -p release
+          npm pack --workspace @dibs/experience --ignore-scripts --pack-destination release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dibs-experience-${{ github.sha }}
+          path: |
+            release/*.tgz
+            release/deployment.json

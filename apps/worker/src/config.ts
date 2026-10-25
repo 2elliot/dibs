@@ -13,6 +13,7 @@ export interface WorkerConfig {
   anthropicApiKey: string | undefined;
   anthropicModel: string;
   lobbyId?: number;
+  buildSha?: string;
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): WorkerConfig {
@@ -33,11 +34,14 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): WorkerConfig {
     // Pin a model supporting forced strict tool use; deployments can override it explicitly.
     anthropicModel: env.ANTHROPIC_MODEL ?? "claude-sonnet-4-6",
     lobbyId,
+    buildSha: env.DIBS_BUILD_SHA || undefined,
   };
 }
 
 /** The subset served at /config.json; never includes tokens or keys. */
 export interface DashboardConfig extends DibsConfig {
+  projectProtocol: "project-v1";
+  buildSha?: string;
   uri: string;
   db: string;
   lobby?: number;
@@ -45,6 +49,8 @@ export interface DashboardConfig extends DibsConfig {
 
 export function publicConfig(c: WorkerConfig): DashboardConfig {
   return {
+    projectProtocol: "project-v1",
+    ...(c.buildSha ? { buildSha: c.buildSha } : {}),
     dbUri: c.dbUri,
     dbName: c.dbName,
     uri: c.dbUri,
